@@ -22,7 +22,6 @@ with Pool(processes=cpu_count()) as pool:
     for _ in tqdm(pool.imap_unordered(graph_helper, items), total=len(items)):
         pass
 
-
-svdj.plot_node_edges(
-    svd.interim_dir() / f"{items[0]['dataset']}/{items[0]['id']}.c",
-)
+iid = 1
+path = svd.interim_dir() / f"{items[iid]['dataset']}/{items[iid]['id']}.c"
+svdj.get_node_edges(path)[0]
