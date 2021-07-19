@@ -1,0 +1,14 @@
+*.img
+*.simg
+*.sif
+.pytest_cache
+__pycache__
+storage
+*.egg-info
+output
+.vscode/sftp.json
+hpc/logs/*
+.dccache
+**/*.pyc
+**/*.gzip
+**/workspace
