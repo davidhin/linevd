@@ -10,11 +10,7 @@ df = svdd.bigvul()
 
 def graph_helper(row):
     """Parallelise svdj functions."""
-    savedir = svd.get_dir(svd.interim_dir() / row["dataset"])
-    savepath = savedir / f"{row['id']}.c"
-    with open(savepath, "w") as f:
-        f.write(row["func_before"])
-    svdj.full_run_joern(savepath)
+    svdj.full_run_joern_from_string(row["func_before"], row["dataset"], row["id"])
 
 
 items = df[["id", "dataset", "func_before"]].to_dict("records")

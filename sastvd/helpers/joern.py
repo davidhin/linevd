@@ -135,3 +135,12 @@ def full_run_joern(filepath: str):
         get_node_edges(filepath)
     except:
         svd.debug(f"Failed {filepath}")
+
+
+def full_run_joern_from_string(code: str, dataset: str, iid: str):
+    """Run full joern from a string instead of file."""
+    savedir = svd.get_dir(svd.interim_dir() / dataset)
+    savepath = savedir / f"{iid}.c"
+    with open(savepath, "w") as f:
+        f.write(code)
+    full_run_joern(savepath)
