@@ -102,9 +102,12 @@ def get_node_edges(filepath: str):
     return nodes, edges
 
 
-def plot_node_edges(filepath: str, lineNumber: int = -1):
+def plot_node_edges(filepath: str, lineNumber: int = -1, filter_edges=[]):
     """Plot node edges given filepath (must run after get_node_edges)."""
     nodes, edges = get_node_edges(filepath)
+
+    if len(filter_edges) > 0:
+        edges = edges[edges.etype.isin(filter_edges)]
 
     # Draw graph
     if lineNumber > 0:
