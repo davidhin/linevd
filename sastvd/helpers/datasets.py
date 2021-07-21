@@ -35,7 +35,7 @@ def bigvul(minimal=True):
     savedir = svd.get_dir(svd.cache_dir() / "minimal_datasets")
     if minimal:
         try:
-            return pd.read_csv(savedir / "minimal_bigvul.csv")
+            return pd.read_csv(savedir / "minimal_bigvul.csv").dropna()
         except:
             pass
     df = pd.read_csv(svd.external_dir() / "bigvul2020.csv.gzip", compression="gzip")
@@ -45,19 +45,9 @@ def bigvul(minimal=True):
     df = train_val_test_split_df(df, "id", "CWE ID")
     df["added"] = df.progress_apply(svdg.allfunc, comment="added", axis=1)
     df["removed"] = df.progress_apply(svdg.allfunc, comment="removed", axis=1)
-    df["func_diff"] = df.progress_apply(svdg.allfunc, comment="diff", axis=1)
-    df["func_before"] = df.progress_apply(svdg.allfunc, comment="before", axis=1)
-    df["func_after"] = df.progress_apply(svdg.allfunc, comment="after", axis=1)
-    df[
-        [
-            "dataset",
-            "id",
-            "label",
-            "removed",
-            "added",
-            "func_diff",
-            "func_before",
-            "func_after",
-        ]
-    ].to_csv(savedir / "minimal_bigvul.csv", index=0)
+    df["diff"] = df.progress_apply(svdg.allfunc, comment="diff", axis=1)
+    df["before"] = df.progress_apply(svdg.allfunc, comment="before", axis=1)
+    df["after"] = df.progress_apply(svdg.allfunc, comment="after", axis=1)
+    keepcols = ["dataset", "id", "label", "removed", "added", "diff", "before", "after"]
+    df[keepcols].to_csv(savedir / "minimal_bigvul.csv", index=0)
     return df
