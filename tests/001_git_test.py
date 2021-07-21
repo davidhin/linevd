@@ -46,7 +46,7 @@ def fine_grain_diff(row, diff=False):
 
 
 def test_bigvul_diff_similarity():
-    df = svdd.bigvul()
+    df = svdd.bigvul(minimal=False)
     svdg.mp_code2diff(df)
     df["vfwf_orig"] = df.progress_apply(apply_bigvul_comments, axis=1)
     df["vfwf"] = df.vfwf_orig.progress_apply(insert_bigvul_comments)
@@ -59,3 +59,10 @@ def test_bigvul_diff_similarity():
     # df["diff_num"] = df.progress_apply(fine_grain_diff, axis=1)
     # row = [i for i in df.itertuples() if i.id == 188434][0]
     # fine_grain_diff(row, diff=True)
+
+
+def test_bigvul_diff_similarity_2():
+    df = svdd.bigvul(minimal=True)
+    df["len_1"] = df.before.apply(lambda x: len(x.splitlines()))
+    df["len_2"] = df.after.apply(lambda x: len(x.splitlines()))
+    assert len(df[df.len_1 != df.len_2]) == 0
