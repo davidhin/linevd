@@ -115,3 +115,34 @@ def get_codediff(dataset, iid):
             return pkl.load(f)
         except:
             return []
+
+
+def allfunc(row, comment="before"):
+    """Return a combined function (before + after commit) given the diff.
+
+    diff = return raw diff of combined function
+    added = return added line numbers relative to the combined function (start at 1)
+    removed = return removed line numbers relative to the combined function (start at 1)
+    before = return combined function, commented out added lines
+    after = return combined function, commented out removed lines
+    """
+    readfile = get_codediff(row.dataset, row.id)
+    diff = readfile["diff"]
+    if comment == "diff":
+        return diff
+    if comment == "added" or comment == "removed":
+        return readfile[comment]
+    lines = []
+    for l in diff.splitlines():
+        if len(l) == 0:
+            continue
+        if l[0] == "-":
+            l = l[1:]
+            if comment == "after":
+                l = "// " + l
+        if l[0] == "+":
+            l = l[1:]
+            if comment == "before":
+                l = "// " + l
+        lines.append(l)
+    return "\n".join(lines)
