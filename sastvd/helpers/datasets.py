@@ -30,7 +30,7 @@ def train_val_test_split_df(df, idcol, stratifycol):
     return df
 
 
-def bigvul(minimal=False):
+def bigvul(minimal=True):
     """Read BigVul Data."""
     savedir = svd.get_dir(svd.cache_dir() / "minimal_datasets")
     if minimal:
@@ -43,5 +43,21 @@ def bigvul(minimal=False):
     df["dataset"] = "bigvul"
     svdg.mp_code2diff(df)
     df = train_val_test_split_df(df, "id", "CWE ID")
-    df[["dataset", "id", "label"]].to_csv(savedir / "minimal_bigvul.csv", index=0)
+    df["added"] = df.progress_apply(svdg.allfunc, comment="added", axis=1)
+    df["removed"] = df.progress_apply(svdg.allfunc, comment="removed", axis=1)
+    df["func_diff"] = df.progress_apply(svdg.allfunc, comment="diff", axis=1)
+    df["func_before"] = df.progress_apply(svdg.allfunc, comment="before", axis=1)
+    df["func_after"] = df.progress_apply(svdg.allfunc, comment="after", axis=1)
+    df[
+        [
+            "dataset",
+            "id",
+            "label",
+            "removed",
+            "added",
+            "func_diff",
+            "func_before",
+            "func_after",
+        ]
+    ].to_csv(savedir / "minimal_bigvul.csv", index=0)
     return df
