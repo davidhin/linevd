@@ -32,3 +32,5 @@ unidiff
 fuzzywuzzy
 python-Levenshtein
 libclang
+pandarallel
+ipywidgets
