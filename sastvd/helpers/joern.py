@@ -133,8 +133,8 @@ def full_run_joern(filepath: str):
     try:
         run_joern(filepath)
         get_node_edges(filepath)
-    except:
-        svd.debug(f"Failed {filepath}")
+    except Exception as E:
+        svd.debug(f"Failed {filepath}: {E}")
 
 
 def full_run_joern_from_string(code: str, dataset: str, iid: str):
