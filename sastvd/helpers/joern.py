@@ -1,6 +1,7 @@
 import json
 import os
 import pickle as pkl
+import random
 from pathlib import Path
 
 import pandas as pd
@@ -8,11 +9,27 @@ import sastvd as svd
 from graphviz import Digraph
 
 
+def nodelabel2line(label: str):
+    return label.split(":")[0].split("_")[-1]
+
+
+def randcolor():
+    r = lambda: random.randint(0, 255)
+    return "#%02X%02X%02X" % (r(), r(), r())
+
+
 def get_digraph(nodes, edges):
     """Plote digraph given nodes and edges list."""
     dot = Digraph(comment="Combined PDG")
+
+    nodes = [n + [nodelabel2line(n[1])] for n in nodes]
+    colormap = {"": "white"}
     for n in nodes:
-        style = {"fillcolor": "white"}
+        if n[2] not in colormap:
+            colormap[n[2]] = randcolor()
+
+    for n in nodes:
+        style = {"style": "filled", "fillcolor": colormap[n[2]]}
         dot.node(str(n[0]), n[1], **style)
     for e in edges:
         style = {"color": "black"}
@@ -45,8 +62,8 @@ def get_digraph(nodes, edges):
 def run_joern(filepath: str):
     """Extract graph using most recent Joern."""
     outdir = Path(filepath).parent
-    if os.path.exists(outdir / f"{Path(filepath).name}.graph.pkl"):
-        return
+    # if os.path.exists(outdir / f"{Path(filepath).name}.graph.pkl"):
+    # return
     script_file = svd.external_dir() / "get_func_graph.scala"
     filename = svd.external_dir() / filepath
     params = f"filename={filename}"
@@ -77,6 +94,7 @@ def get_node_edges(filepath: str):
         ]
 
     # Assign node name to node code if code is null
+    nodes.code = nodes.apply(lambda x: "" if x.code == "<empty>" else x.code, axis=1)
     nodes.code = nodes.apply(lambda x: x.code if x.code != "" else x["name"], axis=1)
 
     # Assign node label for printing in the graph
@@ -93,6 +111,35 @@ def get_node_edges(filepath: str):
     edges = edges[edges.etype != "SOURCE_FILE"]
     edges = edges[edges.etype != "DOMINATE"]
     edges = edges[edges.etype != "POST_DOMINATE"]
+
+    # Remove nodes not connected to line number nodes (maybe not efficient)
+    edges = edges.merge(
+        nodes[["id", "lineNumber"]].rename(columns={"lineNumber": "line_out"}),
+        left_on="outnode",
+        right_on="id",
+    )
+    edges = edges.merge(
+        nodes[["id", "lineNumber"]].rename(columns={"lineNumber": "line_in"}),
+        left_on="innode",
+        right_on="id",
+    )
+    edges = edges[(edges.line_out != "") | (edges.line_in != "")]
+
+    # Uniquify types
+    edges.outnode = edges.apply(
+        lambda x: f"{x.outnode}_{x.innode}" if x.line_out == "" else x.outnode, axis=1
+    )
+    typemap = nodes[["id", "name"]].set_index("id").to_dict()["name"]
+
+    linemap = nodes.set_index("id").to_dict()["lineNumber"]
+    for e in edges.itertuples():
+        if type(e.outnode) == str:
+            lineNum = linemap[e.innode]
+            node_label = f"TYPE_{lineNum}: {typemap[int(e.outnode.split('_')[0])]}"
+            nodes = nodes.append(
+                {"id": e.outnode, "node_label": node_label, "lineNumber": lineNum},
+                ignore_index=True,
+            )
 
     # Save data
     with open(outdir / f"{Path(filepath).name}.graph.pkl", "wb") as f:
