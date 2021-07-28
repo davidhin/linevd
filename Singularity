@@ -48,7 +48,7 @@ From:pytorch/pytorch:1.6.0-cuda10.1-cudnn7-runtime
     pip install flawfinder
 
     # Install python dependencies here
-    # pip install -r /requirements.txt
+    cat /requirements.txt | xargs -n 1 pip install
     conda install -y pygraphviz
     pip install nltk
     python -c 'import nltk; nltk.download("punkt")'
