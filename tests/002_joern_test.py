@@ -1,7 +1,6 @@
 from importlib import reload
 
 import sastvd as svd
-import sastvd.helpers.datasets as svdd
 import sastvd.helpers.joern as svdj
 
 test_func = """\
