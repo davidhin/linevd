@@ -8,3 +8,11 @@ if [[ -d storage/external ]]; then
 else
     mkdir --parents storage/external
 fi
+
+cd storage/external
+
+if [[ ! -f "bigvul2020.csv.gzip" ]]; then
+    gdown https://drive.google.com/uc\?id\=1zu2-olVEO0aTu4utJiHTlCCpsX0NKP8U
+else
+    echo "Already downloaded bigvul data"
+fi
