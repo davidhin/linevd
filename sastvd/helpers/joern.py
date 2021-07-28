@@ -47,10 +47,9 @@ def run_joern(filepath: str):
     outdir = Path(filepath).parent
     if os.path.exists(outdir / f"{Path(filepath).name}.graph.pkl"):
         return
-    outfile = outdir / Path(filepath).name
     script_file = svd.external_dir() / "get_func_graph.scala"
     filename = svd.external_dir() / filepath
-    params = f"filename={filename},outfile={outfile}"
+    params = f"filename={filename}"
     svd.subprocess_cmd(
         f"joern --script {script_file} --params {params}",
         verbose=1,
