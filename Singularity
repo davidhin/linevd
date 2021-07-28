@@ -5,6 +5,9 @@ From:pytorch/pytorch:1.6.0-cuda10.1-cudnn7-runtime
     cli.sh /cli.sh
     requirements.txt /requirements.txt
 
+%environment
+    export SINGULARITY=true
+
 %runscript
     exec /bin/bash /cli.sh "$@"
 

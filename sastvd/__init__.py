@@ -1,5 +1,6 @@
 """Set up project paths."""
 import inspect
+import os
 import random
 import string
 import subprocess
@@ -81,7 +82,7 @@ def gitsha():
     )
 
 
-def subprocess_cmd(command: str, verbose: int = 0, singularity: bool = True):
+def subprocess_cmd(command: str, verbose: int = 0):
     """Run command line process.
 
     Example:
@@ -89,7 +90,8 @@ def subprocess_cmd(command: str, verbose: int = 0, singularity: bool = True):
     >>> a
     >>> b
     """
-    if singularity:
+    singularity = os.getenv("SINGULARITY")
+    if singularity != "true":
         command = f"singularity exec {project_dir() / 'main.sif'} " + command
     process = subprocess.Popen(
         command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True
