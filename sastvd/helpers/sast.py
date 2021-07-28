@@ -1,12 +1,8 @@
 import os
 import uuid
+from xml.etree import cElementTree
 
 import sastvd as svd
-import sastvd.helpers.datasets as svdd
-from pandarallel import pandarallel
-from tqdm import tqdm
-
-pandarallel.initialize(progress_bar=True)
 
 
 def file_helper(content: str) -> str:
@@ -25,7 +21,14 @@ def flawfinder(code: str):
     cmd = f"flawfinder {opts} {savefile}"
     ret = svd.subprocess_cmd(cmd)[0].decode().splitlines()
     os.remove(savefile)
-    return ret
+    records = []
+    for i in ret:
+        item = {"sast": "flawfinder"}
+        splits = i.split(":", 2)
+        item["line"] = int(splits[1])
+        item["message"] = splits[2]
+        records.append(item)
+    return records
 
 
 def rats(code: str):
@@ -33,54 +36,48 @@ def rats(code: str):
     cmd = f"rats --resultsonly --xml {savefile}"
     ret = svd.subprocess_cmd(cmd)[0].decode()
     os.remove(savefile)
-    return ret
+    records = []
+    tree = cElementTree.ElementTree(cElementTree.fromstring(ret))
+    for i in tree.findall("./vulnerability"):
+        item = {"sast": "rats"}
+        for v in i.iter():
+            if v.tag == "line":
+                item["line"] = int(v.text.strip())
+            if v.tag == "severity":
+                item["severity"] = v.text.strip()
+            if v.tag == "message":
+                item["message"] = v.text.strip()
+        records.append(item)
+    return records
 
 
-# :TODO: Fix this function.
 def cppcheck(code: str):
     savefile = file_helper(code)
     cmd = (
         f"cppcheck --enable=all --inconclusive --library=posix --force --xml {savefile}"
     )
-    ret = svd.subprocess_cmd(cmd)[1].decode().splitlines()
+    ret = svd.subprocess_cmd(cmd)[1].decode()
     os.remove(savefile)
-    return ret
+    records = []
+    tree = cElementTree.ElementTree(cElementTree.fromstring(ret))
+    for i in tree.iter("error"):
+        item = {"sast": "cppcheck"}
+        vul_attribs = i.attrib
+        loc_attribs = list(i.iter("location"))[0].attrib
+        item["line"] = loc_attribs["line"]
+        item["message"] = vul_attribs["msg"]
+        item["severity"] = vul_attribs["severity"]
+        item["id"] = vul_attribs["id"]
+        records.append(item)
+    return records
 
 
-df = svdd.bigvul().sample(1000)
-
-df["rats"] = df.before.parallel_apply(rats)
-df["ffinder"] = df.before.parallel_apply(flawfinder)
-df["cppcheck"] = df.before.parallel_apply(cppcheck)
-
-allret = []
-for i in tqdm(df.sample(len(df)).itertuples()):
-    ret = rats(i.before)
-    if len(ret) > 550:
-        print(ret)
-        break
-
-allret = [i for j in allret for i in j]
-
-
-[i for i in allret if "error" in i]
-
-
-flawfinded = []
-for i in df.itertuples():
-    removed = []
-    for r in i.removed:
-        try:
-            removed.append(int(r))
-        except:
-            continue
-    if len(removed) == 0:
-        continue
-    setA = set(removed)
-    setB = set(i.ffinder)
-    overlap = setA & setB
-    universe = setA | setB
-    result1 = float(len(overlap)) / len(setA) * 100
-    if result1 > 0:
-        flawfinded.append(f"{i.id}: {result1}")
-flawfinded
+def run_sast(code: str, verbose: int = 0):
+    rflaw = flawfinder(code)
+    rrats = rats(code)
+    rcpp = cppcheck(code)
+    if verbose > 0:
+        svd.debug(
+            f"FlawFinder: {len(rflaw)} | RATS: {len(rrats)} | CppCheck: {len(rcpp)}"
+        )
+    return rflaw + rrats + rcpp
