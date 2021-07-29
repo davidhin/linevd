@@ -129,6 +129,10 @@ def allfunc(row, comment="before"):
     after = return combined function, commented out removed lines
     """
     readfile = get_codediff(row.dataset, row.id)
+    if len(readfile) == 0:
+        if comment == "after" or comment == "before":
+            return row["before"]
+        return []
     diff = readfile["diff"]
     if comment == "diff":
         return diff
