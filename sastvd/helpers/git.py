@@ -112,11 +112,11 @@ def get_codediff(dataset, iid):
     """Get codediff from file."""
     savedir = svd.get_dir(svd.interim_dir() / dataset)
     savepath = savedir / f"{iid}.git.pkl"
-    with open(savepath, "rb") as f:
-        try:
+    try:
+        with open(savepath, "rb") as f:
             return pkl.load(f)
-        except:
-            return []
+    except:
+        return []
 
 
 def allfunc(row, comment="before"):

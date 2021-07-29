@@ -2,6 +2,9 @@ import pandas as pd
 import sastvd as svd
 import sastvd.helpers.git as svdg
 from sklearn.model_selection import train_test_split
+from tqdm import tqdm
+
+tqdm.pandas()
 
 
 def train_val_test_split_df(df, idcol, stratifycol):
