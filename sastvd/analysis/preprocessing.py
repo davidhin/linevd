@@ -14,7 +14,7 @@ df = svdd.bigvul()
 df_splits = np.array_split(df, 100)
 
 
-def graph_helper(row):
+def preprocess(row):
     """Parallelise svdj functions."""
     savedir_before = svd.get_dir(svd.interim_dir() / row["dataset"] / "before")
     savedir_after = svd.get_dir(svd.interim_dir() / row["dataset"] / "after")
@@ -48,4 +48,4 @@ def graph_helper(row):
 
 
 for split in df_splits:
-    split.parallel_apply(graph_helper, axis=1)
+    split.parallel_apply(preprocess, axis=1)
