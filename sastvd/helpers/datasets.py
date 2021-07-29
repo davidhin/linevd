@@ -38,11 +38,11 @@ def bigvul(minimal=True):
             return pd.read_csv(savedir / "minimal_bigvul.csv").dropna()
         except:
             pass
-    df = pd.read_csv(svd.external_dir() / "bigvul2020.csv.gzip", compression="gzip")
+    df = pd.read_csv(svd.external_dir() / "MSR_data_cleaned.csv")
     df = df.rename(columns={"Unnamed: 0": "id"})
     df["dataset"] = "bigvul"
     svdg.mp_code2diff(df)
-    df = train_val_test_split_df(df, "id", "CWE ID")
+    df = train_val_test_split_df(df, "id", "vul")
     df["added"] = df.progress_apply(svdg.allfunc, comment="added", axis=1)
     df["removed"] = df.progress_apply(svdg.allfunc, comment="removed", axis=1)
     df["diff"] = df.progress_apply(svdg.allfunc, comment="diff", axis=1)
