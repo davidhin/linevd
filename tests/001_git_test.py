@@ -7,25 +7,28 @@ tqdm.pandas()
 
 
 def insert_bigvul_comments(diff: str):
+    """Insert comment lines in place of + and - in git diff patch."""
     lines = []
-    for l in diff.splitlines():
-        if len(l) == 0:
+    for li in diff.splitlines():
+        if len(li) == 0:
             continue
-        if l[0] == "-":
+        if li[0] == "-":
             lines.append("//flaw_line_below:")
-            l = l[1:]
-        if l[0] == "+":
+            li = li[1:]
+        if li[0] == "+":
             lines.append("//fix_flaw_line_below:")
-            l = "//" + l[1:]
-        lines.append(l)
+            li = "//" + li[1:]
+        lines.append(li)
     return "\n".join(lines)
 
 
 def apply_bigvul_comments(row):
+    """Apply get_codediff using pandas."""
     return svdg.get_codediff(row.dataset, row.id)["diff"]
 
 
 def fine_grain_diff(row, diff=False):
+    """Get diff."""
     if row.equality:
         return 0
     f1 = row.vfwf
@@ -46,6 +49,7 @@ def fine_grain_diff(row, diff=False):
 
 
 def test_bigvul_diff_similarity():
+    """Test 1."""
     df = svdd.bigvul(minimal=False)
     svdg.mp_code2diff(df)
     df["vfwf_orig"] = df.progress_apply(apply_bigvul_comments, axis=1)
@@ -62,6 +66,7 @@ def test_bigvul_diff_similarity():
 
 
 def test_bigvul_diff_similarity_2():
+    """Test 2s."""
     df = svdd.bigvul(minimal=True)
     df["len_1"] = df.before.apply(lambda x: len(x.splitlines()))
     df["len_2"] = df.after.apply(lambda x: len(x.splitlines()))
