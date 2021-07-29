@@ -24,8 +24,9 @@ def preprocess(row):
     with open(fpath1, "w") as f:
         f.write(row["before"])
     fpath2 = savedir_after / f"{row['id']}.c"
-    with open(fpath2, "w") as f:
-        f.write(row["after"])
+    if len(row["diff"]) > 0:
+        with open(fpath2, "w") as f:
+            f.write(row["after"])
 
     # Run Joern on "before" code
     if not os.path.exists(f"{fpath1}.graph.pkl"):
