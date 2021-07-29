@@ -1,3 +1,4 @@
+import os
 import pickle as pkl
 
 import numpy as np
@@ -19,8 +20,11 @@ def graph_helper(row):
     savedir_after = svd.get_dir(svd.interim_dir() / row["dataset"] / "after")
     # svdj.full_run_joern_from_string(row["before"], row["dataset"], row["id"])
 
-    sast_before = sast.run_sast(row["before"], verbose=1)
-    with open(savedir_before / f"{row['id']}.before.sast.pkl", "wb") as f:
+    filename = savedir_before / f"{row['id']}.before.sast.pkl"
+    if os.path.exists(filename):
+        return
+    sast_before = sast.run_sast(row["before"])
+    with open(filename, "wb") as f:
         pkl.dump(sast_before, f)
 
 

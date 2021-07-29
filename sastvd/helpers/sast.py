@@ -63,7 +63,10 @@ def cppcheck(code: str):
     for i in tree.iter("error"):
         item = {"sast": "cppcheck"}
         vul_attribs = i.attrib
-        loc_attribs = list(i.iter("location"))[0].attrib
+        loc_attribs = list(i.iter("location"))
+        if len(loc_attribs) == 0:
+            continue
+        loc_attribs = loc_attribs[0].attrib
         item["line"] = loc_attribs["line"]
         item["message"] = vul_attribs["msg"]
         item["severity"] = vul_attribs["severity"]
