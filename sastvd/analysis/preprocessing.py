@@ -7,8 +7,9 @@ import sastvd.helpers.datasets as svdd
 import sastvd.helpers.joern as svdj
 import sastvd.helpers.sast as sast
 from pandarallel import pandarallel
+from tqdm import tqdm
 
-pandarallel.initialize(verbose=True, progress_bar=True)
+tqdm.pandas()
 
 df = svdd.bigvul()
 df_splits = np.array_split(df, 100)
@@ -48,4 +49,4 @@ def preprocess(row):
 
 
 for split in df_splits:
-    split.parallel_apply(preprocess, axis=1)
+    split.progress_apply(preprocess, axis=1)
