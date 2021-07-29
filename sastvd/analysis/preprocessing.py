@@ -1,5 +1,6 @@
 import os
 import pickle as pkl
+import sys
 
 import numpy as np
 import sastvd as svd
@@ -10,8 +11,13 @@ from tqdm import tqdm
 
 tqdm.pandas()
 
+# SETUP
+NUM_JOBS = 1000
+JOB_ARRAY_NUMBER = int(sys.argv[1]) - 1
+
+# Read Data
 df = svdd.bigvul()
-df_splits = np.array_split(df, 100)
+splits = np.array_split(df, 1000)
 
 
 def preprocess(row):
@@ -48,5 +54,4 @@ def preprocess(row):
             pkl.dump(sast_before, f)
 
 
-for split in df_splits:
-    split.progress_apply(preprocess, axis=1)
+splits[JOB_ARRAY_NUMBER].progress_apply(preprocess, axis=1)
