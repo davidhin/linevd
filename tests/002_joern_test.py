@@ -15,6 +15,7 @@ short add (short b) {
 
 
 def test_joern_graph():
+    """Test 1."""
     reload(svdj)
     svdj.full_run_joern_from_string(test_func, "test", "test")
     filepath = svd.interim_dir() / "test" / "test.c"
