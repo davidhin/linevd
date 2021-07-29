@@ -11,7 +11,7 @@ fi
 
 cd storage/external
 
-if [[ ! -f "MSR_data_cleaned.zip" ]]; then
+if [[ ! -f "MSR_data_cleaned.csv" ]]; then
     gdown https://drive.google.com/uc\?id\=1-0VhnHBp9IGh90s2wCNjeCMuy70HPl8X
     unzip MSR_data_cleaned.zip
     rm MSR_data_cleaned.zip
