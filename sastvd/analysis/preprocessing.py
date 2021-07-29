@@ -17,8 +17,8 @@ df_splits = np.array_split(df, 100)
 
 def preprocess(row):
     """Parallelise svdj functions."""
-    savedir_before = svd.get_dir(svd.interim_dir() / row["dataset"] / "before")
-    savedir_after = svd.get_dir(svd.interim_dir() / row["dataset"] / "after")
+    savedir_before = svd.get_dir(svd.processed_dir() / row["dataset"] / "before")
+    savedir_after = svd.get_dir(svd.processed_dir() / row["dataset"] / "after")
 
     # Write C Files
     fpath1 = savedir_before / f"{row['id']}.c"
