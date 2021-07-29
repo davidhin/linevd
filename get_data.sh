@@ -11,8 +11,10 @@ fi
 
 cd storage/external
 
-if [[ ! -f "bigvul2020.csv.gzip" ]]; then
-    gdown https://drive.google.com/uc\?id\=1zu2-olVEO0aTu4utJiHTlCCpsX0NKP8U
+if [[ ! -f "MSR_data_cleaned.zip" ]]; then
+    gdown https://drive.google.com/uc\?id\=1-0VhnHBp9IGh90s2wCNjeCMuy70HPl8X
+    unzip MSR_data_cleaned.zip
+    rm MSR_data_cleaned.zip
 else
     echo "Already downloaded bigvul data"
 fi
