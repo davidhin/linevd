@@ -80,7 +80,7 @@ def get_node_edges(filepath: str):
 
     with open(str(outfile) + ".edges.json", "r") as f:
         edges = json.load(f)
-        edges = pd.DataFrame(edges, columns=["outnode", "innode", "etype", "dataflow"])
+        edges = pd.DataFrame(edges, columns=["innode", "outnode", "etype", "dataflow"])
         edges = edges.fillna("")
 
     with open(str(outfile) + ".nodes.json", "r") as f:
