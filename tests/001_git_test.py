@@ -24,7 +24,8 @@ def insert_bigvul_comments(diff: str):
 
 def apply_bigvul_comments(row):
     """Apply get_codediff using pandas."""
-    return svdg.get_codediff(row.dataset, row.id)["diff"]
+    ret = svdg.get_codediff(row.dataset, row.id)
+    return "" if len(ret) == 0 else ret["diff"]
 
 
 def fine_grain_diff(row, diff=False):
@@ -51,14 +52,15 @@ def fine_grain_diff(row, diff=False):
 def test_bigvul_diff_similarity():
     """Test 1."""
     df = svdd.bigvul(minimal=False)
-    svdg.mp_code2diff(df)
-    df["vfwf_orig"] = df.progress_apply(apply_bigvul_comments, axis=1)
-    df["vfwf"] = df.vfwf_orig.progress_apply(insert_bigvul_comments)
-    df["equality"] = df.progress_apply(
+    df_vul = df[df.vul == 1]
+    svdg.mp_code2diff(df_vul)
+    df_vul["vfwf_orig"] = df_vul.progress_apply(apply_bigvul_comments, axis=1)
+    df_vul["vfwf"] = df_vul.vfwf_orig.progress_apply(insert_bigvul_comments)
+    df_vul["equality"] = df_vul.progress_apply(
         lambda x: " ".join(x.vfwf.split()) == " ".join(x.vul_func_with_fix.split()),
         axis=1,
     )
-    assert len(df[df.equality]) / len(df) > 0.6
+    assert len(df_vul[df_vul.equality]) / len(df_vul) > 0.6
 
     # df["diff_num"] = df.progress_apply(fine_grain_diff, axis=1)
     # row = [i for i in df.itertuples() if i.id == 188434][0]
