@@ -90,6 +90,8 @@ def _c2dhelper(item):
     savepath = savedir / f"{item['id']}.git.pkl"
     if os.path.exists(savepath):
         return
+    if item["func_before"] == item["func_after"]:
+        return
     ret = code2diff(item["func_before"], item["func_after"])
     with open(savepath, "wb") as f:
         pkl.dump(ret, f)
