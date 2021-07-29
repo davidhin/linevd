@@ -18,14 +18,33 @@ def graph_helper(row):
     """Parallelise svdj functions."""
     savedir_before = svd.get_dir(svd.interim_dir() / row["dataset"] / "before")
     savedir_after = svd.get_dir(svd.interim_dir() / row["dataset"] / "after")
-    # svdj.full_run_joern_from_string(row["before"], row["dataset"], row["id"])
 
-    filename = savedir_before / f"{row['id']}.before.sast.pkl"
-    if os.path.exists(filename):
-        return
-    sast_before = sast.run_sast(row["before"])
-    with open(filename, "wb") as f:
-        pkl.dump(sast_before, f)
+    # Write C Files
+    fpath1 = savedir_before / f"{row['id']}.c"
+    with open(fpath1, "w") as f:
+        f.write(row["before"])
+    fpath2 = savedir_after / f"{row['id']}.c"
+    with open(fpath2, "w") as f:
+        f.write(row["after"])
+
+    # Run Joern on "before" code
+    if not os.path.exists(f"{fpath1}.graph.pkl"):
+        joern_before = svdj.full_run_joern(fpath1)
+        with open(f"{fpath1}.graph.pkl", "wb") as f:
+            pkl.dump(joern_before, f)
+
+    # Run Joern on "after" code
+    if not os.path.exists(f"{fpath2}.graph.pkl"):
+        joern_after = svdj.full_run_joern(fpath2)
+        with open(f"{fpath2}.graph.pkl", "wb") as f:
+            pkl.dump(joern_after, f)
+
+    # Run SAST extraction
+    fpath3 = savedir_before / f"{row['id']}.c.sast.pkl"
+    if not os.path.exists(fpath3):
+        sast_before = sast.run_sast(row["before"])
+        with open(fpath3, "wb") as f:
+            pkl.dump(sast_before, f)
 
 
 for split in df_splits:

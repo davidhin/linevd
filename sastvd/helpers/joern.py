@@ -141,10 +141,6 @@ def get_node_edges(filepath: str):
                 ignore_index=True,
             )
 
-    # Save data
-    with open(outdir / f"{Path(filepath).name}.graph.pkl", "wb") as f:
-        pkl.dump({"nodes": nodes, "edges": edges}, f)
-
     return nodes, edges
 
 
@@ -178,9 +174,11 @@ def full_run_joern(filepath: str):
     """Run full Joern extraction and save output."""
     try:
         run_joern(filepath)
-        get_node_edges(filepath)
+        nodes, edges = get_node_edges(filepath)
+        return {"nodes": nodes, "edges": edges}
     except Exception as E:
         svd.debug(f"Failed {filepath}: {E}")
+        return None
 
 
 def full_run_joern_from_string(code: str, dataset: str, iid: str):
@@ -189,4 +187,4 @@ def full_run_joern_from_string(code: str, dataset: str, iid: str):
     savepath = savedir / f"{iid}.c"
     with open(savepath, "w") as f:
         f.write(code)
-    full_run_joern(savepath)
+    return full_run_joern(savepath)
