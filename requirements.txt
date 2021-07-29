@@ -11,7 +11,7 @@ seaborn
 pytest
 scikit-learn
 scipy
-numpy
+numpy>=1.20.1
 pandas
 fastparquet
 spacy
