@@ -2,7 +2,7 @@
 #SBATCH -p batch
 #SBATCH -N 1
 #SBATCH -n 1
-#SBATCH --time=00:20:00
+#SBATCH --time=02:00:00
 #SBATCH --mem=4GB
 #SBATCH --array=1-1000
 #SBATCH --err="hpc/logs/prepros_%a.err"

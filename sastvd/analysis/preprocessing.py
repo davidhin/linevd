@@ -17,7 +17,7 @@ JOB_ARRAY_NUMBER = int(sys.argv[1]) - 1
 
 # Read Data
 df = svdd.bigvul()
-splits = np.array_split(df, 1000)
+splits = np.array_split(df, NUM_JOBS)
 
 
 def preprocess(row):
