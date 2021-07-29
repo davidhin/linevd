@@ -6,7 +6,6 @@ import sastvd as svd
 import sastvd.helpers.datasets as svdd
 import sastvd.helpers.joern as svdj
 import sastvd.helpers.sast as sast
-from pandarallel import pandarallel
 from tqdm import tqdm
 
 tqdm.pandas()
@@ -35,7 +34,7 @@ def preprocess(row):
             pkl.dump(joern_before, f)
 
     # Run Joern on "after" code
-    if not os.path.exists(f"{fpath2}.graph.pkl"):
+    if not os.path.exists(f"{fpath2}.graph.pkl") and len(row["diff"]) > 0:
         joern_after = svdj.full_run_joern(fpath2)
         with open(f"{fpath2}.graph.pkl", "wb") as f:
             pkl.dump(joern_after, f)
