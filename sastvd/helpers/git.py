@@ -132,6 +132,8 @@ def allfunc(row, comment="before"):
     if len(readfile) == 0:
         if comment == "after" or comment == "before":
             return row["func_before"]
+        if comment == "diff":
+            return ""
         return []
     diff = readfile["diff"]
     if comment == "diff":
