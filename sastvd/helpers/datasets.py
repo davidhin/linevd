@@ -38,7 +38,7 @@ def bigvul(minimal=True):
     savedir = svd.get_dir(svd.cache_dir() / "minimal_datasets")
     if minimal:
         try:
-            return pd.read_csv(savedir / "minimal_bigvul.csv").dropna()
+            return pd.read_parquet(savedir / "minimal_bigvul.pq").dropna()
         except:
             pass
     df = pd.read_csv(svd.external_dir() / "MSR_data_cleaned.csv")
@@ -52,5 +52,5 @@ def bigvul(minimal=True):
     df["before"] = df.progress_apply(svdg.allfunc, comment="before", axis=1)
     df["after"] = df.progress_apply(svdg.allfunc, comment="after", axis=1)
     keepcols = ["dataset", "id", "label", "removed", "added", "diff", "before", "after"]
-    df[keepcols].to_csv(savedir / "minimal_bigvul.csv", index=0)
+    df[keepcols].to_parquet(savedir / "minimal_bigvul.pq", index=0, compression="gzip")
     return df
