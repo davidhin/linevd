@@ -1,6 +1,4 @@
 import json
-import os
-import pickle as pkl
 import random
 from pathlib import Path
 
@@ -10,11 +8,22 @@ from graphviz import Digraph
 
 
 def nodelabel2line(label: str):
+    """Given a node label, return the line number.
+
+    Example:
+    s = "METHOD_1.0: static long main()..."
+    nodelabel2line(s)
+    >>> '1.0'
+    """
     return label.split(":")[0].split("_")[-1]
 
 
 def randcolor():
-    r = lambda: random.randint(0, 255)
+    """Generate random color."""
+
+    def r():
+        return random.randint(0, 255)
+
     return "#%02X%02X%02X" % (r(), r(), r())
 
 
@@ -61,9 +70,6 @@ def get_digraph(nodes, edges):
 
 def run_joern(filepath: str):
     """Extract graph using most recent Joern."""
-    outdir = Path(filepath).parent
-    # if os.path.exists(outdir / f"{Path(filepath).name}.graph.pkl"):
-    # return
     script_file = svd.external_dir() / "get_func_graph.scala"
     filename = svd.external_dir() / filepath
     params = f"filename={filename}"
