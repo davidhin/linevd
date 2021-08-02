@@ -14,7 +14,10 @@ def feature_extraction(filepath, lineNumber: list = [], hop: int = 1):
         .head(1)
     )
     f1_subseq = f1_subseq[["lineNumber", "code", "local_type"]].copy()
-    f1_subseq.code = f1_subseq.local_type + " " + f1_subseq.code + ";"
+    f1_subseq.code = f1_subseq.apply(
+        lambda x: x.code + ";" if len(x.local_type) > 0 else x.code, axis=1
+    )
+    f1_subseq.code = f1_subseq.local_type + " " + f1_subseq.code
     f1_subseq = f1_subseq.drop(columns="local_type")
     f1_subseq = f1_subseq[~f1_subseq.eq("").any(1)]
     f1_subseq = f1_subseq[f1_subseq.code != " "]
