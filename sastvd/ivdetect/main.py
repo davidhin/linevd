@@ -27,8 +27,8 @@ def feature_extraction(filepath, lineNumber: list = [], hop: int = 1):
     subseq = subseq.sort_values("lineNumber")
 
     # 2. Line to AST
-    ast_edges = svdj.rdg(edges, "ast")
-    ast_nodes = svdj.drop_lone_nodes(nodes, ast_edges)
+    ast_edges = svdj.rdg(edges, "ast")[["innode", "outnode", "etype"]]
+    ast_nodes = svdj.drop_lone_nodes(nodes, ast_edges)[["id", "_label", "code"]]
     ast = {"nodes": ast_nodes, "edges": ast_edges}
 
     # 3. Variable names and types
