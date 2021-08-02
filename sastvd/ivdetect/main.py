@@ -10,9 +10,11 @@ def feature_extraction(filepath):
 
     DEBUGGING:
     filepath = "/home/david/Documents/projects/singularity-sastvd/storage/processed/bigvul/before/180189.c"
+    filepath = "/home/david/Documents/projects/singularity-sastvd/storage/processed/bigvul/before/188288.c"
 
     PRINTING:
-    svdj.plot_graph_node_edge_df(nodes, svdj.rdg(edges, "ast"), [19], 0)
+    svdj.plot_graph_node_edge_df(nodes, svdj.rdg(edges, "ast"), [24], 0)
+    svdj.plot_graph_node_edge_df(nodes, svdj.rdg(edges, "reftype"))
     pd.options.display.max_colwidth = 500
     print(subseq.to_markdown(mode="github", index=0))
     print(nametypes.to_markdown(mode="github", index=0))
