@@ -307,6 +307,17 @@ def assign_line_num_to_local(nodes, edges, code):
     return local_line_map
 
 
+def drop_lone_nodes(nodes, edges):
+    """Remove nodes with no edge connections.
+
+    Args:
+        nodes (pd.DataFrame): columns are id, node_label
+        edges (pd.DataFrame): columns are outnode, innode, etype
+    """
+    nodes = nodes[(nodes.id.isin(edges.innode)) | (nodes.id.isin(edges.outnode))]
+    return nodes
+
+
 def plot_graph_node_edge_df(nodes, edges, drop_lone_nodes=True):
     """Plot graph from node and edge dataframes.
 
