@@ -14,9 +14,9 @@ def feature_extraction(filepath):
     PRINTING:
     svdj.plot_graph_node_edge_df(nodes, svdj.rdg(edges, "ast"), [19], 0)
     pd.options.display.max_colwidth = 500
-    print(subseq.to_markdown(mode="github"))
-    print(nametypes.to_markdown(mode="github"))
-    print(undir_edgesline.to_markdown(mode="github"))
+    print(subseq.to_markdown(mode="github", index=0))
+    print(nametypes.to_markdown(mode="github", index=0))
+    print(undir_edgesline.to_markdown(mode="github", index=0))
 
     4/5 COMPARISON:
     Theirs: 31, 22, 13, 10, 6, 29, 25, 23
