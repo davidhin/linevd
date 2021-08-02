@@ -5,8 +5,24 @@ import pandas as pd
 import sastvd.helpers.joern as svdj
 
 
-def feature_extraction(filepath, lineNumber: list = [], hop: int = 1):
-    """Extract relevant components of IVDetect Code Representation."""
+def feature_extraction(filepath):
+    """Extract relevant components of IVDetect Code Representation.
+
+    DEBUGGING:
+    filepath = "/home/david/Documents/projects/singularity-sastvd/storage/processed/bigvul/before/180189.c"
+
+    PRINTING:
+    svdj.plot_graph_node_edge_df(nodes, svdj.rdg(edges, "ast"), [19], 0)
+    pd.options.display.max_colwidth = 500
+    print(subseq.to_markdown(mode="github"))
+    print(nametypes.to_markdown(mode="github"))
+    print(undir_edgesline.to_markdown(mode="github"))
+
+    4/5 COMPARISON:
+    Theirs: 31, 22, 13, 10, 6, 29, 25, 23
+    Ours  : 40, 30, 19, 14, 7, 38, 33, 31
+    Pred  : 40,   , 19, 14, 7, 38, 33, 31
+    """
     nodes, edges = svdj.get_node_edges(filepath)
 
     # 1. Generate tokenised subtoken sequences
@@ -60,44 +76,16 @@ def feature_extraction(filepath, lineNumber: list = [], hop: int = 1):
     edgesline = edgesline.drop_duplicates(subset=["innode", "outnode", "etype"])
     # REACHING DEF to DDG
     edgesline["etype"] = edgesline.apply(
-        lambda x: f"DDG: {x.dataflow}" if x.etype == "REACHING_DEF" else x.etype, axis=1
+        lambda x: f"DDG" if x.etype == "REACHING_DEF" else x.etype, axis=1
     )
+    edgesline_reverse = edgesline[["innode", "outnode", "etype"]].copy()
+    edgesline_reverse.columns = ["outnode", "innode", "etype"]
+    undir_edgesline = pd.concat([edgesline, edgesline_reverse])
+    undir_edgesline = undir_edgesline[undir_edgesline.innode != undir_edgesline.outnode]
+    undir_edgesline = undir_edgesline.groupby(["innode", "etype"]).agg({"outnode": set})
+    undir_edgesline = undir_edgesline.reset_index()
+    undir_edgesline = undir_edgesline.pivot("innode", "etype", "outnode")
+    undir_edgesline = undir_edgesline.reset_index()[["innode", "CDG", "DDG"]]
+    undir_edgesline.columns = ["lineNumber", "control", "data"]
 
-    edgesline
-
-    svdj.plot_graph_node_edge_df(nodesline, edgesline)
-
-    return subseq, ast, nametypes
-
-    nodeids = nodes[nodes.lineNumber.isin(lineNumber)].id
-    if len(lineNumber) > 0:
-        keep_nodes = svdj.neighbour_nodes(nodes, edges, nodeids, hop)
-        keep_nodes = set(list(nodeids) + [i for j in keep_nodes.values() for i in j])
-        nodes = nodes[nodes.id.isin(keep_nodes)]
-        edges = edges[
-            (edges.innode.isin(keep_nodes)) & (edges.outnode.isin(keep_nodes))
-        ]
-
-    # Visualise graph
-    svdj.plot_graph_node_edge_df(nodes, edges)
-
-
-filepath = "/home/david/Documents/projects/singularity-sastvd/storage/processed/bigvul/before/180189.c"
-# filepath = "/home/david/Documents/projects/singularity-sastvd/storage/processed/bigvul/before/177860.c"
-# lineNumber = [36]
-# hop = 1
-# feature_extraction(filepath, lineNumber, hop)
-feature_extraction(filepath)
-
-
-# # Get line number
-# nodes_new = nodes_new.reset_index().rename(columns={"index": "adj"})
-# id2adj = pd.Series(nodes_new.id.values, index=nodes_new.adj).to_dict()
-# arr = [
-#     list(i)
-#     for i in zip(edges.innode.map(id2adj), edges.outnode.map(id2adj))
-# ]
-# arr = np.array(arr)
-# shape = tuple(arr.max(axis=0)[:2] + 1)
-# coo = sparse.coo_matrix((np.ones(len(arr)), (arr[:, 0], arr[:, 1])), shape=shape)
-# csr = coo.tocsr()
+    return subseq, ast, nametypes, undir_edgesline
