@@ -78,7 +78,7 @@ def feature_extraction(filepath):
     edgesline = edgesline.drop_duplicates(subset=["innode", "outnode", "etype"])
     # REACHING DEF to DDG
     edgesline["etype"] = edgesline.apply(
-        lambda x: f"DDG" if x.etype == "REACHING_DEF" else x.etype, axis=1
+        lambda x: "DDG" if x.etype == "REACHING_DEF" else x.etype, axis=1
     )
     edgesline_reverse = edgesline[["innode", "outnode", "etype"]].copy()
     edgesline_reverse.columns = ["outnode", "innode", "etype"]
