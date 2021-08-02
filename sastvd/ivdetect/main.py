@@ -16,9 +16,6 @@ def feature_extraction(filepath, lineNumber: list = [], hop: int = 1):
         .head(1)
     )
     subseq = subseq[["lineNumber", "code", "local_type"]].copy()
-    subseq.code = subseq.apply(
-        lambda x: x.code + ";" if len(x.local_type) > 0 else x.code, axis=1
-    )
     subseq.code = subseq.local_type + " " + subseq.code
     subseq = subseq.drop(columns="local_type")
     subseq = subseq[~subseq.eq("").any(1)]
@@ -46,32 +43,31 @@ def feature_extraction(filepath, lineNumber: list = [], hop: int = 1):
     nametypes = pd.DataFrame(varnametypes, columns=["lineNumber", "type", "name"])
     nametypes = nametypes.drop_duplicates().sort_values("lineNumber")
 
-    return subseq, ast, nametypes
-
-    # BLAH BLAH BLAH
-
+    # 4/5. Data dependency / Control dependency context
     # Group nodes into statements
-    # nodes = (
-    #     nodes.sort_values(by="code", key=lambda x: x.str.len(), ascending=False)
-    #     .groupby("lineNumber")
-    #     .head(1)
-    # )
-    # edges.innode = edges.line_in
-    # edges.outnode = edges.line_out
-    # nodes.id = nodes.lineNumber
-
-    # Filter to PDG/AST
-    # edges = svdj.rdg(edges, "ast")
-    edges = svdj.rdg(edges, "reftype")
-    # edges = svdj.rdg(edges, "pdg")
-
+    nodesline = (
+        nodes.sort_values(by="code", key=lambda x: x.str.len(), ascending=False)
+        .groupby("lineNumber")
+        .head(1)
+    )
+    edgesline = edges.copy()
+    edgesline.innode = edgesline.line_in
+    edgesline.outnode = edgesline.line_out
+    nodesline.id = nodesline.lineNumber
+    edgesline = svdj.rdg(edgesline, "pdg")
+    nodesline = svdj.drop_lone_nodes(nodesline, edgesline)
     # Drop duplicate edges
-    edges = edges.drop_duplicates(subset=["innode", "outnode", "etype"])
+    edgesline = edgesline.drop_duplicates(subset=["innode", "outnode", "etype"])
     # REACHING DEF to DDG
-    edges["etype"] = edges.apply(
+    edgesline["etype"] = edgesline.apply(
         lambda x: f"DDG: {x.dataflow}" if x.etype == "REACHING_DEF" else x.etype, axis=1
     )
-    edges = edges[edges.innode != edges.outnode]
+
+    edgesline
+
+    svdj.plot_graph_node_edge_df(nodesline, edgesline)
+
+    return subseq, ast, nametypes
 
     nodeids = nodes[nodes.lineNumber.isin(lineNumber)].id
     if len(lineNumber) > 0:
