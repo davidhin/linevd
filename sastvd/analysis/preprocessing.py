@@ -21,7 +21,14 @@ splits = np.array_split(df, NUM_JOBS)
 
 
 def preprocess(row):
-    """Parallelise svdj functions."""
+    """Parallelise svdj functions.
+
+    Example:
+    df = svdd.bigvul()
+    row = df.iloc[180189]  # PAPER EXAMPLE
+    row = df.iloc[177860]  # EDGE CASE 1
+    preprocess(row)
+    """
     savedir_before = svd.get_dir(svd.processed_dir() / row["dataset"] / "before")
     savedir_after = svd.get_dir(svd.processed_dir() / row["dataset"] / "after")
 
