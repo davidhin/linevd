@@ -8,18 +8,18 @@ def feature_extraction(filepath, lineNumber: list = [], hop: int = 1):
     nodes, edges = svdj.get_node_edges(filepath)
 
     # 1. Generate tokenised subtoken sequences
-    subtoken_sequence = (
+    f1_subseq = (
         nodes.sort_values(by="code", key=lambda x: x.str.len(), ascending=False)
         .groupby("lineNumber")
         .head(1)
     )
-    subtoken_sequence = subtoken_sequence[["lineNumber", "code", "local_type"]].copy()
-    subtoken_sequence.code = subtoken_sequence.local_type + " " + subtoken_sequence.code
-    subtoken_sequence = subtoken_sequence.drop(columns="local_type")
-    subtoken_sequence = subtoken_sequence[~subtoken_sequence.eq("").any(1)]
-    subtoken_sequence = subtoken_sequence[subtoken_sequence.code != " "]
-    subtoken_sequence.lineNumber = subtoken_sequence.lineNumber.astype(int)
-    subtoken_sequence = subtoken_sequence.sort_values("lineNumber")
+    f1_subseq = f1_subseq[["lineNumber", "code", "local_type"]].copy()
+    f1_subseq.code = f1_subseq.local_type + " " + f1_subseq.code + ";"
+    f1_subseq = f1_subseq.drop(columns="local_type")
+    f1_subseq = f1_subseq[~f1_subseq.eq("").any(1)]
+    f1_subseq = f1_subseq[f1_subseq.code != " "]
+    f1_subseq.lineNumber = f1_subseq.lineNumber.astype(int)
+    f1_subseq = f1_subseq.sort_values("lineNumber")
 
     # 2. Line to AST
     # BLAH BLAH BLAH
