@@ -163,7 +163,10 @@ def get_node_edges(filepath: str):
 
 
 def plot_node_edges(filepath: str, lineNumber: int = -1, filter_edges=[]):
-    """Plot node edges given filepath (must run after get_node_edges)."""
+    """Plot node edges given filepath (must run after get_node_edges).
+
+    TO BE DEPRECATED.
+    """
     nodes, edges = get_node_edges(filepath)
 
     if len(filter_edges) > 0:
@@ -302,3 +305,22 @@ def assign_line_num_to_local(nodes, edges, code):
         except:
             continue
     return local_line_map
+
+
+def plot_graph_node_edge_df(nodes, edges, drop_lone_nodes=True):
+    """Plot graph from node and edge dataframes.
+
+    Args:
+        nodes (pd.DataFrame): columns are id, node_label
+        edges (pd.DataFrame): columns are outnode, innode, etype
+        drop_lone_nodes (bool): hide nodes with no in/out edges.
+    """
+    # Drop lone nodes
+    if drop_lone_nodes:
+        nodes = nodes[(nodes.id.isin(edges.innode)) | (nodes.id.isin(edges.outnode))]
+
+    dot = get_digraph(
+        nodes[["id", "node_label"]].to_numpy().tolist(),
+        edges[["outnode", "innode", "etype"]].to_numpy().tolist(),
+    )
+    dot.render("/tmp/tmp.gv", view=True)
