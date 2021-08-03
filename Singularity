@@ -19,6 +19,7 @@ From:pytorch/pytorch:1.6.0-cuda10.1-cudnn7-runtime
     apt install -y wget build-essential git graphviz zip unzip curl vim libexpat1-dev cmake
 
     # Install cppcheck
+    cd /
     curl -L https://github.com/danmar/cppcheck/archive/refs/tags/2.5.tar.gz > cppcheck2.5.tar.gz    
     mkdir cppcheck
     mv cppcheck2.5.tar.gz cppcheck
@@ -32,16 +33,19 @@ From:pytorch/pytorch:1.6.0-cuda10.1-cudnn7-runtime
     make install
 
     # Install Joern
+    cd /
     apt install -y openjdk-8-jdk git curl gnupg bash unzip sudo wget 
     wget https://github.com/ShiftLeftSecurity/joern/releases/latest/download/joern-install.sh
     chmod +x ./joern-install.sh
     printf 'Y\n/bin/joern\ny\n/usr/local/bin\n\n' | sudo ./joern-install.sh --interactive
 
     # Install miniconda
+    cd /
     wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
     bash Miniconda3-latest-Linux-x86_64.sh -b
 
     # Install RATS
+    cd /
     curl -L https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/rough-auditing-tool-for-security/rats-2.4.tgz > rats-2.4.tgz
     tar -xzvf rats-2.4.tgz
     cd rats-2.4
