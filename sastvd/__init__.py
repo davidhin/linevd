@@ -1,4 +1,5 @@
 """Set up project paths."""
+import hashlib
 import inspect
 import os
 import random
@@ -137,3 +138,8 @@ def get_run_id(args):
         )
     )
     return ID
+
+
+def hash_string(s):
+    """Hash a string."""
+    return int(hashlib.sha1(s.encode("utf-8")).hexdigest(), 16) % (10 ** 8)
