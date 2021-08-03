@@ -3,6 +3,8 @@ import re
 import pandas as pd
 import sastvd as svd
 import sastvd.helpers.git as svdg
+import sastvd.helpers.glove as svdglove
+import sastvd.helpers.tokenise as svdt
 from pandarallel import pandarallel
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
@@ -52,6 +54,37 @@ def remove_comments(text):
         re.DOTALL | re.MULTILINE,
     )
     return re.sub(pattern, replacer, text)
+
+
+def generate_glove(dataset="bigvul"):
+    """Generate Glove embeddings for tokenised dataset."""
+    if dataset == "bigvul":
+        df = bigvul()
+
+    # Only train GloVe embeddings on train samples
+    samples = df.loc[df.label == "train"]
+
+    # Preprocessing
+    def get_lines(s):
+        slines = s.splitlines()
+        lines = []
+        for sline in slines:
+            tokline = svdt.tokenise(sline)
+            if len(tokline) > 0:
+                lines.append(tokline)
+        return lines
+
+    samples.before = samples.before.parallel_apply(get_lines)
+    lines = [i for j in samples.before.to_numpy() for i in j]
+
+    # Save corpus
+    savedir = svd.get_dir(svd.processed_dir() / dataset / "glove")
+    with open(savedir / "corpus.txt", "w") as f:
+        f.write("\n".join(lines))
+
+    # Train Glove Model
+    CORPUS = savedir / "corpus.txt"
+    svdglove.glove(CORPUS)
 
 
 def bigvul(minimal=True):
