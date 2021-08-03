@@ -1,10 +1,14 @@
+import re
+
 import pandas as pd
 import sastvd as svd
 import sastvd.helpers.git as svdg
+from pandarallel import pandarallel
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
 tqdm.pandas()
+pandarallel.initialize(progress_bar=True, verbose=2)
 
 
 def train_val_test_split_df(df, idcol, stratifycol):
@@ -33,6 +37,23 @@ def train_val_test_split_df(df, idcol, stratifycol):
     return df
 
 
+def remove_comments(text):
+    """Delete comments from code."""
+
+    def replacer(match):
+        s = match.group(0)
+        if s.startswith("/"):
+            return " "  # note: a space and not an empty string
+        else:
+            return s
+
+    pattern = re.compile(
+        r'//.*?$|/\*.*?\*/|\'(?:\\.|[^\\\'])*\'|"(?:\\.|[^\\"])*"',
+        re.DOTALL | re.MULTILINE,
+    )
+    return re.sub(pattern, replacer, text)
+
+
 def bigvul(minimal=True):
     """Read BigVul Data."""
     savedir = svd.get_dir(svd.cache_dir() / "minimal_datasets")
@@ -44,6 +65,8 @@ def bigvul(minimal=True):
     df = pd.read_csv(svd.external_dir() / "MSR_data_cleaned.csv")
     df = df.rename(columns={"Unnamed: 0": "id"})
     df["dataset"] = "bigvul"
+    df["func_before"] = df.func_before.parallel_apply(remove_comments)
+    df["func_after"] = df.func_after.parallel_apply(remove_comments)
     svdg.mp_code2diff(df)
     df = train_val_test_split_df(df, "id", "vul")
     df["added"] = df.progress_apply(svdg.allfunc, comment="added", axis=1)
