@@ -59,13 +59,16 @@ def get_dir(path) -> Path:
     return path
 
 
-def debug(msg, sep="\t"):
+def debug(msg, noheader=False, sep="\t"):
     """Print to console with debug information."""
     caller = inspect.stack()[1]
     file_name = caller.filename
     ln = caller.lineno
     now = datetime.now()
     time = now.strftime("%m/%d/%Y - %H:%M:%S")
+    if noheader:
+        print("\t\x1b[94m{}\x1b[0m".format(msg), end="")
+        return
     print(
         '\x1b[40m[{}] File "{}", line {}\x1b[0m\n\t\x1b[94m{}\x1b[0m'.format(
             time, file_name, ln, msg
