@@ -318,17 +318,28 @@ def drop_lone_nodes(nodes, edges):
     return nodes
 
 
-def plot_graph_node_edge_df(nodes, edges, drop_lone_nodes=True):
+def plot_graph_node_edge_df(nodes, edges, nodeids=[], hop=1, drop_lone_nodes=True):
     """Plot graph from node and edge dataframes.
 
     Args:
         nodes (pd.DataFrame): columns are id, node_label
         edges (pd.DataFrame): columns are outnode, innode, etype
         drop_lone_nodes (bool): hide nodes with no in/out edges.
+        lineNumber (int): Plot subgraph around this node.
     """
     # Drop lone nodes
     if drop_lone_nodes:
         nodes = nodes[(nodes.id.isin(edges.innode)) | (nodes.id.isin(edges.outnode))]
+
+    # Get subgraph
+    if len(nodeids) > 0:
+        nodeids = nodes[nodes.lineNumber.isin(nodeids)].id
+        keep_nodes = neighbour_nodes(nodes, edges, nodeids, hop)
+        keep_nodes = set(list(nodeids) + [i for j in keep_nodes.values() for i in j])
+        nodes = nodes[nodes.id.isin(keep_nodes)]
+        edges = edges[
+            (edges.innode.isin(keep_nodes)) & (edges.outnode.isin(keep_nodes))
+        ]
 
     dot = get_digraph(
         nodes[["id", "node_label"]].to_numpy().tolist(),
