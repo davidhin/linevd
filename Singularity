@@ -7,6 +7,7 @@ From:pytorch/pytorch:1.6.0-cuda10.1-cudnn7-runtime
 
 %environment
     export SINGULARITY=true
+    PATH=$PATH:/GloVe/build
 
 %runscript
     exec /bin/bash /cli.sh "$@"
@@ -17,6 +18,12 @@ From:pytorch/pytorch:1.6.0-cuda10.1-cudnn7-runtime
     # Update
     apt update
     apt install -y wget build-essential git graphviz zip unzip curl vim libexpat1-dev cmake
+
+    # Install Glove
+    cd /
+    git clone https://github.com/stanfordnlp/GloVe.git
+    cd GloVe
+    make
 
     # Install cppcheck
     cd /
