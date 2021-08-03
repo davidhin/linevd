@@ -9,7 +9,8 @@
     "**/*.sif": true,
     "**/*.dccache": true,
     "**/*.pyc": true,
-    "**/analysis/workspace/": true
+    "**/analysis/workspace/": true,
+    "**/helpers/workspace/": true
   },
   "files.watcherExclude": {
     ".pytest_cache": true,
@@ -20,7 +21,8 @@
     "**/*.sif": true,
     "**/*.dccache": true,
     "**/storage/**": true,
-    "**/analysis/workspace/": true
+    "**/analysis/workspace/": true,
+    "**/helpers/workspace/": true
   },
   "python.pythonPath": "/home/david/miniconda3/bin/python",
   "python.linting.flake8Enabled": true,
