@@ -84,7 +84,7 @@ def generate_glove(dataset="bigvul"):
 
     # Train Glove Model
     CORPUS = savedir / "corpus.txt"
-    svdglove.glove(CORPUS, MAX_ITER=2000)
+    svdglove.glove(CORPUS, MAX_ITER=5000)
 
 
 def bigvul(minimal=True):
