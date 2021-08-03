@@ -1,8 +1,11 @@
 """Python wrapper to call StanfordNLP Glove."""
 
+import pickle as pkl
 from pathlib import Path
 
+import numpy as np
 import sastvd as svd
+from scipy import spatial
 
 
 def glove(
@@ -59,3 +62,37 @@ def glove(
     svd.watch_subprocess_cmd(cmd2)
     svd.watch_subprocess_cmd(cmd3)
     svd.watch_subprocess_cmd(cmd4)
+
+
+def glove_dict(vectors_path):
+    """Load glove embeddings."""
+    # Caching
+    savepath = svd.get_dir(svd.cache_dir() / "glove")
+    savepath /= str(svd.hashstr(str(vectors_path)))
+    try:
+        with open(savepath, "rb") as f:
+            return pkl.load(f)
+    except Exception as E:
+        print(E)
+        pass
+
+    # Read into dict
+    embeddings_dict = {}
+    with open(vectors_path, "r") as f:
+        for line in f:
+            values = line.split()
+            word = values[0]
+            vector = np.asarray(values[1:], "float32")
+            embeddings_dict[word] = vector
+    with open(savepath, "wb") as f:
+        pkl.dump(embeddings_dict, f)
+    return embeddings_dict
+
+
+def find_closest_embeddings(word, embeddings_dict, topn=10):
+    """Return closest GloVe embeddings."""
+    embedding = embeddings_dict[word]
+    return sorted(
+        embeddings_dict.keys(),
+        key=lambda word: spatial.distance.euclidean(embeddings_dict[word], embedding),
+    )[:topn]
