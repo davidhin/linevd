@@ -106,6 +106,24 @@ def subprocess_cmd(command: str, verbose: int = 0, force_shell: bool = False):
     return output
 
 
+def watch_subprocess_cmd(command: str, force_shell: bool = False):
+    """Run subprocess and monitor output. Used for debugging purposes."""
+    singularity = os.getenv("SINGULARITY")
+    if singularity != "true" and not force_shell:
+        command = f"singularity exec {project_dir() / 'main.sif'} " + command
+    process = subprocess.Popen(
+        command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+    )
+    # Poll process for new output until finished
+    noheader = False
+    while True:
+        nextline = process.stdout.readline()
+        if nextline == b"" and process.poll() is not None:
+            break
+        debug(nextline.decode(), noheader=noheader)
+        noheader = True
+
+
 def genid():
     """Generate random string."""
     return "".join(random.choices(string.ascii_uppercase + string.digits, k=10))
