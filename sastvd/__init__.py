@@ -82,7 +82,7 @@ def gitsha():
     )
 
 
-def subprocess_cmd(command: str, verbose: int = 0):
+def subprocess_cmd(command: str, verbose: int = 0, force_shell: bool = False):
     """Run command line process.
 
     Example:
@@ -91,7 +91,7 @@ def subprocess_cmd(command: str, verbose: int = 0):
     >>> b
     """
     singularity = os.getenv("SINGULARITY")
-    if singularity != "true":
+    if singularity != "true" and not force_shell:
         command = f"singularity exec {project_dir() / 'main.sif'} " + command
     process = subprocess.Popen(
         command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True
