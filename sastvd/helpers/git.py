@@ -141,16 +141,16 @@ def allfunc(row, comment="before"):
     if comment == "added" or comment == "removed":
         return readfile[comment]
     lines = []
-    for l in diff.splitlines():
-        if len(l) == 0:
+    for li in diff.splitlines():
+        if len(li) == 0:
             continue
-        if l[0] == "-":
-            l = l[1:]
+        if li[0] == "-":
+            li = li[1:]
             if comment == "after":
-                l = "// " + l
-        if l[0] == "+":
-            l = l[1:]
+                li = "// " + li
+        if li[0] == "+":
+            li = li[1:]
             if comment == "before":
-                l = "// " + l
-        lines.append(l)
+                li = "// " + li
+        lines.append(li)
     return "\n".join(lines)
