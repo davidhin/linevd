@@ -67,9 +67,9 @@ def glove(
 def glove_dict(vectors_path, cache=True):
     """Load glove embeddings."""
     # Caching
+    savepath = svd.get_dir(svd.cache_dir() / "glove")
+    savepath /= str(svd.hashstr(str(vectors_path)))
     if cache:
-        savepath = svd.get_dir(svd.cache_dir() / "glove")
-        savepath /= str(svd.hashstr(str(vectors_path)))
         try:
             with open(savepath, "rb") as f:
                 return pkl.load(f)
