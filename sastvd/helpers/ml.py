@@ -1,14 +1,21 @@
 import torch
 import torch.nn.functional as F
-from sklearn.metrics import (average_precision_score, confusion_matrix,
-                             f1_score, precision_score, recall_score,
-                             roc_auc_score)
+from sklearn.metrics import (
+    accuracy_score,
+    average_precision_score,
+    confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 
 
 def get_metrics(true, pred, loss=-1, pr_auc=-1):
     """Get relevant metrics given true labels and logits."""
     metrics = {}
     metrics["loss"] = loss
+    metrics["acc"] = accuracy_score(true, pred)
     metrics["f1"] = f1_score(true, pred, zero_division=0)
     metrics["rec"] = recall_score(true, pred)
     metrics["prec"] = precision_score(true, pred, zero_division=0)
