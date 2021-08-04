@@ -97,3 +97,19 @@ def find_closest_embeddings(word, embeddings_dict, topn=10):
         embeddings_dict.keys(),
         key=lambda word: spatial.distance.euclidean(embeddings_dict[word], embedding),
     )[:topn]
+
+
+def get_embeddings(text: str, emb_dict: dict, emb_size: int = 100) -> np.array:
+    """Get embeddings from text, zero vectors for OoV.
+
+    Args:
+        text (str): Text as string. Should be preprocessed, tokenised by space.
+        emb_dict (dict): Dict with key = token and val = embedding.
+        emb_size (int, optional): Size of embedding. Defaults to 100.
+
+    Returns:
+        np.array: Array of embeddings, shape (seq_length, emb_size)
+    """
+    return np.array(
+        [emb_dict[i] if i in emb_dict else np.zeros(emb_size) for i in text.split()]
+    )
