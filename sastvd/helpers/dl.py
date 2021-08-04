@@ -1,5 +1,7 @@
+import torch
 import torch.nn as nn
-from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+from torch.nn.utils.rnn import (pack_padded_sequence, pad_packed_sequence,
+                                pad_sequence)
 from torch.utils.data import Dataset
 
 
@@ -95,3 +97,14 @@ class DynamicRNN(nn.Module):
         padded_output = padded_output[reverse_idx]
 
         return padded_output, last_s
+
+
+def collate_fn_pad_seq(data):
+    """Pad sequences function used as collate_fn in DataLoader."""
+    feat, labels, lengths = zip(*data)
+    feat_padded = pad_sequence(feat, batch_first=True)
+    return (
+        feat_padded,
+        torch.Tensor(labels).long(),
+        torch.Tensor(lengths).long(),
+    )
