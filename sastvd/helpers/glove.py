@@ -111,5 +111,8 @@ def get_embeddings(text: str, emb_dict: dict, emb_size: int = 100) -> np.array:
         np.array: Array of embeddings, shape (seq_length, emb_size)
     """
     return np.array(
-        [emb_dict[i] if i in emb_dict else np.zeros(emb_size) for i in text.split()]
+        [
+            emb_dict[i] if i in emb_dict else np.full(emb_size, 0.001)
+            for i in text.split()
+        ]
     )
