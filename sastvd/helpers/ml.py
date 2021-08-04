@@ -1,8 +1,17 @@
+from pathlib import Path
+
 import torch
 import torch.nn.functional as F
-from sklearn.metrics import (accuracy_score, average_precision_score,
-                             confusion_matrix, f1_score, precision_score,
-                             recall_score, roc_auc_score)
+from sklearn.metrics import (
+    accuracy_score,
+    average_precision_score,
+    confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
+from torch.utils.tensorboard import SummaryWriter
 
 
 def get_metrics(true, pred, loss=-1, pr_auc=-1):
@@ -79,3 +88,70 @@ def print_seperator(strings: list, max_len: int):
     print()
 
 
+class LogWriter:
+    """Writer class for logging PyTorch model performance."""
+
+    def __init__(self, model, path: str, max_patience: int = 100, log_every: int = 10):
+        """Init writer.
+
+        Args:
+            model: Pytorch model.
+            path (str): Path to save log files.
+        """
+        self._model = model
+        self._best_val_loss = 100
+        self._patience = 0
+        self._max_patience = max_patience
+        self._epoch = 0
+        self._step = 0
+        self._path = Path(path)
+        self._writer = SummaryWriter(path)
+        self._log_every = log_every
+
+    def log(self, train_mets, val_mets):
+        """Log information."""
+        if self._step % self._log_every != 0:
+            self.step()
+            return
+        val_loss = val_mets["loss"]
+        if val_loss < self._best_val_loss:
+            self._best_val_loss = val_loss
+            with open(self._path / "best.model", "wb") as f:
+                torch.save(self._model.state_dict(), f)
+            best_model_string = "Best model saved: %.3f" % val_loss
+            best_model_string = f"\x1b[32m{best_model_string}\x1b[39m"
+            self._patience = 0
+        else:
+            self._patience += 1
+            best_model_string = "No improvement."
+        print_seperator(
+            [
+                f"Patience: {self._patience:03d}",
+                f"Epoch: {self._epoch:03d}",
+                f"Step: {self._step:03d}",
+                best_model_string,
+            ],
+            131,
+        )
+        met_dict_to_str(train_mets, "TR = ")
+        met_dict_to_str(val_mets, "VA = ")
+        met_dict_to_writer(train_mets, self._step, self._writer, "TRN")
+        met_dict_to_writer(val_mets, self._step, self._writer, "VAL")
+        self.step()
+
+    def step(self):
+        """Increment step."""
+        self._step += 1
+
+    def epoch(self):
+        """Increment epoch."""
+        self._epoch += 1
+
+    def stop(self):
+        """Check if should stop training."""
+        return self._patience > self._max_patience
+
+    def load_best_model(self):
+        """Load best model."""
+        torch.cuda.empty_cache()
+        self._model.load_state_dict(torch.load(self._path / "best.model"))
