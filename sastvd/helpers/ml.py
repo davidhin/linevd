@@ -1,14 +1,8 @@
 import torch
 import torch.nn.functional as F
-from sklearn.metrics import (
-    accuracy_score,
-    average_precision_score,
-    confusion_matrix,
-    f1_score,
-    precision_score,
-    recall_score,
-    roc_auc_score,
-)
+from sklearn.metrics import (accuracy_score, average_precision_score,
+                             confusion_matrix, f1_score, precision_score,
+                             recall_score, roc_auc_score)
 
 
 def get_metrics(true, pred, loss=-1, pr_auc=-1):
@@ -66,16 +60,22 @@ def met_dict_to_writer(md, step, writer, prefix):
         writer.add_scalar(f"{prefix}/{k}", v, step)
 
 
-def print_seperator(patience, step, best_model_string):
-    """Print during training helper function."""
-    print(
-        "\x1b[40m"
-        + "=" * 15
-        + f" Patience {patience:03d} "
-        + "=" * 15
-        + f" Step {step:03d} "
-        + "=" * 15
-        + f"{best_model_string}\x1b[40m"
-        + "=" * 15
-        + "\x1b[0m"
-    )
+def print_seperator(strings: list, max_len: int):
+    """Print text inside a one-line string with "=" seperation to a max length.
+
+    Args:
+        strings (list): List of strings.
+        max_len (int): Max length.
+    """
+    midpoints = int(max_len / len(strings))
+    strings = [str(i) for i in strings]
+    for s in strings:
+        len_s = len(s.replace("\x1b[32m", "").replace("\x1b[39m", ""))
+        print("\x1b[40m", end="")
+        print("=" * (int((midpoints / 2) - int(len_s / 2)) - 1), end="")
+        print(f" {s} ", end="")
+        print("=" * (int((midpoints / 2) - int(len_s / 2)) - 1), end="")
+        print("\x1b[0m", end="")
+    print()
+
+
