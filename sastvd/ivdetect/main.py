@@ -20,7 +20,7 @@ def feature_extraction(filepath):
     pd.options.display.max_colwidth = 500
     print(subseq.to_markdown(mode="github", index=0))
     print(nametypes.to_markdown(mode="github", index=0))
-    print(undir_edgesline.to_markdown(mode="github", index=0))
+    print(uedge.to_markdown(mode="github", index=0))
 
     4/5 COMPARISON:
     Theirs: 31, 22, 13, 10, 6, 29, 25, 23
@@ -43,10 +43,12 @@ def feature_extraction(filepath):
     subseq.lineNumber = subseq.lineNumber.astype(int)
     subseq = subseq.sort_values("lineNumber")
     subseq.code = subseq.code.apply(svdt.tokenise)
+    subseq = subseq.set_index("lineNumber").to_dict()["code"]
 
     # 2. Line to AST
-    ast_edges = svdj.rdg(edges, "ast")[["innode", "outnode", "etype"]]
-    ast_nodes = svdj.drop_lone_nodes(nodes, ast_edges)[["id", "_label", "code"]]
+    ast_edges = svdj.rdg(edges, "ast")
+    ast_nodes = svdj.drop_lone_nodes(nodes, ast_edges)
+    ast_edges = ast_edges[ast_edges.line_out == ast_edges.line_in]
     ast = {"nodes": ast_nodes, "edges": ast_edges}
 
     # 3. Variable names and types
@@ -63,6 +65,11 @@ def feature_extraction(filepath):
             varnametypes += [[idrow.lineNumber, var_type, idrow.name]]
     nametypes = pd.DataFrame(varnametypes, columns=["lineNumber", "type", "name"])
     nametypes = nametypes.drop_duplicates().sort_values("lineNumber")
+    nametypes.type = nametypes.type.apply(svdt.tokenise)
+    nametypes.name = nametypes.name.apply(svdt.tokenise)
+    nametypes["nametype"] = nametypes.type + " " + nametypes.name
+    nametypes = nametypes.groupby("lineNumber").agg({"nametype": lambda x: " ".join(x)})
+    nametypes = nametypes.to_dict()["nametype"]
 
     # 4/5. Data dependency / Control dependency context
     # Group nodes into statements
@@ -85,12 +92,22 @@ def feature_extraction(filepath):
     )
     edgesline_reverse = edgesline[["innode", "outnode", "etype"]].copy()
     edgesline_reverse.columns = ["outnode", "innode", "etype"]
-    undir_edgesline = pd.concat([edgesline, edgesline_reverse])
-    undir_edgesline = undir_edgesline[undir_edgesline.innode != undir_edgesline.outnode]
-    undir_edgesline = undir_edgesline.groupby(["innode", "etype"]).agg({"outnode": set})
-    undir_edgesline = undir_edgesline.reset_index()
-    undir_edgesline = undir_edgesline.pivot("innode", "etype", "outnode")
-    undir_edgesline = undir_edgesline.reset_index()[["innode", "CDG", "DDG"]]
-    undir_edgesline.columns = ["lineNumber", "control", "data"]
+    uedge = pd.concat([edgesline, edgesline_reverse])
+    uedge = uedge[uedge.innode != uedge.outnode]
+    uedge = uedge.groupby(["innode", "etype"]).agg({"outnode": set})
+    uedge = uedge.reset_index()
+    uedge = uedge.pivot("innode", "etype", "outnode")
+    uedge = uedge.reset_index()[["innode", "CDG", "DDG"]]
+    uedge.columns = ["lineNumber", "control", "data"]
+    uedge.control = uedge.control.apply(lambda x: list(x) if isinstance(x, set) else [])
+    uedge.data = uedge.data.apply(lambda x: list(x) if isinstance(x, set) else [])
+    uedge["cddict"] = uedge.apply(lambda x: {"d": x.data, "c": x.control}, axis=1)
+    ucedges = uedge.set_index("lineNumber").to_dict()["cddict"]
 
-    return subseq, ast, nametypes, undir_edgesline
+    # Generate PDG
+    pdg_nodes = nodesline.copy()
+    pdg_nodes.node_label = pdg_nodes.id.astype(int)
+    pdg_edges = edgesline.copy()
+    pdg = {"nodes": pdg_nodes, "edges": pdg_edges}
+
+    return subseq, ast, nametypes, ucedges, pdg
