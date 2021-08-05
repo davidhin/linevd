@@ -1,3 +1,5 @@
+from fnmatch import fnmatch
+
 import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pad_sequence
@@ -20,7 +22,11 @@ class BatchDict:
     def cuda(self, exclude: list = []):
         """Move relevant attributes to device."""
         for i in self.__dict__:
-            if i in exclude:
+            skip = False
+            for j in exclude:
+                if fnmatch(i, j):
+                    skip = True
+            if skip:
                 continue
             if hasattr(self, i):
                 if isinstance(getattr(self, i), torch.Tensor):
