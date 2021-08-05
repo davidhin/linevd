@@ -130,11 +130,13 @@ class DynamicRNN(nn.Module):
 
 
 def collate_fn_pad_seq(data):
-    """Pad sequences function used as collate_fn in DataLoader."""
+    """Pad sequences function used as collate_fn in DataLoader. Return as dict."""
     feat, labels, lengths = zip(*data)
     feat_padded = pad_sequence(feat, batch_first=True)
-    return (
-        feat_padded,
-        torch.Tensor(labels).long(),
-        torch.Tensor(lengths).long(),
+    return BatchDict(
+        {
+            "feat": feat_padded,
+            "labels": torch.Tensor(labels).long(),
+            "lens": torch.Tensor(lengths).long(),
+        }
     )
