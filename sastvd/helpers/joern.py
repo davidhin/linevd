@@ -18,7 +18,10 @@ def nodelabel2line(label: str):
     nodelabel2line(s)
     >>> '1.0'
     """
-    return label.split(":")[0].split("_")[-1]
+    try:
+        return str(int(label))
+    except:
+        return label.split(":")[0].split("_")[-1]
 
 
 def randcolor():
@@ -42,7 +45,7 @@ def get_digraph(nodes, edges):
 
     for n in nodes:
         style = {"style": "filled", "fillcolor": colormap[n[2]]}
-        dot.node(str(n[0]), n[1], **style)
+        dot.node(str(n[0]), str(n[1]), **style)
     for e in edges:
         style = {"color": "black"}
         if e[2] == "CALL":
