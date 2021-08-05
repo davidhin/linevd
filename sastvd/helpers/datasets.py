@@ -107,6 +107,16 @@ def bigvul(minimal=True):
     df["diff"] = df.progress_apply(svdg.allfunc, comment="diff", axis=1)
     df["before"] = df.progress_apply(svdg.allfunc, comment="before", axis=1)
     df["after"] = df.progress_apply(svdg.allfunc, comment="after", axis=1)
-    keepcols = ["dataset", "id", "label", "removed", "added", "diff", "before", "after"]
+    keepcols = [
+        "dataset",
+        "id",
+        "label",
+        "removed",
+        "added",
+        "diff",
+        "before",
+        "after",
+        "vul",
+    ]
     df[keepcols].to_parquet(savedir / "minimal_bigvul.pq", index=0, compression="gzip")
     return df
