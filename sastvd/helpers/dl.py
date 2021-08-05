@@ -17,11 +17,11 @@ class BatchDict:
             setattr(self, k, v)
         self._device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    def cuda(self, *attrs):
+    def cuda(self, exclude: list = []):
         """Move relevant attributes to device."""
-        if len(attrs) == 0:
-            attrs = self.__dict__
-        for i in attrs:
+        for i in self.__dict__:
+            if i in exclude:
+                continue
             if hasattr(self, i):
                 if isinstance(getattr(self, i), torch.Tensor):
                     setattr(self, i, getattr(self, i).to(self._device))
@@ -135,8 +135,11 @@ def collate_fn_pad_seq(data):
     feat_padded = pad_sequence(feat, batch_first=True)
     return BatchDict(
         {
-            "feat": feat_padded,
+            "subseq": feat_padded,
+            "nametype": feat_padded,
+            "data": torch.stack([feat_padded, feat_padded * 2, feat_padded * 4]),
+            "control": torch.stack([feat_padded, feat_padded * 1.5])[:, :, :-10, :],
             "labels": torch.Tensor(labels).long(),
-            "lens": torch.Tensor(lengths).long(),
+            "subseq_lens": torch.Tensor(lengths).long(),
         }
     )
