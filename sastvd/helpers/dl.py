@@ -1,8 +1,38 @@
 import torch
 import torch.nn as nn
-from torch.nn.utils.rnn import (pack_padded_sequence, pad_packed_sequence,
-                                pad_sequence)
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pad_sequence
 from torch.utils.data import Dataset
+
+
+class BatchDict:
+    """Wrapper class for dicts with helper function to move attrs to torch device.
+
+    Example:
+    bd = BatchDict({"feat": torch.Tensor([1, 2, 3]), "labels": [1, 2, 3]})
+    """
+
+    def __init__(self, batch: dict):
+        """Set dict as class instance attributes."""
+        for k, v in batch.items():
+            setattr(self, k, v)
+        self._device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    def cuda(self, *attrs):
+        """Move relevant attributes to device."""
+        if len(attrs) == 0:
+            attrs = self.__dict__
+        for i in attrs:
+            if hasattr(self, i):
+                if isinstance(getattr(self, i), torch.Tensor):
+                    setattr(self, i, getattr(self, i).to(self._device))
+
+    def __repr__(self):
+        """Override representation method."""
+        return str(self.__dict__)
+
+    def __getitem__(self, key):
+        """Implement subscriptable."""
+        return getattr(self, key)
 
 
 class CustomDataset(Dataset):
