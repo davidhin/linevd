@@ -20,16 +20,20 @@ def get_metrics(true, pred, loss=-1, pr_auc=-1):
     metrics["loss"] = loss
     metrics["acc"] = accuracy_score(true, pred)
     metrics["f1"] = f1_score(true, pred, zero_division=0)
-    metrics["rec"] = recall_score(true, pred)
+    metrics["rec"] = recall_score(true, pred, zero_division=0)
     metrics["prec"] = precision_score(true, pred, zero_division=0)
     try:
         metrics["roc_auc"] = roc_auc_score(true, pred)
     except:
         metrics["roc_auc"] = 0
     metrics["pr_auc"] = pr_auc
-    tn, fp, fn, tp = confusion_matrix(true, pred).ravel()
-    metrics["fpr"] = fp / (fp + tn)
-    metrics["fnr"] = fn / (fn + tp)
+    try:
+        tn, fp, fn, tp = confusion_matrix(true, pred).ravel()
+        metrics["fpr"] = fp / (fp + tn)
+        metrics["fnr"] = fn / (fn + tp)
+    except:
+        metrics["fpr"] = -1
+        metrics["fnr"] = -1
     return metrics
 
 
