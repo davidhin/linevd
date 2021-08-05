@@ -59,7 +59,7 @@ def met_dict_to_str(md, prefix="", verbose=1):
         else:
             ret_str += k + ": " + "%.3f" % v + " | "
     if verbose > 0:
-        print(ret_str)
+        print("\x1b[40m\x1b[37m" + ret_str[:-1] + "\x1b[0m")
     return ret_str
 
 
