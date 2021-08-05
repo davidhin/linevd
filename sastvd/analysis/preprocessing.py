@@ -7,12 +7,12 @@ import sastvd as svd
 import sastvd.helpers.datasets as svdd
 import sastvd.helpers.joern as svdj
 import sastvd.helpers.sast as sast
-from tqdm import tqdm
+from pandarallel import pandarallel
 
-tqdm.pandas()
+pandarallel.initialize()
 
 # SETUP
-NUM_JOBS = 1000
+NUM_JOBS = 1
 JOB_ARRAY_NUMBER = 0 if "ipykernel" in sys.argv[0] else int(sys.argv[1]) - 1
 
 # Read Data
@@ -32,6 +32,13 @@ def preprocess(row):
     savedir_before = svd.get_dir(svd.processed_dir() / row["dataset"] / "before")
     savedir_after = svd.get_dir(svd.processed_dir() / row["dataset"] / "after")
 
+    # Print local progress
+    sys.stderr.write(
+        "\rCompleted: {0} / {1} | Percentage: {2:%}".format(
+            row["id"], 188636, row["id"] / 188636
+        )
+    )
+
     # Write C Files
     fpath1 = savedir_before / f"{row['id']}.c"
     with open(fpath1, "w") as f:
@@ -42,16 +49,12 @@ def preprocess(row):
             f.write(row["after"])
 
     # Run Joern on "before" code
-    if not os.path.exists(f"{fpath1}.graph.pkl"):
-        joern_before = svdj.full_run_joern(fpath1)
-        with open(f"{fpath1}.graph.pkl", "wb") as f:
-            pkl.dump(joern_before, f)
+    if not os.path.exists(f"{fpath1}.nodes.json"):
+        svdj.full_run_joern(fpath1)
 
     # Run Joern on "after" code
-    if not os.path.exists(f"{fpath2}.graph.pkl") and len(row["diff"]) > 0:
-        joern_after = svdj.full_run_joern(fpath2)
-        with open(f"{fpath2}.graph.pkl", "wb") as f:
-            pkl.dump(joern_after, f)
+    if not os.path.exists(f"{fpath2}.nodes.json") and len(row["diff"]) > 0:
+        svdj.full_run_joern(fpath2)
 
     # Run SAST extraction
     fpath3 = savedir_before / f"{row['id']}.c.sast.pkl"
@@ -61,4 +64,4 @@ def preprocess(row):
             pkl.dump(sast_before, f)
 
 
-splits[JOB_ARRAY_NUMBER].progress_apply(preprocess, axis=1)
+splits[JOB_ARRAY_NUMBER].parallel_apply(preprocess, axis=1)
