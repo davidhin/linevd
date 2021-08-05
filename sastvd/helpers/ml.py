@@ -78,14 +78,18 @@ def print_seperator(strings: list, max_len: int):
     """
     midpoints = int(max_len / len(strings))
     strings = [str(i) for i in strings]
+    final_str = ""
+    cutoff = max_len + (9 * len(strings))
     for s in strings:
+        if "\x1b" in s:
+            cutoff += 9
         len_s = len(s.replace("\x1b[32m", "").replace("\x1b[39m", ""))
-        print("\x1b[40m", end="")
-        print("=" * (int((midpoints / 2) - int(len_s / 2)) - 1), end="")
-        print(f" {s} ", end="")
-        print("=" * (int((midpoints / 2) - int(len_s / 2)) - 1), end="")
-        print("\x1b[0m", end="")
-    print()
+        final_str += "\x1b[40m"
+        final_str += "=" * (int((midpoints / 2) - int(len_s / 2)) - 1)
+        final_str += f" {s} "
+        final_str += "=" * (int((midpoints / 2) - int(len_s / 2)) - 1)
+        final_str += "\x1b[0m"
+    print(final_str[:cutoff])
 
 
 class LogWriter:
@@ -138,6 +142,11 @@ class LogWriter:
         met_dict_to_writer(train_mets, self._step, self._writer, "TRN")
         met_dict_to_writer(val_mets, self._step, self._writer, "VAL")
         self.step()
+
+    def test(self, test_mets):
+        """Helper function to write test mets."""
+        print_seperator(["\x1b[36mTest Set\x1b[39m"], 135)
+        met_dict_to_str(test_mets, "TS = ")
 
     def step(self):
         """Increment step."""
