@@ -1,8 +1,11 @@
 """Implementation of IVDetect."""
 
 
+import pickle as pkl
+
 import networkx as nx
 import pandas as pd
+import sastvd as svd
 import sastvd.helpers.glove as svdg
 import sastvd.helpers.joern as svdj
 import sastvd.helpers.tokenise as svdt
@@ -13,7 +16,7 @@ def feature_extraction(filepath):
 
     DEBUGGING:
     filepath = "/home/david/Documents/projects/singularity-sastvd/storage/processed/bigvul/before/180189.c"
-    filepath = "/home/david/Documents/projects/singularity-sastvd/storage/processed/bigvul/before/4.c"
+    filepath = "/home/david/Documents/projects/singularity-sastvd/storage/processed/bigvul/before/178165.c"
 
     PRINTING:
     svdj.plot_graph_node_edge_df(nodes, svdj.rdg(edges, "ast"), [24], 0)
@@ -28,6 +31,14 @@ def feature_extraction(filepath):
     Ours  : 40, 30, 19, 14, 7, 38, 33, 31
     Pred  : 40,   , 19, 14, 7, 38, 33, 31
     """
+    fphash = str(svd.hashstr(str(filepath)))
+    cachefp = svd.get_dir(svd.cache_dir() / "ivdetect_feat_ext") / fphash
+    try:
+        with open(cachefp, "rb") as f:
+            return pkl.load(f)
+    except:
+        pass
+
     try:
         nodes, edges = svdj.get_node_edges(filepath)
     except:
@@ -90,8 +101,10 @@ def feature_extraction(filepath):
 
     # 4/5. Data dependency / Control dependency context
     # Group nodes into statements
+    nodesline = nodes[nodes.lineNumber != ""].copy()
+    nodesline.lineNumber = nodesline.lineNumber.astype(int)
     nodesline = (
-        nodes.sort_values(by="code", key=lambda x: x.str.len(), ascending=False)
+        nodesline.sort_values(by="code", key=lambda x: x.str.len(), ascending=False)
         .groupby("lineNumber")
         .head(1)
     )
@@ -144,8 +157,12 @@ def feature_extraction(filepath):
     pdg_dict = pd.Series(pdg_nodes.index.values, index=pdg_nodes.id).to_dict()
     pdg_edges.innode = pdg_edges.innode.map(pdg_dict)
     pdg_edges.outnode = pdg_edges.outnode.map(pdg_dict)
+    pdg_edges = pdg_edges.dropna()
     pdg_edges = (pdg_edges.outnode.tolist(), pdg_edges.innode.tolist())
 
+    # Cache
+    with open(cachefp, "wb") as f:
+        pkl.dump([pdg_nodes, pdg_edges], f)
     return pdg_nodes, pdg_edges
 
 
