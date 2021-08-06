@@ -143,6 +143,6 @@ def feature_extraction(filepath):
     pdg_dict = pd.Series(pdg_nodes.index.values, index=pdg_nodes.id).to_dict()
     pdg_edges.innode = pdg_edges.innode.map(pdg_dict)
     pdg_edges.outnode = pdg_edges.outnode.map(pdg_dict)
-    pdg_edges = [pdg_edges.outnode.tolist(), pdg_edges.innode.tolist()]
+    pdg_edges = (pdg_edges.outnode.tolist(), pdg_edges.innode.tolist())
 
     return pdg_nodes, pdg_edges
