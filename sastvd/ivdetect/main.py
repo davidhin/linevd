@@ -9,7 +9,7 @@ import sastvd as svd
 import sastvd.helpers.glove as svdg
 import sastvd.helpers.joern as svdj
 import sastvd.helpers.tokenise as svdt
-
+from tqdm import tqdm
 
 def feature_extraction(filepath):
     """Extract relevant components of IVDetect Code Representation.
@@ -183,13 +183,13 @@ class BigVulGraphDataset(DGLDataset):
         super().__init__(name="BigVul")
 
     def process(self):
-        finished = [
+        self.finished = [
             int(Path(i).name.split(".")[0])
             for i in glob(str(svd.processed_dir() / "bigvul/before/*nodes*"))
         ]
 
         df = svdd.bigvul()
-        df = df[df.id.isin(finished)]
+        df = df[df.id.isin(self.finished)]
         df.groupby("vul").count()
 
         self.df = df
@@ -201,19 +201,31 @@ class BigVulGraphDataset(DGLDataset):
         removed = df.removed.item()
         return dict([(i, 1) for i in removed])
 
-    def __getitem__(self, i):
-        n, e = feature_extraction(svd.processed_dir() / f"bigvul/before/{i}.c")
-        n["vuln"] = n.id.map(self.get_vuln_indices(i)).fillna(0)
-        g = dgl.graph(e)
-        g.ndata["_LINE"] = torch.Tensor(n["id"].astype(int).to_numpy())
-        g.ndata["_VULN"] = torch.Tensor(n["vuln"].astype(int).to_numpy())
-        g.ndata["_SAMPLE"] = torch.Tensor([i] * len(n))
+    def cache_features(self):
+        for i in tqdm(self.finished):
+            self[i]
 
-        return g
+    def __getitem__(self, i):
+        out = feature_extraction(svd.processed_dir() / f"bigvul/before/{i}.c")
+        if not out:
+            return None
+        n, e = out
+        # n.subseq = n.subseq.apply(lambda x: svdg.get_embeddings(x, self.emb_dict))
+        # n.nametypes = n.nametypes.apply(lambda x: svdg.get_embeddings(x, self.emb_dict))
+        # n["vuln"] = n.id.map(self.get_vuln_indices(i)).fillna(0)
+        # g = dgl.graph(e)
+        # g.ndata["_LINE"] = torch.Tensor(n["id"].astype(int).to_numpy())
+        # g.ndata["_VULN"] = torch.Tensor(n["vuln"].astype(int).to_numpy())
+        # g.ndata["_SAMPLE"] = torch.Tensor([i] * len(n))
+
+        return n
 
     def __len__(self):
         return 1
 
 
 dataset = BigVulGraphDataset()
-dataset[180189].ndata["_SAMPLE"]
+
+%timeit dataset[1]
+
+dataset.cache_features()
