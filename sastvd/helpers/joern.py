@@ -86,7 +86,10 @@ def run_joern(filepath: str):
 
 
 def get_node_edges(filepath: str):
-    """Get node and edges given filepath (must run after run_joern)."""
+    """Get node and edges given filepath (must run after run_joern).
+
+    filepath = "/home/david/Documents/projects/singularity-sastvd/storage/processed/bigvul/before/53.c"
+    """
     outdir = Path(filepath).parent
     outfile = outdir / Path(filepath).name
 
@@ -101,9 +104,13 @@ def get_node_edges(filepath: str):
         if "controlStructureType" not in nodes.columns:
             nodes["controlStructureType"] = ""
         nodes = nodes.fillna("")
-        nodes = nodes[
-            ["id", "_label", "name", "code", "lineNumber", "controlStructureType"]
-        ]
+        try:
+            nodes = nodes[
+                ["id", "_label", "name", "code", "lineNumber", "controlStructureType"]
+            ]
+        except Exception as E:
+            svd.debug(f"Failed {filepath}: {E}")
+            return None
 
     # Assign line number to local variables
     with open(filepath, "r") as f:
