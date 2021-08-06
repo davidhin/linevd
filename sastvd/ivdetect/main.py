@@ -27,7 +27,10 @@ def feature_extraction(filepath):
     Ours  : 40, 30, 19, 14, 7, 38, 33, 31
     Pred  : 40,   , 19, 14, 7, 38, 33, 31
     """
-    nodes, edges = svdj.get_node_edges(filepath)
+    try:
+        nodes, edges = svdj.get_node_edges(filepath)
+    except:
+        return None
 
     # 1. Generate tokenised subtoken sequences
     subseq = (
@@ -96,13 +99,20 @@ def feature_extraction(filepath):
     uedge = uedge[uedge.innode != uedge.outnode]
     uedge = uedge.groupby(["innode", "etype"]).agg({"outnode": set})
     uedge = uedge.reset_index()
-    uedge = uedge.pivot("innode", "etype", "outnode")
-    uedge = uedge.reset_index()[["innode", "CDG", "DDG"]]
-    uedge.columns = ["lineNumber", "control", "data"]
-    uedge.control = uedge.control.apply(lambda x: list(x) if isinstance(x, set) else [])
-    uedge.data = uedge.data.apply(lambda x: list(x) if isinstance(x, set) else [])
-    uedge["cddict"] = uedge.apply(lambda x: {"d": x.data, "c": x.control}, axis=1)
-    ucedges = uedge.set_index("lineNumber").to_dict()["cddict"]
+    if len(uedge) > 0:
+        uedge = uedge.pivot("innode", "etype", "outnode")
+        if "DDG" not in uedge.columns:
+            uedge["DDG"] = None
+        if "CDG" not in uedge.columns:
+            uedge["CDG"] = None
+        uedge = uedge.reset_index()[["innode", "CDG", "DDG"]]
+        uedge.columns = ["lineNumber", "control", "data"]
+        uedge.control = uedge.control.apply(lambda x: list(x) if isinstance(x, set) else [])
+        uedge.data = uedge.data.apply(lambda x: list(x) if isinstance(x, set) else [])
+        uedge["cddict"] = uedge.apply(lambda x: {"d": x.data, "c": x.control}, axis=1)
+        ucedges = uedge.set_index("lineNumber").to_dict()["cddict"]
+    else:
+        ucedges = {}
 
     # Generate PDG
     pdg_nodes = nodesline.copy()
