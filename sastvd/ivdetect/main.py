@@ -3,6 +3,7 @@
 
 import networkx as nx
 import pandas as pd
+import sastvd.helpers.glove as svdg
 import sastvd.helpers.joern as svdj
 import sastvd.helpers.tokenise as svdt
 
@@ -146,3 +147,56 @@ def feature_extraction(filepath):
     pdg_edges = (pdg_edges.outnode.tolist(), pdg_edges.innode.tolist())
 
     return pdg_nodes, pdg_edges
+
+
+#### WORK IN PROGRESS
+from glob import glob
+from pathlib import Path
+
+import dgl
+import sastvd as svd
+import sastvd.helpers.datasets as svdd
+import torch
+from dgl.data import DGLDataset
+from tqdm import tqdm
+
+
+class BigVulGraphDataset(DGLDataset):
+    def __init__(self):
+        super().__init__(name="BigVul")
+
+    def process(self):
+        finished = [
+            int(Path(i).name.split(".")[0])
+            for i in glob(str(svd.processed_dir() / "bigvul/before/*nodes*"))
+        ]
+
+        df = svdd.bigvul()
+        df = df[df.id.isin(finished)]
+        df.groupby("vul").count()
+
+        self.df = df
+        glove_path = svd.processed_dir() / "bigvul/glove/vectors.txt"
+        self.emb_dict = svdg.glove_dict(glove_path)
+
+    def get_vuln_indices(self, i):
+        df = self.df[self.df.id == i]
+        removed = df.removed.item()
+        return dict([(i, 1) for i in removed])
+
+    def __getitem__(self, i):
+        n, e = feature_extraction(svd.processed_dir() / f"bigvul/before/{i}.c")
+        n["vuln"] = n.id.map(self.get_vuln_indices(i)).fillna(0)
+        g = dgl.graph(e)
+        g.ndata["_LINE"] = torch.Tensor(n["id"].astype(int).to_numpy())
+        g.ndata["_VULN"] = torch.Tensor(n["vuln"].astype(int).to_numpy())
+        g.ndata["_SAMPLE"] = torch.Tensor([i] * len(n))
+
+        return g
+
+    def __len__(self):
+        return 1
+
+
+dataset = BigVulGraphDataset()
+dataset[180189].ndata["_SAMPLE"]
