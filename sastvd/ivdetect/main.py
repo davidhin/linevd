@@ -198,7 +198,7 @@ class BigVulGraphDataset(DGLDataset):
         self.df = self.df[self.df.id.isin(self.finished)]
 
         # Filter out samples with no lineNumber from Joern output
-        self.df["valid"] = self.df.id.progress_apply(self.check_validity)
+        self.df["valid"] = self.df.id.parallel_apply(BigVulGraphDataset.check_validity)
         self.df = self.df[self.df.valid]
 
         # Get mapping from index to sample ID.
@@ -210,27 +210,36 @@ class BigVulGraphDataset(DGLDataset):
         glove_path = svd.processed_dir() / "bigvul/glove/vectors.txt"
         self.emb_dict = svdg.glove_dict(glove_path)
 
-    def itempath(self, _id):
+    def itempath(_id):
         """Get itempath path from item id."""
         return svd.processed_dir() / f"bigvul/before/{_id}.c"
 
-    def check_validity(self, _id):
+    def check_validity(_id):
         """Check whether sample with id=_id has node/edges.
 
         Example:
-        _id = 190
+        _id = 1320
         with open(str(svd.processed_dir() / f"bigvul/before/{_id}.c") + ".nodes.json", "r") as f:
             nodes = json.load(f)
         """
-        with open(str(self.itempath(_id)) + ".nodes.json", "r") as f:
+        valid = 0
+        with open(str(BigVulGraphDataset.itempath(_id)) + ".nodes.json", "r") as f:
             nodes = json.load(f)
             lineNums = set()
             for n in nodes:
                 if "lineNumber" in n.keys():
                     lineNums.add(n["lineNumber"])
                     if len(lineNums) > 1:
-                        return True
-            return False
+                        valid = 1
+                        break
+            if valid == 0:
+                return False
+        with open(str(BigVulGraphDataset.itempath(_id)) + ".edges.json", "r") as f:
+            edges = json.load(f)
+            edge_set = set([i[2] for i in edges])
+            if "REACHING_DEF" not in edge_set and "CDG" not in edge_set:
+                return False
+            return True
 
     def get_vuln_indices(self, _id):
         """Obtain vulnerable lines from sample ID."""
