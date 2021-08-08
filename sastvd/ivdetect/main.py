@@ -215,12 +215,21 @@ class BigVulGraphDataset(DGLDataset):
         return svd.processed_dir() / f"bigvul/before/{_id}.c"
 
     def check_validity(self, _id):
-        """Check whether sample with id=_id has node/edges."""
+        """Check whether sample with id=_id has node/edges.
+
+        Example:
+        _id = 190
+        with open(str(svd.processed_dir() / f"bigvul/before/{_id}.c") + ".nodes.json", "r") as f:
+            nodes = json.load(f)
+        """
         with open(str(self.itempath(_id)) + ".nodes.json", "r") as f:
             nodes = json.load(f)
+            lineNums = set()
             for n in nodes:
                 if "lineNumber" in n.keys():
-                    return True
+                    lineNums.add(n["lineNumber"])
+                    if len(lineNums) > 1:
+                        return True
             return False
 
     def get_vuln_indices(self, _id):
