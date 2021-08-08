@@ -195,14 +195,14 @@ class BigVulGraphDataset(DGLDataset):
         self.df = svdd.bigvul()
         self.df = self.df[self.df.id.isin(self.finished)]
 
+        # Filter out samples with no lineNumber from Joern output
+        self.df["valid"] = self.df.id.progress_apply(self.check_validity)
+        self.df = self.df[self.df.valid]
+
         # Get mapping from index to sample ID.
         self.df = self.df.reset_index(drop=True).reset_index()
         self.df = self.df.rename(columns={"index": "idx"})
         self.idx2id = pd.Series(self.df.id.values, index=self.df.idx).to_dict()
-
-        # Filter out samples with no lineNumber from Joern output
-        self.df["valid"] = self.df.id.progress_apply(self.check_validity)
-        self.df = self.df[self.df.valid]
 
         # Load Glove vectors.
         glove_path = svd.processed_dir() / "bigvul/glove/vectors.txt"
@@ -229,7 +229,7 @@ class BigVulGraphDataset(DGLDataset):
 
     def cache_features(self):
         """Save features to disk as cache."""
-        for i in tqdm(self.finished):
+        for i in tqdm(range(len(self))):
             self[i]
 
     def __getitem__(self, idx):
