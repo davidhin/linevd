@@ -198,7 +198,9 @@ class BigVulGraphDataset(DGLDataset):
         self.df = self.df[self.df.id.isin(self.finished)]
 
         # Filter out samples with no lineNumber from Joern output
+        print("Checking validity...", end="")
         self.df["valid"] = self.df.id.parallel_apply(BigVulGraphDataset.check_validity)
+        print("Finished.")
         self.df = self.df[self.df.valid]
 
         # Get mapping from index to sample ID.
@@ -249,13 +251,16 @@ class BigVulGraphDataset(DGLDataset):
 
     def cache_features(self):
         """Save features to disk as cache."""
+        itempath = BigVulGraphDataset.itempath
+        self.df.id.parallel_apply(lambda x: feature_extraction(itempath(x)))
+
         for i in tqdm(range(len(self))):
             self[i]
 
     def __getitem__(self, idx):
         """Override getitem."""
         _id = self.idx2id[idx]
-        n, e = feature_extraction(self.itempath(_id))
+        n, e = feature_extraction(BigVulGraphDataset.itempath(_id))
         n.subseq = n.subseq.apply(lambda x: svdg.get_embeddings(x, self.emb_dict))
         n.nametypes = n.nametypes.apply(lambda x: svdg.get_embeddings(x, self.emb_dict))
         n["vuln"] = n.id.map(self.get_vuln_indices(_id)).fillna(0)
@@ -268,6 +273,10 @@ class BigVulGraphDataset(DGLDataset):
     def __len__(self):
         """Get length of dataset."""
         return len(self.df)
+
+    def stats(self):
+        """Print dataset stats."""
+        print(self.df.groupby(["label", "vul"]).count()[["id"]])
 
 
 dataset = BigVulGraphDataset()
