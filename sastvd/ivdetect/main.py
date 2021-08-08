@@ -121,6 +121,8 @@ def feature_extraction(filepath):
     edgesline["etype"] = edgesline.apply(
         lambda x: "DDG" if x.etype == "REACHING_DEF" else x.etype, axis=1
     )
+    edgesline = edgesline[edgesline.innode.apply(lambda x: isinstance(x, float))]
+    edgesline = edgesline[edgesline.outnode.apply(lambda x: isinstance(x, float))]
     edgesline_reverse = edgesline[["innode", "outnode", "etype"]].copy()
     edgesline_reverse.columns = ["outnode", "innode", "etype"]
     uedge = pd.concat([edgesline, edgesline_reverse])
