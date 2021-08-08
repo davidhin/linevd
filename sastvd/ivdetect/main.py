@@ -187,22 +187,43 @@ class BigVulGraphDataset(DGLDataset):
 
     def process(self):
         """Inherited function from DGLDataset."""
+        # Get finished samples
         self.finished = [
             int(Path(i).name.split(".")[0])
             for i in glob(str(svd.processed_dir() / "bigvul/before/*nodes*"))
         ]
+        self.df = svdd.bigvul()
+        self.df = self.df[self.df.id.isin(self.finished)]
 
-        df = svdd.bigvul()
-        df = df[df.id.isin(self.finished)]
-        df.groupby("vul").count()
+        # Get mapping from index to sample ID.
+        self.df = self.df.reset_index(drop=True).reset_index()
+        self.df = self.df.rename(columns={"index": "idx"})
+        self.idx2id = pd.Series(self.df.id.values, index=self.df.idx).to_dict()
 
-        self.df = df
+        # Filter out samples with no lineNumber from Joern output
+        self.df["valid"] = self.df.id.progress_apply(self.check_validity)
+        self.df = self.df[self.df.valid]
+
+        # Load Glove vectors.
         glove_path = svd.processed_dir() / "bigvul/glove/vectors.txt"
         self.emb_dict = svdg.glove_dict(glove_path)
 
-    def get_vuln_indices(self, i):
+    def itempath(self, _id):
+        """Get itempath path from item id."""
+        return svd.processed_dir() / f"bigvul/before/{_id}.c"
+
+    def check_validity(self, _id):
+        """Check whether sample with id=_id has node/edges."""
+        with open(str(self.itempath(_id)) + ".nodes.json", "r") as f:
+            nodes = json.load(f)
+            for n in nodes:
+                if "lineNumber" in n.keys():
+                    return True
+            return False
+
+    def get_vuln_indices(self, _id):
         """Obtain vulnerable lines from sample ID."""
-        df = self.df[self.df.id == i]
+        df = self.df[self.df.id == _id]
         removed = df.removed.item()
         return dict([(i, 1) for i in removed])
 
@@ -211,25 +232,22 @@ class BigVulGraphDataset(DGLDataset):
         for i in tqdm(self.finished):
             self[i]
 
-    def __getitem__(self, i):
+    def __getitem__(self, idx):
         """Override getitem."""
-        out = feature_extraction(svd.processed_dir() / f"bigvul/before/{i}.c")
-        if not out:
-            return None
-        n, e = out
-        # n.subseq = n.subseq.apply(lambda x: svdg.get_embeddings(x, self.emb_dict))
-        # n.nametypes = n.nametypes.apply(lambda x: svdg.get_embeddings(x, self.emb_dict))
-        # n["vuln"] = n.id.map(self.get_vuln_indices(i)).fillna(0)
-        # g = dgl.graph(e)
-        # g.ndata["_LINE"] = torch.Tensor(n["id"].astype(int).to_numpy())
-        # g.ndata["_VULN"] = torch.Tensor(n["vuln"].astype(int).to_numpy())
-        # g.ndata["_SAMPLE"] = torch.Tensor([i] * len(n))
-
-        return n
+        _id = self.idx2id[idx]
+        n, e = feature_extraction(self.itempath(_id))
+        n.subseq = n.subseq.apply(lambda x: svdg.get_embeddings(x, self.emb_dict))
+        n.nametypes = n.nametypes.apply(lambda x: svdg.get_embeddings(x, self.emb_dict))
+        n["vuln"] = n.id.map(self.get_vuln_indices(_id)).fillna(0)
+        g = dgl.graph(e)
+        g.ndata["_LINE"] = torch.Tensor(n["id"].astype(int).to_numpy())
+        g.ndata["_VULN"] = torch.Tensor(n["vuln"].astype(int).to_numpy())
+        g.ndata["_SAMPLE"] = torch.Tensor([_id] * len(n))
+        return g
 
     def __len__(self):
         """Get length of dataset."""
-        return 1
+        return len(self.df)
 
 
 dataset = BigVulGraphDataset()
