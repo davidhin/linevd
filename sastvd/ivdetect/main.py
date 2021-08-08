@@ -11,6 +11,7 @@ import sastvd.helpers.joern as svdj
 import sastvd.helpers.tokenise as svdt
 from tqdm import tqdm
 
+
 def feature_extraction(filepath):
     """Extract relevant components of IVDetect Code Representation.
 
@@ -166,7 +167,7 @@ def feature_extraction(filepath):
     return pdg_nodes, pdg_edges
 
 
-#### WORK IN PROGRESS
+# WORK IN PROGRESS
 from glob import glob
 from pathlib import Path
 
@@ -175,14 +176,17 @@ import sastvd as svd
 import sastvd.helpers.datasets as svdd
 import torch
 from dgl.data import DGLDataset
-from tqdm import tqdm
 
 
 class BigVulGraphDataset(DGLDataset):
+    """Represent BigVul as graph dataset."""
+
     def __init__(self):
+        """Init class."""
         super().__init__(name="BigVul")
 
     def process(self):
+        """Inherited function from DGLDataset."""
         self.finished = [
             int(Path(i).name.split(".")[0])
             for i in glob(str(svd.processed_dir() / "bigvul/before/*nodes*"))
@@ -197,15 +201,18 @@ class BigVulGraphDataset(DGLDataset):
         self.emb_dict = svdg.glove_dict(glove_path)
 
     def get_vuln_indices(self, i):
+        """Obtain vulnerable lines from sample ID."""
         df = self.df[self.df.id == i]
         removed = df.removed.item()
         return dict([(i, 1) for i in removed])
 
     def cache_features(self):
+        """Save features to disk as cache."""
         for i in tqdm(self.finished):
             self[i]
 
     def __getitem__(self, i):
+        """Override getitem."""
         out = feature_extraction(svd.processed_dir() / f"bigvul/before/{i}.c")
         if not out:
             return None
@@ -221,11 +228,11 @@ class BigVulGraphDataset(DGLDataset):
         return n
 
     def __len__(self):
+        """Get length of dataset."""
         return 1
 
 
 dataset = BigVulGraphDataset()
 
-%timeit dataset[1]
 
 dataset.cache_features()
