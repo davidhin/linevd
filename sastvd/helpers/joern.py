@@ -285,7 +285,9 @@ def assign_line_num_to_local(nodes, edges, code):
     twohop_labels = neighbour_nodes(nodes, rdg(edges, "reftype"), label_nodes, 2, False)
     node_types = nodes[nodes._label == "TYPE"]
     id2name = pd.Series(node_types.name.values, index=node_types.id).to_dict()
-    node_blocks = nodes[nodes._label == "BLOCK"]
+    node_blocks = nodes[
+        (nodes._label == "BLOCK") | (nodes._label == "CONTROL_STRUCTURE")
+    ]
     blocknode2line = pd.Series(
         node_blocks.lineNumber.values, index=node_blocks.id
     ).to_dict()
