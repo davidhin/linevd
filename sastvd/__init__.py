@@ -130,8 +130,11 @@ def genid():
     return "".join(random.choices(string.ascii_uppercase + string.digits, k=10))
 
 
-def get_run_id(args):
+def get_run_id(args=None):
     """Generate run ID."""
+    if not args:
+        ID = datetime.now().strftime("%Y%m%d%H%M_{}".format(gitsha()))
+        return ID
     ID = datetime.now().strftime(
         "%Y%m%d%H%M_{}_{}".format(
             gitsha(), "_".join([f"{v}" for _, v in vars(args).items()])

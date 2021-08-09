@@ -3,6 +3,7 @@
 
 import json
 import pickle as pkl
+from collections import defaultdict
 from glob import glob
 from pathlib import Path
 
@@ -184,18 +185,47 @@ def feature_extraction(filepath):
     return pdg_nodes, pdg_edges
 
 
+class GruWrapper(nn.Module):
+    """Get last state from GRU."""
+
+    def __init__(
+        self, input_size, hidden_size, num_layers, dropout, bidirectional=False
+    ):
+        """Initilisation."""
+        super(GruWrapper, self).__init__()
+        self.gru = dl.DynamicRNN(
+            nn.GRU(
+                input_size,
+                hidden_size,
+                num_layers,
+                dropout=dropout,
+                bidirectional=bidirectional,
+            )
+        )
+
+    def forward(self, x, x_lens):
+        """Forward pass."""
+        # Load data from disk on CPU
+        out, _ = self.gru(x, x_lens)
+        out = out[range(out.shape[0]), x_lens - 1, :]
+        return out
+
+
 class IVDetect(nn.Module):
     """IVDetect model."""
 
     def __init__(self, input_size, hidden_size, num_layers):
         """Initilisation."""
         super(IVDetect, self).__init__()
-        self.dropout = nn.Dropout(p=0)
-        self.gru = dl.DynamicRNN(nn.GRU(input_size, hidden_size, num_layers, dropout=0))
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.gru = GruWrapper(input_size, hidden_size, num_layers, dropout=0)
+        self.gru2 = GruWrapper(input_size, hidden_size, num_layers, dropout=0)
+        self.bigru = GruWrapper(
+            hidden_size, hidden_size, num_layers, dropout=0, bidirectional=True
+        )
+        self.dev = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-        self.gcn1 = GraphConv(hidden_size, hidden_size)
-        self.gcn2 = GraphConv(hidden_size, 2)
+        self.gcn1 = GraphConv(hidden_size * 2, hidden_size * 2)
+        self.gcn2 = GraphConv(hidden_size * 2, 2)
 
     def forward(self, g, dataset):
         """Forward pass."""
@@ -206,30 +236,45 @@ class IVDetect(nn.Module):
                 g.ndata["_LINE"].detach().cpu().int().numpy(),
             )
         )
-        subseq_dict = dict()
-        subseq_lens_dict = dict()
+        data = dict()
         for sampleid in set([n[0] for n in nodes]):
-            data = dataset.item(sampleid)
-            for row in data.itertuples():
-                rowss = torch.Tensor(row.subseq)
-                if len(row.subseq) == 0:
-                    rowss = torch.zeros(1, 200)
-                subseq_dict[(sampleid, row.id)] = rowss
-                subseq_lens_dict[(sampleid, row.id)] = rowss.shape[0]
+            for row in dataset.item(sampleid).to_dict(orient="records"):
+                data[(sampleid, row["id"])] = row
 
-        subseq = pad_sequence([subseq_dict[i] for i in nodes], batch_first=True)
-        subseq_lens = torch.Tensor([subseq_lens_dict[i] for i in nodes]).long()
-        subseq = subseq.to(self.device)
+        feat = defaultdict(list)
+        for n in nodes:
+            f1 = torch.Tensor(data[n]["subseq"])
+            f1 = f1 if f1.shape[0] > 0 else torch.zeros(1, 200)
+            f1_lens = len(f1)
+            feat["f1"].append(f1)
+            feat["f1_lens"].append(f1_lens)
 
-        out, hidden = self.gru(subseq, subseq_lens)
-        out = out[range(out.shape[0]), subseq_lens - 1, :]
-        out = self.dropout(out)
+            f3 = torch.Tensor(data[n]["nametypes"])
+            f3 = f3 if f3.shape[0] > 0 else torch.zeros(1, 200)
+            f3_lens = len(f3)
+            feat["f3"].append(f3)
+            feat["f3_lens"].append(f3_lens)
+
+        # Pass through GRU
+        F1 = self.gru(
+            pad_sequence(feat["f1"], batch_first=True).to(self.dev),
+            torch.Tensor(feat["f1_lens"]).long(),
+        )
+        F3 = self.gru2(
+            pad_sequence(feat["f3"], batch_first=True).to(self.dev),
+            torch.Tensor(feat["f3_lens"]).long(),
+        )
+
+        # BiGru Aggregation
+        bigru_out = self.bigru(
+            torch.stack([F1, F3]).transpose(0, 1), torch.Tensor([2] * len(nodes)).long()
+        )
 
         # Assign node features to graph
-        g.ndata["_FEAT"] = out
+        g.ndata["_FEAT"] = bigru_out
 
         # Pool graph outputs
-        h = self.gcn1(g, out)
+        h = self.gcn1(g, g.ndata["_FEAT"])
         h = F.relu(h)
         h = self.gcn2(g, h)
         g.ndata["h"] = h
