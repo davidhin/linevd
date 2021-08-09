@@ -253,9 +253,8 @@ class BigVulGraphDataset(DGLDataset):
         """Save features to disk as cache."""
         itempath = BigVulGraphDataset.itempath
         self.df.id.parallel_apply(lambda x: feature_extraction(itempath(x)))
-
-        for i in tqdm(range(len(self))):
-            self[i]
+        # for i in tqdm(range(len(self))):
+        #     self[i]
 
     def __getitem__(self, idx):
         """Override getitem."""
