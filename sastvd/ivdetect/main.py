@@ -347,9 +347,11 @@ class IVDetect(nn.Module):
 
 # Load data
 train_ds = BigVulGraphDataset(partition="train")
-val_ds = BigVulGraphDataset(partition="val")
-train_dl = GraphDataLoader(train_ds, batch_size=32, drop_last=False, shuffle=True)
-val_dl = GraphDataLoader(val_ds, batch_size=256, drop_last=False, shuffle=True)
+val_ds = BigVulGraphDataset(partition="val", sample=500)
+test_ds = BigVulGraphDataset(partition="test")
+train_dl = GraphDataLoader(train_ds, batch_size=24, drop_last=False, shuffle=True)
+val_dl = GraphDataLoader(val_ds, batch_size=64, drop_last=False, shuffle=True)
+test_dl = GraphDataLoader(test_ds, batch_size=64, drop_last=False, shuffle=True)
 
 # Create model
 dev = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -363,10 +365,10 @@ logits = model(batch, train_ds)
 
 # Optimiser
 criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.0003)
 
 # Train loop
-logger = ml.LogWriter(model, "model_gru", max_patience=100, val_every=200)
+logger = ml.LogWriter(model, "model_gru", max_patience=100, val_every=20)
 while True:
     for batch in train_dl:
 
@@ -387,7 +389,7 @@ while True:
             model.eval()
             with torch.no_grad():
                 val_mets_total = []
-                for val_batch in tqdm(val_dl):
+                for val_batch in val_dl:
                     val_batch = val_batch.to(dev)
                     val_labels = dgl.max_nodes(val_batch, "_VULN").long()
                     val_logits = model(val_batch, val_ds)
@@ -400,3 +402,17 @@ while True:
     if logger.stop():
         break
     logger.epoch()
+
+# Print test results
+logger.load_best_model()
+model.eval()
+with torch.no_grad():
+    test_mets_total = []
+    for test_batch in test_dl:
+        test_batch = test_batch.to(dev)
+        test_labels = dgl.max_nodes(test_batch, "_VULN").long()
+        test_logits = model(test_batch, test_ds)
+        test_mets = ml.get_metrics_logits(test_labels, test_logits)
+        test_mets_total.append(test_mets)
+        logger.test(ml.dict_mean(test_mets_total))
+logger.test(ml.dict_mean(test_mets_total))
