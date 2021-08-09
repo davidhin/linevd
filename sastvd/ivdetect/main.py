@@ -2,6 +2,7 @@
 
 
 import dgl
+import sastvd as svd
 import sastvd.helpers.ml as ml
 import sastvd.ivdetect as ivd
 import torch
@@ -38,7 +39,9 @@ criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.0003)
 
 # Train loop
-logger = ml.LogWriter(model, "model_gru", max_patience=100, val_every=20)
+logger = ml.LogWriter(
+    model, svd.processed_dir() / "ivdetect", max_patience=100, val_every=20
+)
 while True:
     for batch in train_dl:
 
