@@ -260,8 +260,6 @@ class BigVulGraphDataset(DGLDataset):
         """Override getitem."""
         _id = self.idx2id[idx]
         n, e = feature_extraction(BigVulGraphDataset.itempath(_id))
-        n.subseq = n.subseq.apply(lambda x: svdg.get_embeddings(x, self.emb_dict))
-        n.nametypes = n.nametypes.apply(lambda x: svdg.get_embeddings(x, self.emb_dict))
         n["vuln"] = n.id.map(self.get_vuln_indices(_id)).fillna(0)
         g = dgl.graph(e)
         g.ndata["_LINE"] = torch.Tensor(n["id"].astype(int).to_numpy())
@@ -272,6 +270,15 @@ class BigVulGraphDataset(DGLDataset):
     def __len__(self):
         """Get length of dataset."""
         return len(self.df)
+
+    def item(self, _id):
+        """Get item data."""
+        n, _ = feature_extraction(BigVulGraphDataset.itempath(_id))
+        n.subseq = n.subseq.apply(lambda x: svdg.get_embeddings(x, self.emb_dict, 200))
+        n.nametypes = n.nametypes.apply(
+            lambda x: svdg.get_embeddings(x, self.emb_dict, 200)
+        )
+        return n
 
     def stats(self):
         """Print dataset stats."""
