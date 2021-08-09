@@ -1,6 +1,8 @@
 """Implementation of IVDetect."""
 
 
+from importlib import reload
+
 import dgl
 import sastvd as svd
 import sastvd.helpers.ml as ml
@@ -24,7 +26,8 @@ train_dl = GraphDataLoader(train_ds, batch_size=24, drop_last=False, shuffle=Tru
 val_dl = GraphDataLoader(val_ds, batch_size=64, drop_last=False, shuffle=True)
 test_dl = GraphDataLoader(test_ds, batch_size=64, drop_last=False, shuffle=True)
 
-# Create model
+# %% Create model
+reload(ivd)
 dev = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 model = ivd.IVDetect(input_size=200, hidden_size=100, num_layers=2)
 model.to(dev)
@@ -34,13 +37,14 @@ batch = next(iter(train_dl))
 batch = batch.to(dev)
 logits = model(batch, train_ds)
 
-# Optimiser
+# %% Optimiser
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.0003)
 
 # Train loop
+ID = svd.get_run_id({})
 logger = ml.LogWriter(
-    model, svd.processed_dir() / "ivdetect", max_patience=100, val_every=20
+    model, svd.processed_dir() / "ivdetect" / ID, max_patience=100, val_every=20
 )
 while True:
     for batch in train_dl:
