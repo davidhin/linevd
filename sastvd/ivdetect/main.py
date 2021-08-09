@@ -1,15 +1,32 @@
 """Implementation of IVDetect."""
 
 
+import json
 import pickle as pkl
+from glob import glob
+from pathlib import Path
 
+import dgl
 import networkx as nx
 import pandas as pd
 import sastvd as svd
+import sastvd.helpers.datasets as svdd
+import sastvd.helpers.dl as dl
 import sastvd.helpers.glove as svdg
 import sastvd.helpers.joern as svdj
+import sastvd.helpers.ml as ml
 import sastvd.helpers.tokenise as svdt
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from dgl.dataloading import GraphDataLoader
+from dgl.nn import GraphConv
+from pandarallel import pandarallel
+from torch.nn.utils.rnn import pad_sequence
 from tqdm import tqdm
+
+tqdm.pandas()
+pandarallel.initialize()
 
 
 def feature_extraction(filepath):
@@ -169,33 +186,23 @@ def feature_extraction(filepath):
     return pdg_nodes, pdg_edges
 
 
-# WORK IN PROGRESS
-from glob import glob
-from pathlib import Path
-
-import dgl
-import sastvd as svd
-import sastvd.helpers.datasets as svdd
-import torch
-from dgl.data import DGLDataset
-
-
-class BigVulGraphDataset(DGLDataset):
+class BigVulGraphDataset:
     """Represent BigVul as graph dataset."""
 
-    def __init__(self):
+    def __init__(self, partition="train", sample=-1):
         """Init class."""
-        super().__init__(name="BigVul")
-
-    def process(self):
-        """Inherited function from DGLDataset."""
         # Get finished samples
         self.finished = [
             int(Path(i).name.split(".")[0])
             for i in glob(str(svd.processed_dir() / "bigvul/before/*nodes*"))
         ]
         self.df = svdd.bigvul()
+        self.df = self.df[self.df.label == partition]
         self.df = self.df[self.df.id.isin(self.finished)]
+
+        # Small sample (for debugging):
+        if sample > 0:
+            self.df = self.df.sample(sample, random_state=0)
 
         # Filter out samples with no lineNumber from Joern output
         print("Checking validity...", end="")
@@ -265,6 +272,7 @@ class BigVulGraphDataset(DGLDataset):
         g.ndata["_LINE"] = torch.Tensor(n["id"].astype(int).to_numpy())
         g.ndata["_VULN"] = torch.Tensor(n["vuln"].astype(int).to_numpy())
         g.ndata["_SAMPLE"] = torch.Tensor([_id] * len(n))
+        g = dgl.add_self_loop(g)
         return g
 
     def __len__(self):
@@ -285,7 +293,110 @@ class BigVulGraphDataset(DGLDataset):
         print(self.df.groupby(["label", "vul"]).count()[["id"]])
 
 
-dataset = BigVulGraphDataset()
+class IVDetect(nn.Module):
+    """IVDetect model."""
+
+    def __init__(self, input_size, hidden_size, num_layers):
+        """Initilisation."""
+        super(IVDetect, self).__init__()
+        self.dropout = nn.Dropout(p=0)
+        self.gru = dl.DynamicRNN(nn.GRU(input_size, hidden_size, num_layers, dropout=0))
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+        self.gcn1 = GraphConv(hidden_size, hidden_size)
+        self.gcn2 = GraphConv(hidden_size, 2)
+
+    def forward(self, g, dataset):
+        """Forward pass."""
+        # Load data from disk on CPU
+        nodes = list(
+            zip(
+                g.ndata["_SAMPLE"].detach().cpu().int().numpy(),
+                g.ndata["_LINE"].detach().cpu().int().numpy(),
+            )
+        )
+        subseq_dict = dict()
+        subseq_lens_dict = dict()
+        for sampleid in set([n[0] for n in nodes]):
+            data = dataset.item(sampleid)
+            for row in data.itertuples():
+                rowss = torch.Tensor(row.subseq)
+                if len(row.subseq) == 0:
+                    rowss = torch.zeros(1, 200)
+                subseq_dict[(sampleid, row.id)] = rowss
+                subseq_lens_dict[(sampleid, row.id)] = rowss.shape[0]
+
+        subseq = pad_sequence([subseq_dict[i] for i in nodes], batch_first=True)
+        subseq_lens = torch.Tensor([subseq_lens_dict[i] for i in nodes]).long()
+        subseq = subseq.to(self.device)
+
+        out, hidden = self.gru(subseq, subseq_lens)
+        out = out[range(out.shape[0]), subseq_lens - 1, :]
+        out = self.dropout(out)
+
+        # Assign node features to graph
+        g.ndata["_FEAT"] = out
+
+        # Pool graph outputs
+        h = self.gcn1(g, out)
+        h = F.relu(h)
+        h = self.gcn2(g, h)
+        g.ndata["h"] = h
+        return dgl.mean_nodes(g, "h")
 
 
-dataset.cache_features()
+# Load data
+train_ds = BigVulGraphDataset(partition="train")
+val_ds = BigVulGraphDataset(partition="val")
+train_dl = GraphDataLoader(train_ds, batch_size=32, drop_last=False, shuffle=True)
+val_dl = GraphDataLoader(val_ds, batch_size=256, drop_last=False, shuffle=True)
+
+# Create model
+dev = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+model = IVDetect(input_size=200, hidden_size=100, num_layers=2)
+model.to(dev)
+
+# Debugging a single sample
+batch = next(iter(train_dl))
+batch = batch.to(dev)
+logits = model(batch, train_ds)
+
+# Optimiser
+criterion = nn.CrossEntropyLoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
+
+# Train loop
+logger = ml.LogWriter(model, "model_gru", max_patience=100, val_every=200)
+while True:
+    for batch in train_dl:
+
+        # Training
+        model.train()
+        batch = batch.to(dev)
+        logits = model(batch, train_ds)
+        labels = dgl.max_nodes(batch, "_VULN").long()
+        loss = F.cross_entropy(logits, labels)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        # Evaluation
+        train_mets = ml.get_metrics_logits(labels, logits)
+        val_mets = train_mets
+        if logger.log_val():
+            model.eval()
+            with torch.no_grad():
+                val_mets_total = []
+                for val_batch in tqdm(val_dl):
+                    val_batch = val_batch.to(dev)
+                    val_labels = dgl.max_nodes(val_batch, "_VULN").long()
+                    val_logits = model(val_batch, val_ds)
+                    val_mets = ml.get_metrics_logits(val_labels, val_logits)
+                    val_mets_total.append(val_mets)
+                val_mets = ml.dict_mean(val_mets_total)
+        logger.log(train_mets, val_mets)
+
+    # Early Stopping
+    if logger.stop():
+        break
+    logger.epoch()
