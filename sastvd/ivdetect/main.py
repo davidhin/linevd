@@ -4,7 +4,7 @@
 import dgl
 import sastvd as svd
 import sastvd.helpers.ml as ml
-import sastvd.ivdetect as ivd
+import sastvd.ivdetect.helpers as ivd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
