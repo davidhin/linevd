@@ -96,10 +96,28 @@ def print_seperator(strings: list, max_len: int):
     print(final_str[:cutoff])
 
 
+def dict_mean(dict_list):
+    """Get mean of values from list of dicts.
+
+    https://stackoverflow.com/questions/29027792
+    """
+    mean_dict = {}
+    for key in dict_list[0].keys():
+        mean_dict[key] = sum(d[key] for d in dict_list) / len(dict_list)
+    return mean_dict
+
+
 class LogWriter:
     """Writer class for logging PyTorch model performance."""
 
-    def __init__(self, model, path: str, max_patience: int = 100, log_every: int = 10):
+    def __init__(
+        self,
+        model,
+        path: str,
+        max_patience: int = 100,
+        log_every: int = 10,
+        val_every: int = 50,
+    ):
         """Init writer.
 
         Args:
@@ -115,10 +133,25 @@ class LogWriter:
         self._path = Path(path)
         self._writer = SummaryWriter(path)
         self._log_every = log_every
+        self._val_every = val_every
 
     def log(self, train_mets, val_mets):
         """Log information."""
         if self._step % self._log_every != 0:
+            self.step()
+            return
+        print_seperator(
+            [
+                f"Patience: {self._patience:03d}",
+                f"Epoch: {self._epoch:03d}",
+                f"Step: {self._step:03d}",
+            ],
+            131,
+        )
+        met_dict_to_str(train_mets, "TR = ")
+        met_dict_to_writer(train_mets, self._step, self._writer, "TRN")
+
+        if not self.log_val():
             self.step()
             return
         val_loss = val_mets["loss"]
@@ -132,18 +165,7 @@ class LogWriter:
         else:
             self._patience += 1
             best_model_string = "No improvement."
-        print_seperator(
-            [
-                f"Patience: {self._patience:03d}",
-                f"Epoch: {self._epoch:03d}",
-                f"Step: {self._step:03d}",
-                best_model_string,
-            ],
-            131,
-        )
-        met_dict_to_str(train_mets, "TR = ")
         met_dict_to_str(val_mets, "VA = ")
-        met_dict_to_writer(train_mets, self._step, self._writer, "TRN")
         met_dict_to_writer(val_mets, self._step, self._writer, "VAL")
         self.step()
 
@@ -151,6 +173,12 @@ class LogWriter:
         """Helper function to write test mets."""
         print_seperator(["\x1b[36mTest Set\x1b[39m"], 135)
         met_dict_to_str(test_mets, "TS = ")
+
+    def log_val(self):
+        """Check whether should validate or not."""
+        if self._step % self._val_every == 0:
+            return True
+        return False
 
     def step(self):
         """Increment step."""
