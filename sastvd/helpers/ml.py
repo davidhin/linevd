@@ -140,20 +140,21 @@ class LogWriter:
         if self._step % self._log_every != 0:
             self.step()
             return
-        print_seperator(
-            [
-                f"Patience: {self._patience:03d}",
-                f"Epoch: {self._epoch:03d}",
-                f"Step: {self._step:03d}",
-            ],
-            131,
-        )
-        met_dict_to_str(train_mets, "TR = ")
-        met_dict_to_writer(train_mets, self._step, self._writer, "TRN")
 
         if not self.log_val():
+            print_seperator(
+                [
+                    f"Patience: {self._patience:03d}",
+                    f"Epoch: {self._epoch:03d}",
+                    f"Step: {self._step:03d}",
+                ],
+                131,
+            )
+            met_dict_to_str(train_mets, "TR = ")
+            met_dict_to_writer(train_mets, self._step, self._writer, "TRN")
             self.step()
             return
+
         val_loss = val_mets["loss"]
         if val_loss < self._best_val_loss:
             self._best_val_loss = val_loss
@@ -165,6 +166,17 @@ class LogWriter:
         else:
             self._patience += 1
             best_model_string = "No improvement."
+        print_seperator(
+            [
+                f"Patience: {self._patience:03d}",
+                f"Epoch: {self._epoch:03d}",
+                f"Step: {self._step:03d}",
+                best_model_string,
+            ],
+            131,
+        )
+        met_dict_to_str(train_mets, "TR = ")
+        met_dict_to_writer(train_mets, self._step, self._writer, "TRN")
         met_dict_to_str(val_mets, "VA = ")
         met_dict_to_writer(val_mets, self._step, self._writer, "VAL")
         self.step()
