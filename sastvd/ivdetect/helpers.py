@@ -312,7 +312,7 @@ class BigVulGraphDataset:
 
         # Load Glove vectors.
         glove_path = svd.processed_dir() / "bigvul/glove/vectors.txt"
-        self.emb_dict = svdg.glove_dict(glove_path)
+        self.emb_dict, _ = svdg.glove_dict(glove_path)
 
     def itempath(_id):
         """Get itempath path from item id."""
