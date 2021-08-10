@@ -16,6 +16,7 @@ import sastvd.helpers.dl as dl
 import sastvd.helpers.glove as svdg
 import sastvd.helpers.joern as svdj
 import sastvd.helpers.tokenise as svdt
+import sastvd.ivdetect.treelstm as ivdts
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -241,11 +242,25 @@ class IVDetect(nn.Module):
         )
         self.dev = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+        self.treelstm = ivdts.TreeLSTM(hidden_size, hidden_size, dropout=0)
         self.gcn1 = GraphConv(hidden_size * 2, hidden_size * 2)
         self.gcn2 = GraphConv(hidden_size * 2, 2)
 
     def forward(self, g, dataset):
-        """Forward pass."""
+        """Forward pass.
+
+        DEBUG:
+        import sastvd.helpers.graphs as svdgr
+        dev = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        dataset = BigVulGraphDataset(partition="train", sample=10)
+        g = dgl.batch([dataset[0], dataset[1]]).to(dev)
+
+        input_size = 200
+        hidden_size = 200
+        num_layers = 2
+        model = IVDetect(200, 200, 2).to(dev)
+        model(g, dataset)
+        """
         # Load data from disk on CPU
         nodes = list(
             zip(
@@ -254,9 +269,13 @@ class IVDetect(nn.Module):
             )
         )
         data = dict()
+        asts = []
         for sampleid in set([n[0] for n in nodes]):
-            for row in dataset.item(sampleid).to_dict(orient="records"):
+            datasetitem = dataset.item(sampleid)
+            for row in datasetitem["df"].to_dict(orient="records"):
                 data[(sampleid, row["id"])] = row
+            asts += datasetitem["asts"]
+        asts = dgl.batch(asts).to(self.dev)
 
         feat = defaultdict(list)
         for n in nodes:
@@ -272,19 +291,24 @@ class IVDetect(nn.Module):
             feat["f3"].append(f3)
             feat["f3_lens"].append(f3_lens)
 
-        # Pass through GRU
+        # Pass through GRU / TreeLSTM
         F1 = self.gru(
             pad_sequence(feat["f1"], batch_first=True).to(self.dev),
             torch.Tensor(feat["f1_lens"]).long(),
         )
+        F2 = self.treelstm(asts)
         F3 = self.gru2(
             pad_sequence(feat["f3"], batch_first=True).to(self.dev),
             torch.Tensor(feat["f3_lens"]).long(),
         )
 
+        # Fill null values (e.g. line has no AST representation / datacontrol deps)
+        F2 = torch.stack([F2[i] if i in F2 else torch.zeros(1, 200) for i in nodes])
+
         # BiGru Aggregation
         bigru_out = self.bigru(
-            torch.stack([F1, F3]).transpose(0, 1), torch.Tensor([2] * len(nodes)).long()
+            torch.stack([F1, F2, F3]).transpose(0, 1),
+            torch.Tensor([2] * len(nodes)).long(),
         )
 
         # Assign node features to graph
