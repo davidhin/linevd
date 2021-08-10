@@ -66,6 +66,7 @@ class TreeLSTM(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.cell = ChildSumTreeLSTMCell(x_size, h_size)
         self.h_size = h_size
+        self.dev = th.device("cuda:0" if th.cuda.is_available() else "cpu")
 
     def forward(self, g):
         """Compute tree-lstm prediction given a batch.
@@ -80,11 +81,11 @@ class TreeLSTM(nn.Module):
             The prediction of each node.
         """
         # feed embedding
-        embeds = g.ndata["_FEAT"]
+        embeds = g.ndata["_FEAT"].to(self.dev)
         n = g.number_of_nodes()
         g.ndata["iou"] = self.cell.W_iou(self.dropout(embeds))
-        g.ndata["h"] = th.zeros((n, self.h_size))
-        g.ndata["c"] = th.zeros((n, self.h_size))
+        g.ndata["h"] = th.zeros((n, self.h_size)).to(self.dev)
+        g.ndata["c"] = th.zeros((n, self.h_size)).to(self.dev)
 
         # propagate
         dgl.prop_nodes_topo(
