@@ -400,7 +400,25 @@ class BigVulGraphDataset:
         n.nametypes = n.nametypes.apply(
             lambda x: svdg.get_embeddings(x, self.emb_dict, 200)
         )
-        return n
+
+        asts = []
+
+        def ast_dgl(row, lineid):
+            if len(row) == 0:
+                return None
+            outnode, innode, ndata = row
+            g = dgl.graph((outnode, innode))
+            g.ndata["_FEAT"] = torch.Tensor(
+                svdg.get_embeddings_list(ndata, self.emb_dict, 200)
+            )
+            g.ndata["_ID"] = torch.Tensor([_id] * g.number_of_nodes())
+            g.ndata["_LINE"] = torch.Tensor([lineid] * g.number_of_nodes())
+            return g
+
+        for row in n.itertuples():
+            asts.append(ast_dgl(row.ast, row.id))
+
+        return {"df": n, "asts": asts}
 
     def stats(self):
         """Print dataset stats."""
