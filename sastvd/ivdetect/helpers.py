@@ -33,7 +33,7 @@ def feature_extraction(filepath):
 
     DEBUGGING:
     filepath = "/home/david/Documents/projects/singularity-sastvd/storage/processed/bigvul/before/180189.c"
-    filepath = "/home/david/Documents/projects/singularity-sastvd/storage/processed/bigvul/before/178165.c"
+    filepath = "/home/david/Documents/projects/singularity-sastvd/storage/processed/bigvul/before/182480.c"
 
     PRINTING:
     svdj.plot_graph_node_edge_df(nodes, svdj.rdg(edges, "ast"), [24], 0)
@@ -82,19 +82,39 @@ def feature_extraction(filepath):
     ast_nodes = svdj.drop_lone_nodes(nodes, ast_edges)
     ast_nodes = ast_nodes[ast_nodes.lineNumber != ""]
     ast_nodes.lineNumber = ast_nodes.lineNumber.astype(int)
-    ast_nodes.sort_values("lineNumber")
     ast_nodes["lineidx"] = ast_nodes.groupby("lineNumber").cumcount().values
     ast_edges = ast_edges[ast_edges.line_out == ast_edges.line_in]
     ast_dict = pd.Series(ast_nodes.lineidx.values, index=ast_nodes.id).to_dict()
     ast_edges.innode = ast_edges.innode.map(ast_dict)
     ast_edges.outnode = ast_edges.outnode.map(ast_dict)
     ast_edges = ast_edges.groupby("line_in").agg({"innode": list, "outnode": list})
-    ast_edges["edges"] = ast_edges.apply(lambda x: [x.outnode, x.innode], axis=1)
     ast_nodes.code = ast_nodes.code.fillna("").apply(svdt.tokenise)
+    nodes_per_line = (
+        ast_nodes.groupby("lineNumber").agg({"lineidx": list}).to_dict()["lineidx"]
+    )
     ast_nodes = ast_nodes.groupby("lineNumber").agg({"code": list})
     ast = ast_edges.join(ast_nodes, how="inner")
-    ast["ast"] = ast.apply(lambda x: [x.code, x.edges], axis=1)
+    ast["ast"] = ast.apply(lambda x: [x.outnode, x.innode, x.code], axis=1)
     ast = ast.to_dict()["ast"]
+
+    # If it is a lone node (nodeid doesn't appear in edges) or it is a node with no
+    # incoming connections (parent node), then add an edge from that node to the node
+    # with id = 0 (unless it is zero itself).
+    # DEBUG:
+    # import sastvd.helpers.graphs as svdgr
+    # svdgr.simple_nx_plot(*ast[101])
+    for k, v in ast.items():
+        if len(v[2]) == max(v[0] + v[1]) + 1:
+            continue
+        allnodes = nodes_per_line[k]
+        outnodes = v[0]
+        innodes = v[1]
+        lonenodes = [i for i in allnodes if i not in outnodes + innodes]
+        parentnodes = [i for i in outnodes if i not in innodes]
+        for n in set(lonenodes + parentnodes) - set([0]):
+            outnodes.append(0)
+            innodes.append(n)
+        ast[k] = [outnodes, innodes, v[2]]
 
     # 3. Variable names and types
     reftype_edges = svdj.rdg(edges, "reftype")
