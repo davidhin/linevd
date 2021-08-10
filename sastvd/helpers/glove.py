@@ -65,7 +65,11 @@ def glove(
 
 
 def glove_dict(vectors_path, cache=True):
-    """Load glove embeddings."""
+    """Load glove embeddings and vocab.
+
+    Example:
+    vectors_path = svd.processed_dir() / "bigvul/glove/vectors.txt"
+    """
     # Caching
     savepath = svd.get_dir(svd.cache_dir() / "glove")
     savepath /= str(svd.hashstr(str(vectors_path)))
@@ -85,9 +89,17 @@ def glove_dict(vectors_path, cache=True):
             word = values[0]
             vector = np.asarray(values[1:], "float32")
             embeddings_dict[word] = vector
+
+    # Read vocab
+    with open(vectors_path.parent / "vocab.txt", "r") as f:
+        vocab = [i.split()[0] for i in f.readlines()]
+        vocab = [(j, i) for i, j in enumerate(vocab)]
+
+    # Cache
     with open(savepath, "wb") as f:
-        pkl.dump(embeddings_dict, f)
-    return embeddings_dict
+        pkl.dump([embeddings_dict, vocab], f)
+
+    return embeddings_dict, vocab
 
 
 def find_closest_embeddings(word, embeddings_dict, topn=10):
