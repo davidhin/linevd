@@ -101,10 +101,8 @@ def feature_extraction(filepath):
     # with id = 0 (unless it is zero itself).
     # DEBUG:
     # import sastvd.helpers.graphs as svdgr
-    # svdgr.simple_nx_plot(*ast[101])
+    # svdgr.simple_nx_plot(ast[20][0], ast[20][1], ast[20][2])
     for k, v in ast.items():
-        if len(v[2]) == max(v[0] + v[1]) + 1:
-            continue
         allnodes = nodes_per_line[k]
         outnodes = v[0]
         innodes = v[1]
