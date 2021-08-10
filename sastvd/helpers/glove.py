@@ -93,7 +93,7 @@ def glove_dict(vectors_path, cache=True):
     # Read vocab
     with open(vectors_path.parent / "vocab.txt", "r") as f:
         vocab = [i.split()[0] for i in f.readlines()]
-        vocab = [(j, i) for i, j in enumerate(vocab)]
+        vocab = dict([(j, i) for i, j in enumerate(vocab)])
 
     # Cache
     with open(savepath, "wb") as f:
