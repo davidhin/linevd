@@ -275,6 +275,7 @@ class IVDetect(nn.Module):
             for row in datasetitem["df"].to_dict(orient="records"):
                 data[(sampleid, row["id"])] = row
             asts += datasetitem["asts"]
+        asts = [i for i in asts if i]
         asts = dgl.batch(asts).to(self.dev)
 
         feat = defaultdict(list)
@@ -303,7 +304,9 @@ class IVDetect(nn.Module):
         )
 
         # Fill null values (e.g. line has no AST representation / datacontrol deps)
-        F2 = torch.stack([F2[i] if i in F2 else torch.zeros(1, 200) for i in nodes])
+        F2 = torch.stack(
+            [F2[i] if i in F2 else torch.zeros(self.h_size).to(self.dev) for i in nodes]
+        )
 
         # BiGru Aggregation
         bigru_out = self.bigru(
