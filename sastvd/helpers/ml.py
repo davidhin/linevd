@@ -144,14 +144,6 @@ class LogWriter:
             return
 
         if not self.log_val():
-            print_seperator(
-                [
-                    f"Patience: {self._patience:03d}",
-                    f"Epoch: {self._epoch:03d}",
-                    f"Step: {self._step:03d}",
-                ],
-                131,
-            )
             met_dict_to_str(train_mets, "TR = ")
             met_dict_to_writer(train_mets, self._step, self._writer, "TRN")
             self.step()
