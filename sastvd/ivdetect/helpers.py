@@ -223,10 +223,12 @@ class GruWrapper(nn.Module):
             )
         )
 
-    def forward(self, x, x_lens):
+    def forward(self, x, x_lens, return_sequence=False):
         """Forward pass."""
         # Load data from disk on CPU
         out, hidden = self.gru(x, x_lens)
+        if return_sequence:
+            return out, hidden
         out = out[range(out.shape[0]), x_lens - 1, :]
         return out, hidden
 
@@ -239,13 +241,10 @@ class IVDetect(nn.Module):
         super(IVDetect, self).__init__()
         self.gru = GruWrapper(input_size, hidden_size, num_layers, dropout=0)
         self.gru2 = GruWrapper(input_size, hidden_size, num_layers, dropout=0)
-        self.bigru = nn.GRU(
-            hidden_size,
-            hidden_size,
-            num_layers,
-            dropout=0,
-            bidirectional=True,
-            batch_first=True,
+        self.gru3 = GruWrapper(input_size, hidden_size, num_layers, dropout=0)
+        self.gru4 = GruWrapper(input_size, hidden_size, num_layers, dropout=0)
+        self.bigru = GruWrapper(
+            hidden_size, hidden_size, num_layers, dropout=0, bidirectional=True
         )
         self.dev = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -317,14 +316,47 @@ class IVDetect(nn.Module):
             pad_sequence(feat["f3"], batch_first=True).to(self.dev),
             torch.Tensor(feat["f3_lens"]).long(),
         )
+        F4, _ = self.gru3(
+            pad_sequence(feat["f1"], batch_first=True).to(self.dev),
+            torch.Tensor(feat["f1_lens"]).long(),
+        )
+        F5, _ = self.gru4(
+            pad_sequence(feat["f1"], batch_first=True).to(self.dev),
+            torch.Tensor(feat["f1_lens"]).long(),
+        )
 
         # Fill null values (e.g. line has no AST representation / datacontrol deps)
         F2 = torch.stack(
             [F2[i] if i in F2 else torch.zeros(self.h_size).to(self.dev) for i in nodes]
         )
 
+        # Group together feature vectors for every statement, including data/control dep
+        batched_feat_vecs = []
+        node_dict = {k: v for v, k in enumerate(nodes)}
+        for idx, n in enumerate(nodes):
+            sampleid, _ = n
+            statement_feat_vecs = []
+            statement_feat_vecs.append(F1[idx])
+            statement_feat_vecs.append(F2[idx])
+            statement_feat_vecs.append(F3[idx])
+
+            if isinstance(data[n]["data"], list):
+                for d in data[n]["data"]:
+                    f4_idx = node_dict[(sampleid, d)]
+                    statement_feat_vecs.append(F4[f4_idx])
+
+            if isinstance(data[n]["control"], list):
+                for d in data[n]["control"]:
+                    f5_idx = node_dict[(sampleid, d)]
+                    statement_feat_vecs.append(F5[f5_idx])
+
+            batched_feat_vecs.append(torch.stack(statement_feat_vecs))
+
+        batched_feat_lens = torch.Tensor([i.shape[0] for i in batched_feat_vecs]).long()
+        batched_feat_vecs = pad_sequence(batched_feat_vecs, batch_first=True)
+
         # BiGru Aggregation
-        bigru_out, hidden = self.bigru(torch.stack([F1, F2, F3]).transpose(0, 1))
+        bigru_out, hidden = self.bigru(batched_feat_vecs, batched_feat_lens, True)
 
         # Add attention based on hidden state
         hidden = hidden[-1].unsqueeze(0)
@@ -332,8 +364,11 @@ class IVDetect(nn.Module):
         bigru_out = bigru_out.transpose(0, 1)
         Fi_prime = torch.stack([torch.matmul(Wi, bout) for bout in bigru_out])
 
+        # :TODO: TEMPORARILY TRAIN ON AST ONLY
+        Fi_prime = Fi_prime.transpose(0, 1)[:, 0, :]
+
         # Assign node features to graph
-        g.ndata["_FEAT"] = Fi_prime[0]  # :TODO: Other things
+        g.ndata["_FEAT"] = Fi_prime
 
         # Pool graph outputs
         h = self.gcn1(g, g.ndata["_FEAT"])
