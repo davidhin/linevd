@@ -16,6 +16,7 @@ import sastvd.helpers.dl as dl
 import sastvd.helpers.glove as svdg
 import sastvd.helpers.joern as svdj
 import sastvd.helpers.tokenise as svdt
+import sastvd.ivdetect.pyramidpooling as ivdp
 import sastvd.ivdetect.treelstm as ivdts
 import torch
 import torch.nn as nn
@@ -246,6 +247,9 @@ class IVDetect(nn.Module):
         self.gcn1 = GraphConv(hidden_size * 2, hidden_size * 2)
         self.gcn2 = GraphConv(hidden_size * 2, 2)
         self.h_size = hidden_size
+        self.pool = ivdp.SpatialPyramidPooling([16])
+        self.fc1 = nn.Linear(256, hidden_size, bias=True)
+        self.fc2 = nn.Linear(hidden_size, 2, bias=True)
 
     def forward(self, g, dataset):
         """Forward pass.
@@ -324,9 +328,19 @@ class IVDetect(nn.Module):
         # Pool graph outputs
         h = self.gcn1(g, g.ndata["_FEAT"])
         h = F.relu(h)
-        h = self.gcn2(g, h)
-        g.ndata["h"] = h
-        return dgl.mean_nodes(g, "h")
+
+        # Pool and classify
+        out = self.pool(h.unsqueeze(0).unsqueeze(0)).squeeze()
+        out = self.fc1(out)
+        out = F.relu(out)
+        out = self.fc2(out)
+        out = F.softmax(out)
+        return out
+
+        # Mean GCN output
+        # h = self.gcn2(g, h)
+        # g.ndata["h"] = h
+        # return dgl.mean_nodes(g, "h")
 
 
 class BigVulGraphDataset:
