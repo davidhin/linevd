@@ -256,7 +256,7 @@ class IVDetect(nn.Module):
         self.pool = ivdp.SpatialPyramidPooling([16])
         self.fc1 = nn.Linear(256, hidden_size, bias=True)
         self.fc2 = nn.Linear(hidden_size, 2, bias=True)
-        self.att = nn.MultiheadAttention(hidden_size, 8, dropout=0.0, batch_first=True)
+        self.att = nn.MultiheadAttention(hidden_size, 1, dropout=0.0, batch_first=True)
 
     def forward(self, g, dataset):
         """Forward pass.
