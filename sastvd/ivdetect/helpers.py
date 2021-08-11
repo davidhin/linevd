@@ -239,8 +239,13 @@ class IVDetect(nn.Module):
         super(IVDetect, self).__init__()
         self.gru = GruWrapper(input_size, hidden_size, num_layers, dropout=0)
         self.gru2 = GruWrapper(input_size, hidden_size, num_layers, dropout=0)
-        self.bigru = GruWrapper(
-            hidden_size, hidden_size, num_layers, dropout=0, bidirectional=True
+        self.bigru = nn.GRU(
+            hidden_size,
+            hidden_size,
+            num_layers,
+            dropout=0,
+            bidirectional=True,
+            batch_first=True,
         )
         self.dev = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -251,6 +256,7 @@ class IVDetect(nn.Module):
         self.pool = ivdp.SpatialPyramidPooling([16])
         self.fc1 = nn.Linear(256, hidden_size, bias=True)
         self.fc2 = nn.Linear(hidden_size, 2, bias=True)
+        self.att = nn.MultiheadAttention(hidden_size, 8, dropout=0.0, batch_first=True)
 
     def forward(self, g, dataset):
         """Forward pass.
@@ -302,12 +308,12 @@ class IVDetect(nn.Module):
             feat["f3_lens"].append(f3_lens)
 
         # Pass through GRU / TreeLSTM
-        F1 = self.gru(
+        F1, _ = self.gru(
             pad_sequence(feat["f1"], batch_first=True).to(self.dev),
             torch.Tensor(feat["f1_lens"]).long(),
         )
         F2 = self.treelstm(asts)
-        F3 = self.gru2(
+        F3, _ = self.gru2(
             pad_sequence(feat["f3"], batch_first=True).to(self.dev),
             torch.Tensor(feat["f3_lens"]).long(),
         )
@@ -318,13 +324,16 @@ class IVDetect(nn.Module):
         )
 
         # BiGru Aggregation
-        bigru_out = self.bigru(
-            torch.stack([F1, F2, F3]).transpose(0, 1),
-            torch.Tensor([2] * len(nodes)).long(),
-        )
+        bigru_out, hidden = self.bigru(torch.stack([F1, F2, F3]).transpose(0, 1))
+
+        # Add attention based on hidden state
+        hidden = hidden[-1].unsqueeze(0)
+        Wi = self.att(hidden, hidden, hidden)[1].squeeze()
+        bigru_out = bigru_out.transpose(0, 1)
+        Fi_prime = torch.stack([torch.matmul(Wi, bout) for bout in bigru_out])
 
         # Assign node features to graph
-        g.ndata["_FEAT"] = bigru_out
+        g.ndata["_FEAT"] = Fi_prime[0]  # :TODO: Other things
 
         # Pool graph outputs
         h = self.gcn1(g, g.ndata["_FEAT"])
