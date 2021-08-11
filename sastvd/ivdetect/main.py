@@ -74,6 +74,7 @@ while True:
                     val_mets_total.append(val_mets)
                 val_mets = ml.dict_mean(val_mets_total)
         logger.log(train_mets, val_mets)
+        logger.save_logger()
 
     # Early Stopping
     if logger.stop():
