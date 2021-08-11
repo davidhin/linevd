@@ -1,3 +1,4 @@
+import pickle as pkl
 from pathlib import Path
 
 import torch
@@ -134,6 +135,7 @@ class LogWriter:
         self._writer = SummaryWriter(path)
         self._log_every = log_every
         self._val_every = val_every
+        self.save_attrs = ["_best_val_loss", "_patience", "_epoch", "_step"]
 
     def log(self, train_mets, val_mets):
         """Log information."""
@@ -208,3 +210,19 @@ class LogWriter:
         """Load best model."""
         torch.cuda.empty_cache()
         self._model.load_state_dict(torch.load(self._path / "best.model"))
+
+    def save_logger(self):
+        """Save class attributes."""
+        with open(self._path / "log.pkl", "wb") as f:
+            f.write(pkl.dumps(dict([(i, getattr(self, i)) for i in self.save_attrs])))
+        with open(self._path / "current.model", "wb") as f:
+            torch.save(self._model.state_dict(), f)
+
+    def load_logger(self):
+        """Load class attributes."""
+        with open(self._path / "log.pkl", "rb") as f:
+            attrs = pkl.load(f)
+            for k, v in attrs.items():
+                setattr(self, k, v)
+        torch.cuda.empty_cache()
+        self._model.load_state_dict(torch.load(self._path / "current.model"))
