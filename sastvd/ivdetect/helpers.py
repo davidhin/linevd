@@ -226,9 +226,9 @@ class GruWrapper(nn.Module):
     def forward(self, x, x_lens):
         """Forward pass."""
         # Load data from disk on CPU
-        out, _ = self.gru(x, x_lens)
+        out, hidden = self.gru(x, x_lens)
         out = out[range(out.shape[0]), x_lens - 1, :]
-        return out
+        return out, hidden
 
 
 class IVDetect(nn.Module):
