@@ -329,12 +329,20 @@ class IVDetect(nn.Module):
         h = self.gcn1(g, g.ndata["_FEAT"])
         h = F.relu(h)
 
+        # Unbatch and pool
+        g.ndata["h"] = h
+        method_rep_matrices = [i.ndata["h"] for i in dgl.unbatch(g)]
+
         # Pool and classify
-        out = self.pool(h.unsqueeze(0).unsqueeze(0)).squeeze()
+        out = [
+            self.pool(h.unsqueeze(0).unsqueeze(0)).squeeze()
+            for h in method_rep_matrices
+        ]
+        out = torch.stack(out)
         out = self.fc1(out)
         out = F.relu(out)
         out = self.fc2(out)
-        out = F.softmax(out)
+        out = F.softmax(out, dim=1)
         return out
 
         # Mean GCN output
