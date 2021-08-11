@@ -242,15 +242,17 @@ class IVDetect(nn.Module):
         )
         self.dev = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-        self.treelstm = ivdts.TreeLSTM(hidden_size, hidden_size, dropout=0)
+        self.treelstm = ivdts.TreeLSTM(input_size, hidden_size, dropout=0)
         self.gcn1 = GraphConv(hidden_size * 2, hidden_size * 2)
         self.gcn2 = GraphConv(hidden_size * 2, 2)
+        self.h_size = hidden_size
 
     def forward(self, g, dataset):
         """Forward pass.
 
         DEBUG:
         import sastvd.helpers.graphs as svdgr
+        from importlib import reload
         dev = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         dataset = BigVulGraphDataset(partition="train", sample=10)
         g = dgl.batch([dataset[0], dataset[1]]).to(dev)
@@ -258,6 +260,8 @@ class IVDetect(nn.Module):
         input_size = 200
         hidden_size = 200
         num_layers = 2
+
+        reload(ivdts)
         model = IVDetect(200, 200, 2).to(dev)
         model(g, dataset)
         """
@@ -275,7 +279,7 @@ class IVDetect(nn.Module):
             for row in datasetitem["df"].to_dict(orient="records"):
                 data[(sampleid, row["id"])] = row
             asts += datasetitem["asts"]
-        asts = [i for i in asts if i]
+        asts = [i for i in asts if i is not None]
         asts = dgl.batch(asts).to(self.dev)
 
         feat = defaultdict(list)
