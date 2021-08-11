@@ -1,8 +1,13 @@
 """Modified from https://github.com/dmlc/dgl/blob/master/examples/pytorch/tree_lstm/tree_lstm.py."""
 
+import warnings
+
 import dgl
 import torch as th
 import torch.nn as nn
+
+# This warning also appears in official DGL Tree-LSTM docs, so ignore it.
+warnings.filterwarnings("ignore", message="The input graph for the user-defined edge")
 
 
 class ChildSumTreeLSTMCell(nn.Module):
