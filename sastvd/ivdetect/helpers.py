@@ -343,6 +343,12 @@ class BigVulGraphDataset:
         self.df = self.df[self.df.label == partition]
         self.df = self.df[self.df.id.isin(self.finished)]
 
+        # Balance training set
+        if partition == "train":
+            vul = self.df[self.df.vul == 1]
+            nonvul = self.df[self.df.vul == 0].sample(len(vul), random_state=0)
+            self.df = pd.concat([vul, nonvul])
+
         # Small sample (for debugging):
         if sample > 0:
             self.df = self.df.sample(sample, random_state=0)
