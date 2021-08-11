@@ -219,6 +219,7 @@ class GruWrapper(nn.Module):
                 num_layers,
                 dropout=dropout,
                 bidirectional=bidirectional,
+                batch_first=True,
             )
         )
 
