@@ -50,7 +50,8 @@ def feature_extraction(filepath):
     Ours  : 40, 30, 19, 14, 7, 38, 33, 31
     Pred  : 40,   , 19, 14, 7, 38, 33, 31
     """
-    cachefp = svd.get_dir(svd.cache_dir() / "ivdetect_feat_ext") / Path(filepath).stem
+    cache_name = "_".join(str(filepath).split("/")[-3:])
+    cachefp = svd.get_dir(svd.cache_dir() / "ivdetect_feat_ext") / Path(cache_name).stem
     try:
         with open(cachefp, "rb") as f:
             return pkl.load(f)
