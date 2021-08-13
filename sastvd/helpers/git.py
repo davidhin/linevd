@@ -103,7 +103,7 @@ def mp_code2diff(df):
     Input DF must have columns: func_before, func_after, id, dataset
     """
     items = df[["func_before", "func_after", "id", "dataset"]].to_dict("records")
-    with Pool(processes=cpu_count()) as pool:
+    with Pool(processes=4) as pool:
         for _ in tqdm(pool.imap_unordered(_c2dhelper, items), total=len(items)):
             pass
 
