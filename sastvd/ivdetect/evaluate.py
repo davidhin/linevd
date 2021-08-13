@@ -1,3 +1,4 @@
+import os
 import pickle as pkl
 from multiprocessing import Pool
 
@@ -52,8 +53,13 @@ def helper(row):
     return [row["id"], {"removed": row["removed"], "depadd": dep_add_lines}]
 
 
-def get_dep_add_lines_bigvul():
+def get_dep_add_lines_bigvul(cache=True):
     """Cache dependent added lines for bigvul."""
+    saved = svd.get_dir(svd.processed_dir() / "bigvul/eval") / "statement_labels.pkl"
+    if os.path.exists(saved) and cache:
+        with open(saved, "rb") as f:
+            return pkl.load(f)
+
     lines_dict = []
     df = svdd.bigvul()
     df = df[df.vul == 1]
@@ -62,6 +68,9 @@ def get_dep_add_lines_bigvul():
     pool = Pool(processes=6)
     for ret in tqdm(pool.imap_unordered(helper, items), total=len(items)):
         lines_dict.append(ret)
+    lines_dict = dict(lines_dict)
 
-    with open(svd.processed_dir() / "bigvul/statements/cache.pkl", "wb") as f:
-        pkl.dump(dict(lines_dict), f)
+    with open(saved, "wb") as f:
+        pkl.dump(lines_dict, f)
+
+    return lines_dict
