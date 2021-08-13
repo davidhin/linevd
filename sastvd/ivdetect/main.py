@@ -1,35 +1,37 @@
 """Implementation of IVDetect."""
 
 
+import pickle as pkl
 from importlib import reload
 
 import dgl
 import sastvd as svd
 import sastvd.helpers.ml as ml
+import sastvd.ivdetect.evaluate as ivde
+import sastvd.ivdetect.gnnexplainer as ge
 import sastvd.ivdetect.helpers as ivd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from dgl.dataloading import GraphDataLoader
-from pandarallel import pandarallel
 from tqdm import tqdm
 
 tqdm.pandas()
-pandarallel.initialize()
 
 
 # Load data
 train_ds = ivd.BigVulGraphDataset(partition="train")
-val_ds = ivd.BigVulGraphDataset(partition="val", sample=500)
+val_ds = ivd.BigVulGraphDataset(partition="val", sample=1000)
 test_ds = ivd.BigVulGraphDataset(partition="test")
-train_dl = GraphDataLoader(train_ds, batch_size=24, drop_last=False, shuffle=True)
-val_dl = GraphDataLoader(val_ds, batch_size=64, drop_last=False, shuffle=True)
-test_dl = GraphDataLoader(test_ds, batch_size=64, drop_last=False, shuffle=True)
+dl_args = {"drop_last": False, "shuffle": True, "num_workers": 6}
+train_dl = GraphDataLoader(train_ds, batch_size=16, **dl_args)
+val_dl = GraphDataLoader(val_ds, batch_size=16, **dl_args)
+test_dl = GraphDataLoader(test_ds, batch_size=64, **dl_args)
 
 # %% Create model
 reload(ivd)
 dev = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-model = ivd.IVDetect(input_size=200, hidden_size=100, num_layers=2)
+model = ivd.IVDetect(input_size=200, hidden_size=100, num_layers=2, dropout=0.2)
 model.to(dev)
 
 # Debugging a single sample
@@ -43,9 +45,11 @@ optimizer = torch.optim.Adam(model.parameters(), lr=0.0003)
 
 # Train loop
 ID = svd.get_run_id({})
+# ID = "202108121558_79d3273"
 logger = ml.LogWriter(
-    model, svd.processed_dir() / "ivdetect" / ID, max_patience=100, val_every=20
+    model, svd.processed_dir() / "ivdetect" / ID, max_patience=100, val_every=30
 )
+logger.load_logger()
 while True:
     for batch in train_dl:
 
@@ -94,3 +98,32 @@ with torch.no_grad():
         test_mets_total.append(test_mets)
         logger.test(ml.dict_mean(test_mets_total))
 logger.test(ml.dict_mean(test_mets_total))
+
+# %% Statement-level through GNNExplainer
+correct_lines = ivde.get_dep_add_lines_bigvul()
+pred_lines = dict()
+for batch in test_dl:
+    for g in dgl.unbatch(batch):
+        sampleid = g.ndata["_SAMPLE"].max().int().item()
+        if sampleid not in correct_lines:
+            continue
+        if sampleid in pred_lines:
+            continue
+        try:
+            lines = ge.gnnexplainer(model, g.to(dev), test_ds)
+        except Exception as E:
+            print(E)
+        pred_lines[sampleid] = lines
+
+with open(svd.cache_dir() / "pred_lines.pkl", "wb") as f:
+    pkl.dump(pred_lines, f)
+
+MFR = []
+for sampleid, pred in pred_lines.items():
+    true = correct_lines[sampleid]
+    true = list(true["removed"]) + list(true["depadd"])
+    for i, p in enumerate(pred):
+        if p in true:
+            MFR += [i]
+            break
+print(sum(MFR) / len(MFR))
