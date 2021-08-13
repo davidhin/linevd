@@ -18,7 +18,7 @@ def storage_dir() -> Path:
     """Get storage path."""
     storage = os.getenv("SINGSTORAGE")
     if storage:
-        return get_dir(storage / "storage")
+        return Path(storage) / "storage"
     return Path(__file__).parent.parent / "storage"
 
 
