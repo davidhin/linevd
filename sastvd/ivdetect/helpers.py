@@ -8,6 +8,7 @@ from glob import glob
 from pathlib import Path
 
 import dgl
+import dgl.function as fn
 import networkx as nx
 import pandas as pd
 import sastvd as svd
@@ -377,6 +378,12 @@ class IVDetect(nn.Module):
 
         # Unbatch and pool
         g.ndata["h"] = h
+
+        # Edge masking
+        if len(e_weights) > 0:
+            g.edata["ew"] = e_weights
+            g.update_all(fn.u_mul_e("h", "ew", "m"), fn.mean("m", "h"))
+
         method_rep_matrices = [i.ndata["h"] for i in dgl.unbatch(g)]
 
         # Pool and classify
