@@ -3,7 +3,7 @@
 # To view drive file, go to the link:
 # https://drive.google.com/file/d/<file_id>
 
-if [[ -z "${SINGSTORAGE}" ]]; then
+if [[ -n "${SINGSTORAGE}" ]]; then
     cd $SINGSTORAGE
 fi
 
