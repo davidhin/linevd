@@ -85,7 +85,7 @@ def run_joern(filepath: str):
     )
 
 
-def get_node_edges(filepath: str):
+def get_node_edges(filepath: str, verbose=0):
     """Get node and edges given filepath (must run after run_joern).
 
     filepath = "/home/david/Documents/projects/singularity-sastvd/storage/processed/bigvul/before/53.c"
@@ -109,7 +109,8 @@ def get_node_edges(filepath: str):
                 ["id", "_label", "name", "code", "lineNumber", "controlStructureType"]
             ]
         except Exception as E:
-            svd.debug(f"Failed {filepath}: {E}")
+            if verbose > 1:
+                svd.debug(f"Failed {filepath}: {E}")
             return None
 
     # Assign line number to local variables
