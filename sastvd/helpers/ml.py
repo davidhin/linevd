@@ -30,11 +30,12 @@ def get_metrics(true, pred, loss=-1, pr_auc=-1):
     metrics["pr_auc"] = pr_auc
     metrics["fpr"] = -1
     metrics["fnr"] = -1
-    tn, fp, fn, tp = confusion_matrix(true, pred).ravel()
-    if fp + tn != 0:
-        metrics["fpr"] = fp / (fp + tn)
-    if fn + tp != 0:
-        metrics["fnr"] = fn / (fn + tp)
+    if sum(true + pred) != 0:
+        tn, fp, fn, tp = confusion_matrix(true, pred).ravel()
+        if fp + tn != 0:
+            metrics["fpr"] = fp / (fp + tn)
+        if fn + tp != 0:
+            metrics["fnr"] = fn / (fn + tp)
     return metrics
 
 
