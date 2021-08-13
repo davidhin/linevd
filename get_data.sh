@@ -3,6 +3,10 @@
 # To view drive file, go to the link:
 # https://drive.google.com/file/d/<file_id>
 
+if [[ -z "${SINGSTORAGE}" ]]; then
+    cd $SINGSTORAGE
+fi
+
 if [[ -d storage/external ]]; then
     echo "storage exists, starting download"
 else
