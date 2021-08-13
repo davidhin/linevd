@@ -340,7 +340,7 @@ class IVDetect(nn.Module):
         # Group together feature vectors for every statement, including data/control dep
         # BUG: POTENTIAL MEMORY LEAK
         batched_feat_vecs = []
-        node_dict = {k: v for v, k in enumerate(nodes)}
+        # node_dict = {k: v for v, k in enumerate(nodes)}
         for idx, n in enumerate(nodes):
             sampleid, _ = n
             statement_feat_vecs = []
