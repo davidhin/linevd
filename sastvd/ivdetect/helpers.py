@@ -238,7 +238,7 @@ class GruWrapper(nn.Module):
 class IVDetect(nn.Module):
     """IVDetect model."""
 
-    def __init__(self, input_size, hidden_size, num_layers):
+    def __init__(self, input_size, hidden_size, num_layers, dropout=0):
         """Initilisation."""
         super(IVDetect, self).__init__()
         self.gru = GruWrapper(input_size, hidden_size, num_layers, dropout=0)
@@ -257,9 +257,12 @@ class IVDetect(nn.Module):
         self.pool = ivdp.SpatialPyramidPooling([16])
         self.fc1 = nn.Linear(256, hidden_size, bias=True)
         self.fc2 = nn.Linear(hidden_size, 2, bias=True)
-        self.att = nn.MultiheadAttention(hidden_size, 1, dropout=0.0, batch_first=True)
+        self.att = nn.MultiheadAttention(
+            hidden_size * 2, 1, dropout=0.0, batch_first=True
+        )
+        self.dropout = dropout
 
-    def forward(self, g, dataset):
+    def forward(self, g, dataset, e_weights=[]):
         """Forward pass.
 
         DEBUG:
@@ -275,7 +278,8 @@ class IVDetect(nn.Module):
 
         reload(ivdts)
         model = IVDetect(200, 200, 2).to(dev)
-        model(g, dataset)
+        ret = model(g, dataset)
+
         """
         # Load data from disk on CPU
         nodes = list(
@@ -328,11 +332,13 @@ class IVDetect(nn.Module):
         )
 
         # Fill null values (e.g. line has no AST representation / datacontrol deps)
+        # BUG: POTENTIAL MEMORY LEAK
         F2 = torch.stack(
             [F2[i] if i in F2 else torch.zeros(self.h_size).to(self.dev) for i in nodes]
         )
 
         # Group together feature vectors for every statement, including data/control dep
+        # BUG: POTENTIAL MEMORY LEAK
         batched_feat_vecs = []
         node_dict = {k: v for v, k in enumerate(nodes)}
         for idx, n in enumerate(nodes):
@@ -342,15 +348,15 @@ class IVDetect(nn.Module):
             statement_feat_vecs.append(F2[idx])
             statement_feat_vecs.append(F3[idx])
 
-            if isinstance(data[n]["data"], list):
-                for d in data[n]["data"]:
-                    f4_idx = node_dict[(sampleid, d)]
-                    statement_feat_vecs.append(F4[f4_idx])
+            # if isinstance(data[n]["data"], list):
+            #     for d in data[n]["data"]:
+            #         f4_idx = node_dict[(sampleid, d)]
+            #         statement_feat_vecs.append(F4[f4_idx])
 
-            if isinstance(data[n]["control"], list):
-                for d in data[n]["control"]:
-                    f5_idx = node_dict[(sampleid, d)]
-                    statement_feat_vecs.append(F5[f5_idx])
+            # if isinstance(data[n]["control"], list):
+            #     for d in data[n]["control"]:
+            #         f5_idx = node_dict[(sampleid, d)]
+            #         statement_feat_vecs.append(F5[f5_idx])
 
             batched_feat_vecs.append(torch.stack(statement_feat_vecs))
 
@@ -360,14 +366,15 @@ class IVDetect(nn.Module):
         # BiGru Aggregation
         bigru_out, hidden = self.bigru(batched_feat_vecs, batched_feat_lens, True)
 
-        # Add attention based on hidden state
-        hidden = hidden[-1].unsqueeze(0)
-        Wi = self.att(hidden, hidden, hidden)[1].squeeze()
-        bigru_out = bigru_out.transpose(0, 1)
-        Fi_prime = torch.stack([torch.matmul(Wi, bout) for bout in bigru_out])
+        # Add attention based on hidden state TODO: How is "hidden" incorporated?
+        # hidden = torch.cat([hidden[-2], hidden[-1]], dim=1).unsqueeze(1)
+        _, Wi = self.att(
+            bigru_out, bigru_out, bigru_out
+        )  # TODO: Add hidden to the outs
+        Fi_prime = torch.bmm(Wi, bigru_out)
 
-        # :TODO: TEMPORARILY TRAIN ON AST ONLY
-        Fi_prime = Fi_prime.transpose(0, 1)[:, 0, :]
+        # :TODO: SUM OUTPUTS -> PAPER EQUATION 1
+        Fi_prime = Fi_prime.sum(dim=1)
 
         # Assign node features to graph
         g.ndata["_FEAT"] = Fi_prime
@@ -375,6 +382,9 @@ class IVDetect(nn.Module):
         # Pool graph outputs
         h = self.gcn1(g, g.ndata["_FEAT"])
         h = F.relu(h)
+
+        # Dropout
+        h = F.dropout(h, self.dropout)
 
         # Unbatch and pool
         g.ndata["h"] = h
