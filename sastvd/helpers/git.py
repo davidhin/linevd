@@ -1,7 +1,7 @@
 import os
 import pickle as pkl
 import uuid
-from multiprocessing import Pool, cpu_count
+from multiprocessing import Pool
 
 import sastvd as svd
 from tqdm import tqdm
@@ -103,7 +103,7 @@ def mp_code2diff(df):
     Input DF must have columns: func_before, func_after, id, dataset
     """
     items = df[["func_before", "func_after", "id", "dataset"]].to_dict("records")
-    with Pool(processes=4) as pool:
+    with Pool(processes=6) as pool:
         for _ in tqdm(pool.imap_unordered(_c2dhelper, items), total=len(items)):
             pass
 
