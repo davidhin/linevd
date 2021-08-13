@@ -34,25 +34,34 @@ def get_dep_add_lines(filepath_before, filepath_after, added_lines):
     return dep_add_lines
 
 
+def helper(row):
+    """Run get_dep_add_lines from dict.
+
+    Example:
+    df = svdd.bigvul()
+    added = df[df.id==177775].added.item()
+    removed = df[df.id==177775].removed.item()
+    helper({"id":177775, "removed": removed, "added": added})
+    """
+    before_path = str(svd.processed_dir() / f"bigvul/before/{row['id']}.c")
+    after_path = str(svd.processed_dir() / f"bigvul/after/{row['id']}.c")
+    try:
+        dep_add_lines = get_dep_add_lines(before_path, after_path, row["added"])
+    except Exception:
+        dep_add_lines = []
+    return [row["id"], {"removed": row["removed"], "depadd": dep_add_lines}]
+
+
 def get_dep_add_lines_bigvul():
     """Cache dependent added lines for bigvul."""
-    lines_dict = {}
+    lines_dict = []
     df = svdd.bigvul()
     df = df[df.vul == 1]
     items = df[["id", "removed", "added"]].to_dict("records")
 
-    def helper(row):
-        before_path = str(svd.processed_dir() / f"bigvul/before/{row['id']}.c")
-        after_path = str(svd.processed_dir() / f"bigvul/after/{row['id']}.c")
-        try:
-            dep_add_lines = get_dep_add_lines(before_path, after_path, row["added"])
-        except Exception:
-            dep_add_lines = []
-        lines_dict[row["id"]] = {"removed": row["removed"], "depadd": dep_add_lines}
-
     pool = Pool(processes=6)
-    for _ in tqdm(pool.imap_unordered(helper, items), total=len(items)):
-        pass
+    for ret in tqdm(pool.imap_unordered(helper, items), total=len(items)):
+        lines_dict.append(ret)
 
     with open(svd.processed_dir() / "bigvul/statements/cache.pkl", "wb") as f:
-        pkl.dump(lines_dict, f)
+        pkl.dump(dict(lines_dict), f)
