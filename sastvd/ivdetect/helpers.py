@@ -340,7 +340,7 @@ class IVDetect(nn.Module):
         # Group together feature vectors for every statement, including data/control dep
         # BUG: POTENTIAL MEMORY LEAK
         batched_feat_vecs = []
-        # node_dict = {k: v for v, k in enumerate(nodes)}
+        node_dict = {k: v for v, k in enumerate(nodes)}
         for idx, n in enumerate(nodes):
             sampleid, _ = n
             statement_feat_vecs = []
@@ -348,15 +348,15 @@ class IVDetect(nn.Module):
             statement_feat_vecs.append(F2[idx])
             statement_feat_vecs.append(F3[idx])
 
-            # if isinstance(data[n]["data"], list):
-            #     for d in data[n]["data"]:
-            #         f4_idx = node_dict[(sampleid, d)]
-            #         statement_feat_vecs.append(F4[f4_idx])
+            if isinstance(data[n]["data"], list):
+                for d in data[n]["data"][:5]:
+                    f4_idx = node_dict[(sampleid, d)]
+                    statement_feat_vecs.append(F4[f4_idx])
 
-            # if isinstance(data[n]["control"], list):
-            #     for d in data[n]["control"]:
-            #         f5_idx = node_dict[(sampleid, d)]
-            #         statement_feat_vecs.append(F5[f5_idx])
+            if isinstance(data[n]["control"], list):
+                for d in data[n]["control"][:5]:
+                    f5_idx = node_dict[(sampleid, d)]
+                    statement_feat_vecs.append(F5[f5_idx])
 
             batched_feat_vecs.append(torch.stack(statement_feat_vecs))
 
@@ -407,11 +407,6 @@ class IVDetect(nn.Module):
         out = self.fc2(out)
         out = F.softmax(out, dim=1)
         return out
-
-        # Mean GCN output
-        # h = self.gcn2(g, h)
-        # g.ndata["h"] = h
-        # return dgl.mean_nodes(g, "h")
 
 
 class BigVulGraphDataset:
