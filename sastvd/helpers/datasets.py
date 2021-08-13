@@ -88,7 +88,11 @@ def generate_glove(dataset="bigvul"):
 
 
 def bigvul(minimal=True):
-    """Read BigVul Data."""
+    """Read BigVul Data.
+
+    EDGE CASE FIXING:
+    id = 177775 should have removed line = 16 and added line = 17
+    """
     savedir = svd.get_dir(svd.cache_dir() / "minimal_datasets")
     if minimal:
         try:
