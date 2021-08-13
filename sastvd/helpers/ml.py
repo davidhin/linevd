@@ -28,13 +28,13 @@ def get_metrics(true, pred, loss=-1, pr_auc=-1):
     except:
         metrics["roc_auc"] = 0
     metrics["pr_auc"] = pr_auc
-    try:
-        tn, fp, fn, tp = confusion_matrix(true, pred).ravel()
+    metrics["fpr"] = -1
+    metrics["fnr"] = -1
+    tn, fp, fn, tp = confusion_matrix(true, pred).ravel()
+    if fp + tn != 0:
         metrics["fpr"] = fp / (fp + tn)
+    if fn + tp != 0:
         metrics["fnr"] = fn / (fn + tp)
-    except:
-        metrics["fpr"] = -1
-        metrics["fnr"] = -1
     return metrics
 
 
