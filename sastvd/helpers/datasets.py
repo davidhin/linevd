@@ -99,7 +99,7 @@ def bigvul(minimal=True, sample=False):
     savedir = svd.get_dir(svd.cache_dir() / "minimal_datasets")
     if minimal:
         try:
-            return pd.read_parquet(savedir / "minimal_bigvul.pq").dropna()
+            return pd.read_parquet(savedir / f"minimal_bigvul_{sample}.pq").dropna()
         except:
             pass
     filename = "MSR_data_cleaned_SAMPLE.csv" if sample else "MSR_data_cleaned.csv"
@@ -126,7 +126,6 @@ def bigvul(minimal=True, sample=False):
         "after",
         "vul",
     ]
-    if not sample:
-        df_savedir = savedir / "minimal_bigvul.pq"
-        df[keepcols].to_parquet(df_savedir, index=0, compression="gzip")
+    df_savedir = savedir / f"minimal_bigvul_{sample}.pq"
+    df[keepcols].to_parquet(df_savedir, index=0, compression="gzip")
     return df
