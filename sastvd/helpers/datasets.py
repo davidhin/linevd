@@ -126,5 +126,7 @@ def bigvul(minimal=True, sample=False):
         "after",
         "vul",
     ]
-    df[keepcols].to_parquet(savedir / "minimal_bigvul.pq", index=0, compression="gzip")
+    if not sample:
+        df_savedir = savedir / "minimal_bigvul.pq"
+        df[keepcols].to_parquet(df_savedir, index=0, compression="gzip")
     return df
