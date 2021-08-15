@@ -10,7 +10,7 @@ from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
 tqdm.pandas()
-pandarallel.initialize(progress_bar=True, verbose=2)
+pandarallel.initialize(nb_workers=6, progress_bar=True, verbose=2)
 
 
 def train_val_test_split_df(df, idcol, stratifycol):
