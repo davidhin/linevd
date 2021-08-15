@@ -127,5 +127,7 @@ def bigvul(minimal=True, sample=False):
         "vul",
     ]
     df_savedir = savedir / f"minimal_bigvul_{sample}.pq"
-    df[keepcols].to_parquet(df_savedir, index=0, compression="gzip")
+    df[keepcols].to_parquet(
+        df_savedir, object_encoding="json", index=0, compression="gzip"
+    )
     return df
