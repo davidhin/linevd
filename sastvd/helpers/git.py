@@ -119,7 +119,7 @@ def get_codediff(dataset, iid):
         return []
 
 
-def allfunc(row, comment="before"):
+def allfunc(row):
     """Return a combined function (before + after commit) given the diff.
 
     diff = return raw diff of combined function
@@ -128,29 +128,32 @@ def allfunc(row, comment="before"):
     before = return combined function, commented out added lines
     after = return combined function, commented out removed lines
     """
-    readfile = get_codediff(row.dataset, row.id)
-    if len(readfile) == 0:
-        if comment == "after" or comment == "before":
-            return row["func_before"]
-        if comment == "diff":
-            return ""
-        return []
-    diff = readfile["diff"]
-    if comment == "diff":
-        return diff
-    if comment == "added" or comment == "removed":
-        return readfile[comment]
-    lines = []
-    for li in diff.splitlines():
-        if len(li) == 0:
-            continue
-        if li[0] == "-":
-            li = li[1:]
-            if comment == "after":
-                li = "// " + li
-        if li[0] == "+":
-            li = li[1:]
-            if comment == "before":
-                li = "// " + li
-        lines.append(li)
-    return "\n".join(lines)
+    readfile = get_codediff(row["dataset"], row["id"])
+
+    ret = dict()
+    ret["diff"] = "" if len(readfile) == 0 else readfile["diff"]
+    ret["added"] = [] if len(readfile) == 0 else readfile["added"]
+    ret["removed"] = [] if len(readfile) == 0 else readfile["removed"]
+    ret["before"] = row["func_before"]
+    ret["after"] = row["func_before"]
+
+    if len(readfile) > 0:
+        lines_before = []
+        lines_after = []
+        for li in ret["diff"].splitlines():
+            if len(li) == 0:
+                continue
+            li_before = li
+            li_after = li
+            if li[0] == "-":
+                li_before = li[1:]
+                li_after = "// " + li[1:]
+            if li[0] == "+":
+                li_before = "// " + li[1:]
+                li_after = li[1:]
+            lines_before.append(li_before)
+            lines_after.append(li_after)
+        ret["before"] = "\n".join(lines_before)
+        ret["after"] = "\n".join(lines_after)
+
+    return ret

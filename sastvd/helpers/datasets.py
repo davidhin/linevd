@@ -5,12 +5,10 @@ import sastvd as svd
 import sastvd.helpers.git as svdg
 import sastvd.helpers.glove as svdglove
 import sastvd.helpers.tokenise as svdt
-from pandarallel import pandarallel
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
 tqdm.pandas()
-pandarallel.initialize(nb_workers=6, progress_bar=True, verbose=2)
 
 
 def train_val_test_split_df(df, idcol, stratifycol):
@@ -106,15 +104,21 @@ def bigvul(minimal=True, sample=False):
     df = pd.read_csv(svd.external_dir() / filename)
     df = df.rename(columns={"Unnamed: 0": "id"})
     df["dataset"] = "bigvul"
-    df["func_before"] = df.func_before.parallel_apply(remove_comments)
-    df["func_after"] = df.func_after.parallel_apply(remove_comments)
-    svdg.mp_code2diff(df)
+
+    # Remove comments
+    df["func_before"] = svd.dfmp(df, remove_comments, "func_before", cs=500)
+    df["func_after"] = svd.dfmp(df, remove_comments, "func_after", cs=500)
+
+    # Save codediffs
+    cols = ["func_before", "func_after", "id", "dataset"]
+    svd.dfmp(df, svdg._c2dhelper, columns=cols, ordr=False, cs=300)
+
+    # Make splits
     df = train_val_test_split_df(df, "id", "vul")
-    df["added"] = df.progress_apply(svdg.allfunc, comment="added", axis=1)
-    df["removed"] = df.progress_apply(svdg.allfunc, comment="removed", axis=1)
-    df["diff"] = df.progress_apply(svdg.allfunc, comment="diff", axis=1)
-    df["before"] = df.progress_apply(svdg.allfunc, comment="before", axis=1)
-    df["after"] = df.progress_apply(svdg.allfunc, comment="after", axis=1)
+
+    # Assign info and save
+    df["info"] = svd.dfmp(df, svdg.allfunc, cs=500)
+    df = pd.concat([df, pd.json_normalize(df["info"])], axis=1)
     keepcols = [
         "dataset",
         "id",
