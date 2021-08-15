@@ -51,7 +51,7 @@ def fine_grain_diff(row, diff=False):
 
 def test_bigvul_diff_similarity():
     """Test 1."""
-    df = svdd.bigvul(minimal=False)
+    df = svdd.bigvul(minimal=False, sample=True)
     df_vul = df[df.vul == 1].copy()
     svdg.mp_code2diff(df_vul)
     df_vul["vfwf_orig"] = df_vul.progress_apply(apply_bigvul_comments, axis=1)

@@ -87,8 +87,11 @@ def generate_glove(dataset="bigvul"):
     svdglove.glove(CORPUS, MAX_ITER=5000)
 
 
-def bigvul(minimal=True):
+def bigvul(minimal=True, sample=False):
     """Read BigVul Data.
+
+    Args:
+        sample (bool): Only used for testing!
 
     EDGE CASE FIXING:
     id = 177775 should have removed line = 16 and added line = 17
@@ -99,7 +102,8 @@ def bigvul(minimal=True):
             return pd.read_parquet(savedir / "minimal_bigvul.pq").dropna()
         except:
             pass
-    df = pd.read_csv(svd.external_dir() / "MSR_data_cleaned.csv")
+    filename = "MSR_data_cleaned_SAMPLE.csv" if sample else "MSR_data_cleaned.csv"
+    df = pd.read_csv(svd.external_dir() / filename)
     df = df.rename(columns={"Unnamed: 0": "id"})
     df["dataset"] = "bigvul"
     df["func_before"] = df.func_before.parallel_apply(remove_comments)

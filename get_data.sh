@@ -22,3 +22,9 @@ if [[ ! -f "MSR_data_cleaned.csv" ]]; then
 else
     echo "Already downloaded bigvul data"
 fi
+
+if [[ ! -f "MSR_data_cleaned_SAMPLE.csv" ]]; then
+    gdown https://drive.google.com/uc\?id\=1SmUfm1ibLjSg6QAA5-jK7u0RL-noLGIF
+else
+    echo "Already downloaded bigvul sample data"
+fi
