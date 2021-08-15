@@ -7,12 +7,9 @@ import sastvd as svd
 import sastvd.helpers.datasets as svdd
 import sastvd.helpers.joern as svdj
 import sastvd.helpers.sast as sast
-from pandarallel import pandarallel
-
-pandarallel.initialize()
 
 # SETUP
-NUM_JOBS = 1
+NUM_JOBS = 1000
 JOB_ARRAY_NUMBER = 0 if "ipykernel" in sys.argv[0] else int(sys.argv[1]) - 1
 
 # Read Data
@@ -31,13 +28,6 @@ def preprocess(row):
     """
     savedir_before = svd.get_dir(svd.processed_dir() / row["dataset"] / "before")
     savedir_after = svd.get_dir(svd.processed_dir() / row["dataset"] / "after")
-
-    # Print local progress
-    sys.stderr.write(
-        "\rCompleted: {0} / {1} | Percentage: {2:%}".format(
-            row["id"], 188636, row["id"] / 188636
-        )
-    )
 
     # Write C Files
     fpath1 = savedir_before / f"{row['id']}.c"
@@ -64,4 +54,4 @@ def preprocess(row):
             pkl.dump(sast_before, f)
 
 
-splits[JOB_ARRAY_NUMBER].parallel_apply(preprocess, axis=1)
+svd.dfmp(splits[JOB_ARRAY_NUMBER], preprocess)
