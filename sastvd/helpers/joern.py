@@ -202,24 +202,25 @@ def plot_node_edges(filepath: str, lineNumber: int = -1, filter_edges=[]):
     dot.render("/tmp/tmp.gv", view=True)
 
 
-def full_run_joern(filepath: str):
+def full_run_joern(filepath: str, verbose=0):
     """Run full Joern extraction and save output."""
     try:
         run_joern(filepath)
         nodes, edges = get_node_edges(filepath)
         return {"nodes": nodes, "edges": edges}
     except Exception as E:
-        svd.debug(f"Failed {filepath}: {E}")
+        if verbose > 0:
+            svd.debug(f"Failed {filepath}: {E}")
         return None
 
 
-def full_run_joern_from_string(code: str, dataset: str, iid: str):
+def full_run_joern_from_string(code: str, dataset: str, iid: str, verbose=0):
     """Run full joern from a string instead of file."""
     savedir = svd.get_dir(svd.interim_dir() / dataset)
     savepath = savedir / f"{iid}.c"
     with open(savepath, "w") as f:
         f.write(code)
-    return full_run_joern(savepath)
+    return full_run_joern(savepath, verbose)
 
 
 def neighbour_nodes(nodes, edges, nodeids: list, hop: int = 1, intermediate=True):
