@@ -6,7 +6,10 @@ import random
 import string
 import subprocess
 from datetime import datetime
+from multiprocessing import Pool
 from pathlib import Path
+
+from tqdm import tqdm
 
 
 def project_dir() -> Path:
@@ -149,3 +152,24 @@ def get_run_id(args=None):
 def hashstr(s):
     """Hash a string."""
     return int(hashlib.sha1(s.encode("utf-8")).hexdigest(), 16) % (10 ** 8)
+
+
+def dfmp(df, function, columns=None, ordr=True, workers=6, cs=10):
+    """Parallel apply function on dataframe."""
+    if isinstance(columns, str):
+        items = df[columns].tolist()
+    elif isinstance(columns, list):
+        items = df[columns].to_dict("records")
+    else:
+        items = df.to_dict("records")
+
+    processed = []
+    if ordr:
+        with Pool(processes=workers) as p:
+            for ret in tqdm(p.imap(function, items, cs), total=len(items)):
+                processed.append(ret)
+    else:
+        with Pool(processes=workers) as p:
+            for ret in tqdm(p.imap_unordered(function, items, cs), total=len(items)):
+                processed.append(ret)
+    return processed
