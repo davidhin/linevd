@@ -60,11 +60,7 @@ def test_bigvul_diff_similarity():
         lambda x: " ".join(x.vfwf.split()) == " ".join(x.vul_func_with_fix.split()),
         axis=1,
     )
-    assert len(df_vul[df_vul.equality]) / len(df_vul) > 0.6
-
-    # df["diff_num"] = df.progress_apply(fine_grain_diff, axis=1)
-    # row = [i for i in df.itertuples() if i.id == 188434][0]
-    # fine_grain_diff(row, diff=True)
+    assert len(df_vul[df_vul.equality]) / len(df_vul) == 0.34
 
 
 def test_bigvul_diff_similarity_2():
