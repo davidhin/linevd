@@ -74,14 +74,14 @@ def get_digraph(nodes, edges):
     return dot
 
 
-def run_joern(filepath: str):
+def run_joern(filepath: str, verbose: int):
     """Extract graph using most recent Joern."""
     script_file = svd.external_dir() / "get_func_graph.scala"
     filename = svd.external_dir() / filepath
     params = f"filename={filename}"
     svd.subprocess_cmd(
         f"joern --script {script_file} --params {params}",
-        verbose=1,
+        verbose=verbose,
     )
 
 
@@ -205,7 +205,7 @@ def plot_node_edges(filepath: str, lineNumber: int = -1, filter_edges=[]):
 def full_run_joern(filepath: str, verbose=0):
     """Run full Joern extraction and save output."""
     try:
-        run_joern(filepath)
+        run_joern(filepath, verbose)
         nodes, edges = get_node_edges(filepath)
         return {"nodes": nodes, "edges": edges}
     except Exception as E:
