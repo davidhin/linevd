@@ -69,7 +69,7 @@ def test_bigvul_diff_similarity():
 
 def test_bigvul_diff_similarity_2():
     """Test 2s."""
-    df = svdd.bigvul(minimal=True)
+    df = svdd.bigvul(minimal=True, sample=True)
     df["len_1"] = df.before.apply(lambda x: len(x.splitlines()))
     df["len_2"] = df.after.apply(lambda x: len(x.splitlines()))
     assert len(df[df.len_1 != df.len_2]) == 0
