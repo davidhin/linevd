@@ -20,7 +20,7 @@ def test_joern_graph():
     svdj.full_run_joern_from_string(test_func, "test", "test")
     filepath = svd.interim_dir() / "test" / "test.c"
     nodes, edges = svdj.get_node_edges(filepath)
-    assert len(nodes) == 74
+    assert len(nodes) == 53
     assert len(edges) == 116
 
 
