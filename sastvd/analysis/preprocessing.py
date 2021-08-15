@@ -14,6 +14,7 @@ JOB_ARRAY_NUMBER = 0 if "ipykernel" in sys.argv[0] else int(sys.argv[1]) - 1
 
 # Read Data
 df = svdd.bigvul()
+df = df.iloc[::-1]
 splits = np.array_split(df, NUM_JOBS)
 
 
