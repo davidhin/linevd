@@ -79,6 +79,8 @@ def run_joern(filepath: str, verbose: int):
     script_file = svd.external_dir() / "get_func_graph.scala"
     filename = svd.external_dir() / filepath
     params = f"filename={filename}"
+    if verbose > 2:
+        svd.debug(f"joern --script {script_file} --params {params}")
     svd.subprocess_cmd(
         f"joern --script {script_file} --params {params}",
         verbose=verbose,
