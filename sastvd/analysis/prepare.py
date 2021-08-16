@@ -7,10 +7,10 @@ def bigvul():
     """Run preperation scripts for BigVul dataset."""
     svdd.bigvul()
     ivde.get_dep_add_lines_bigvul()
+    svdd.generate_glove("bigvul")
     ivdh.BigVulGraphDataset(partition="train").cache_features()
     ivdh.BigVulGraphDataset(partition="val").cache_features()
     ivdh.BigVulGraphDataset(partition="test").cache_features()
-    svdd.generate_glove("bigvul")
 
 
 if __name__ == "__main__":
