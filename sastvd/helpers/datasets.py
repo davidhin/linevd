@@ -60,7 +60,7 @@ def generate_glove(dataset="bigvul", sample=False, cache=True):
         return
     if dataset == "bigvul":
         df = bigvul(sample=sample)
-    MAX_ITER = 2 if sample else 3000
+    MAX_ITER = 2 if sample else 500
 
     # Only train GloVe embeddings on train samples
     samples = df[df.label == "train"].copy()
