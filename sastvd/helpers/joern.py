@@ -1,5 +1,6 @@
 import json
 import random
+import shutil
 from collections import defaultdict
 from pathlib import Path
 
@@ -85,6 +86,7 @@ def run_joern(filepath: str, verbose: int):
         f"joern --script {script_file} --params='{params}'",
         verbose=verbose,
     )
+    shutil.rmtree(svd.project_dir() / "workspace" / filename.name)
 
 
 def get_node_edges(filepath: str, verbose=0):
