@@ -63,16 +63,9 @@ def generate_glove(dataset="bigvul"):
     samples = df.loc[df.label == "train"]
 
     # Preprocessing
-    def get_lines(s):
-        slines = s.splitlines()
-        lines = []
-        for sline in slines:
-            tokline = svdt.tokenise(sline)
-            if len(tokline) > 0:
-                lines.append(tokline)
-        return lines
-
-    samples.before = samples.before.parallel_apply(get_lines)
+    samples.before = svd.dfmp(
+        samples, svdt.tokenise_lines, "before", cs=200, desc="Get lines: "
+    )
     lines = [i for j in samples.before.to_numpy() for i in j]
 
     # Save corpus
