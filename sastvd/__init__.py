@@ -154,7 +154,7 @@ def hashstr(s):
     return int(hashlib.sha1(s.encode("utf-8")).hexdigest(), 16) % (10 ** 8)
 
 
-def dfmp(df, function, columns=None, ordr=True, workers=6, cs=10):
+def dfmp(df, function, columns=None, ordr=True, workers=6, cs=10, desc="Run: "):
     """Parallel apply function on dataframe."""
     if isinstance(columns, str):
         items = df[columns].tolist()
@@ -164,12 +164,15 @@ def dfmp(df, function, columns=None, ordr=True, workers=6, cs=10):
         items = df.to_dict("records")
 
     processed = []
+    desc = f"({workers} Workers) {desc}"
     if ordr:
         with Pool(processes=workers) as p:
-            for ret in tqdm(p.imap(function, items, cs), total=len(items)):
+            for ret in tqdm(p.imap(function, items, cs), total=len(items), desc=desc):
                 processed.append(ret)
     else:
         with Pool(processes=workers) as p:
-            for ret in tqdm(p.imap_unordered(function, items, cs), total=len(items)):
+            for ret in tqdm(
+                p.imap_unordered(function, items, cs), total=len(items), desc=desc
+            ):
                 processed.append(ret)
     return processed
