@@ -59,18 +59,11 @@ def get_dep_add_lines_bigvul(cache=True):
     if os.path.exists(saved) and cache:
         with open(saved, "rb") as f:
             return pkl.load(f)
-
-    lines_dict = []
     df = svdd.bigvul()
     df = df[df.vul == 1]
-    items = df[["id", "removed", "added"]].to_dict("records")
-
-    pool = Pool(processes=6)
-    for ret in tqdm(pool.imap_unordered(helper, items), total=len(items)):
-        lines_dict.append(ret)
+    desc = "Getting dependent-added lines: "
+    lines_dict = svd.dfmp(df, helper, ["id", "removed", "added"], ordr=False, desc=desc)
     lines_dict = dict(lines_dict)
-
     with open(saved, "wb") as f:
         pkl.dump(lines_dict, f)
-
     return lines_dict
