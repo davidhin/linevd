@@ -9,6 +9,7 @@ from datetime import datetime
 from multiprocessing import Pool
 from pathlib import Path
 
+import pandas as pd
 from tqdm import tqdm
 
 
@@ -155,24 +156,29 @@ def hashstr(s):
 
 
 def dfmp(df, function, columns=None, ordr=True, workers=6, cs=10, desc="Run: "):
-    """Parallel apply function on dataframe."""
+    """Parallel apply function on dataframe.
+
+    Example:
+    def asdf(x):
+        return x
+
+    dfmp(list(range(10)), asdf, ordr=False, workers=6, cs=1)
+    """
     if isinstance(columns, str):
         items = df[columns].tolist()
     elif isinstance(columns, list):
         items = df[columns].to_dict("records")
-    else:
+    elif isinstance(df, pd.DataFrame):
         items = df.to_dict("records")
+    elif isinstance(df, list):
+        items = df
+    else:
+        raise ValueError("First argument of dfmp should be pd.DataFrame or list.")
 
     processed = []
     desc = f"({workers} Workers) {desc}"
-    if ordr:
-        with Pool(processes=workers) as p:
-            for ret in tqdm(p.imap(function, items, cs), total=len(items), desc=desc):
-                processed.append(ret)
-    else:
-        with Pool(processes=workers) as p:
-            for ret in tqdm(
-                p.imap_unordered(function, items, cs), total=len(items), desc=desc
-            ):
-                processed.append(ret)
+    with Pool(processes=workers) as p:
+        map_func = getattr(p, "imap" if ordr else "imap_unordered")
+        for ret in tqdm(map_func(function, items, cs), total=len(items), desc=desc):
+            processed.append(ret)
     return processed
