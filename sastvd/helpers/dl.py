@@ -6,6 +6,29 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pad_se
 from torch.utils.data import Dataset
 
 
+def tensor_memory(debug="len", verbose=1):
+    """Get all tensors in memory."""
+    import gc
+
+    import torch
+
+    ret = []
+    for obj in gc.get_objects():
+        try:
+            if torch.is_tensor(obj) or (
+                hasattr(obj, "data") and torch.is_tensor(obj.data)
+            ):
+                ret.append(f"{type(obj)} : {obj.device} : {obj.size()}")
+        except:
+            pass
+    if verbose > 0:
+        if debug == "len":
+            print(len(ret))
+        if debug == "values":
+            print("\n".join(ret))
+    return ret
+
+
 class BatchDict:
     """Wrapper class for dicts with helper function to move attrs to torch device.
 
