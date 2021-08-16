@@ -97,7 +97,9 @@ def bigvul(minimal=True, sample=False):
     savedir = svd.get_dir(svd.cache_dir() / "minimal_datasets")
     if minimal:
         try:
-            return pd.read_parquet(savedir / f"minimal_bigvul_{sample}.pq").dropna()
+            return pd.read_parquet(
+                savedir / f"minimal_bigvul_{sample}.pq", engine="fastparquet"
+            ).dropna()
         except:
             pass
     filename = "MSR_data_cleaned_SAMPLE.csv" if sample else "MSR_data_cleaned.csv"
