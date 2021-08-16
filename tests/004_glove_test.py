@@ -10,16 +10,18 @@ def test_glove_bigvul_1():
 
 def test_glove_bigvul_2():
     """Load glove embeddings."""
-    _, corp = svdg.glove_dict(svd.processed_dir() / "bigvul/glove_True/vectors.txt")
+    path = svd.processed_dir() / "bigvul/glove_True/vectors.txt"
+    _, corp = svdg.glove_dict(path, cache=False)
     assert corp["if"] == 0
-    assert corp["return"] == 1
-    assert corp["int"] == 2
-    assert corp["struct"] == 3
+    assert corp["ps"] == 1
+    assert corp["return"] == 2
+    assert corp["len"] == 3
 
 
 def test_glove_bigvul_3():
     """Test closest embeddings."""
-    gdict, _ = svdg.glove_dict(svd.processed_dir() / "bigvul/glove_True/vectors.txt")
+    path = svd.processed_dir() / "bigvul/glove_True/vectors.txt"
+    gdict, _ = svdg.glove_dict(path, cache=False)
     if_closest = svdg.find_closest_embeddings("if", gdict)
     assert if_closest[0] == "if"
     assert if_closest[1] == "else"
@@ -27,7 +29,8 @@ def test_glove_bigvul_3():
 
 def test_glove_bigvul_4():
     """Test get embeddings."""
-    gdict, _ = svdg.glove_dict(svd.processed_dir() / "bigvul/glove_True/vectors.txt")
+    path = svd.processed_dir() / "bigvul/glove_True/vectors.txt"
+    gdict, _ = svdg.glove_dict(path, cache=False)
     ret = svdg.get_embeddings("if outofvocabword", gdict, 100)
     assert any([i != 0.01 for i in ret[0]])
     assert all([i == 0.001 for i in ret[1]])
