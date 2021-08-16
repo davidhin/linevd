@@ -7,6 +7,7 @@ from importlib import reload
 import dgl
 import sastvd as svd
 import sastvd.helpers.ml as ml
+import sastvd.helpers.rank_eval as svdr
 import sastvd.ivdetect.evaluate as ivde
 import sastvd.ivdetect.gnnexplainer as ge
 import sastvd.ivdetect.helpers as ivd
@@ -41,7 +42,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=0.0003)
 
 # Train loop
 ID = svd.get_run_id({})
-# ID = "202108121558_79d3273"
+ID = "202108121558_79d3273"
 logger = ml.LogWriter(
     model, svd.processed_dir() / "ivdetect" / ID, max_patience=100, val_every=30
 )
@@ -84,16 +85,21 @@ while True:
 # Print test results
 logger.load_best_model()
 model.eval()
+all_pred = []
+all_true = []
 with torch.no_grad():
     test_mets_total = []
     for test_batch in test_dl:
         test_batch = test_batch.to(dev)
         test_labels = dgl.max_nodes(test_batch, "_VULN").long()
         test_logits = model(test_batch, test_ds)
+        all_pred += test_logits[:, 1].tolist()
+        all_true += test_labels.tolist()
         test_mets = ml.get_metrics_logits(test_labels, test_logits)
         test_mets_total.append(test_mets)
         logger.test(ml.dict_mean(test_mets_total))
 logger.test(ml.dict_mean(test_mets_total))
+rank_metr_test = ml.met_dict_to_str(svdr.rank_metr(all_pred, all_true))
 
 # %% Statement-level through GNNExplainer
 correct_lines = ivde.get_dep_add_lines_bigvul()
