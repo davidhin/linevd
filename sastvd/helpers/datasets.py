@@ -1,3 +1,4 @@
+import os
 import re
 
 import pandas as pd
@@ -6,9 +7,6 @@ import sastvd.helpers.git as svdg
 import sastvd.helpers.glove as svdglove
 import sastvd.helpers.tokenise as svdt
 from sklearn.model_selection import train_test_split
-from tqdm import tqdm
-
-tqdm.pandas()
 
 
 def train_val_test_split_df(df, idcol, stratifycol):
@@ -54,8 +52,12 @@ def remove_comments(text):
     return re.sub(pattern, replacer, text)
 
 
-def generate_glove(dataset="bigvul", sample=False):
+def generate_glove(dataset="bigvul", sample=False, cache=True):
     """Generate Glove embeddings for tokenised dataset."""
+    savedir = svd.get_dir(svd.processed_dir() / dataset / f"glove_{sample}")
+    if os.path.exists(savedir / "vectors.txt") and cache:
+        svd.debug("Already trained GloVe.")
+        return
     if dataset == "bigvul":
         df = bigvul(sample=sample)
     MAX_ITER = 2 if sample else 3000
