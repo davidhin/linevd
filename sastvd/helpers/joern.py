@@ -82,7 +82,7 @@ def run_joern(filepath: str, verbose: int):
     if verbose > 2:
         svd.debug(f"joern --script {script_file} --params {params}")
     svd.subprocess_cmd(
-        f"joern --script {script_file} --params {params}",
+        f"joern --script {script_file} --params='{params}'",
         verbose=verbose,
     )
 
