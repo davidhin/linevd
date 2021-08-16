@@ -1,11 +1,9 @@
 import os
 import pickle as pkl
-from multiprocessing import Pool
 
 import sastvd as svd
 import sastvd.helpers.datasets as svdd
 import sastvd.ivdetect.helpers as ivdh
-from tqdm import tqdm
 
 
 def get_dep_add_lines(filepath_before, filepath_after, added_lines):

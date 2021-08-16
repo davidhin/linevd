@@ -14,10 +14,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from dgl.dataloading import GraphDataLoader
-from tqdm import tqdm
-
-tqdm.pandas()
-
 
 # Load data
 train_ds = ivd.BigVulGraphDataset(partition="train")
