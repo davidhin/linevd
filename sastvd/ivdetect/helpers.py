@@ -23,12 +23,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from dgl.nn import GraphConv
-from pandarallel import pandarallel
 from torch.nn.utils.rnn import pad_sequence
-from tqdm import tqdm
-
-tqdm.pandas()
-pandarallel.initialize()
 
 
 def feature_extraction(filepath):
@@ -434,9 +429,9 @@ class BigVulGraphDataset:
             self.df = self.df.sample(sample, random_state=0)
 
         # Filter out samples with no lineNumber from Joern output
-        print("Checking validity...", end="")
-        self.df["valid"] = self.df.id.parallel_apply(BigVulGraphDataset.check_validity)
-        print("Finished.")
+        self.df["valid"] = svd.dfmp(
+            self.df, BigVulGraphDataset.check_validity, "id", desc="Validate Samples: "
+        )
         self.df = self.df[self.df.valid]
 
         # Get mapping from index to sample ID.
@@ -485,12 +480,19 @@ class BigVulGraphDataset:
         removed = df.removed.item()
         return dict([(i, 1) for i in removed])
 
+    def _feat_ext_itempath(_id):
+        """Run feature extraction with itempath."""
+        feature_extraction(BigVulGraphDataset.itempath(_id))
+
     def cache_features(self):
         """Save features to disk as cache."""
-        itempath = BigVulGraphDataset.itempath
-        self.df.id.parallel_apply(lambda x: feature_extraction(itempath(x)))
-        # for i in tqdm(range(len(self))):
-        #     self[i]
+        svd.dfmp(
+            self.df,
+            BigVulGraphDataset._feat_ext_itempath,
+            "id",
+            ordr=False,
+            desc="Cache features: ",
+        )
 
     def __getitem__(self, idx):
         """Override getitem."""
