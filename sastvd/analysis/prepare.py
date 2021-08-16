@@ -11,3 +11,7 @@ def bigvul():
     ivdh.BigVulGraphDataset(partition="val").cache_features()
     ivdh.BigVulGraphDataset(partition="test").cache_features()
     svdd.generate_glove("bigvul")
+
+
+if __name__ == "__main__":
+    bigvul()
