@@ -40,11 +40,11 @@ def preprocess(row):
             f.write(row["after"])
 
     # Run Joern on "before" code
-    if not os.path.exists(f"{fpath1}.nodes.json"):
+    if not os.path.exists(f"{fpath1}.edges.json"):
         svdj.full_run_joern(fpath1, verbose=3)
 
     # Run Joern on "after" code
-    if not os.path.exists(f"{fpath2}.nodes.json") and len(row["diff"]) > 0:
+    if not os.path.exists(f"{fpath2}.edges.json") and len(row["diff"]) > 0:
         svdj.full_run_joern(fpath2, verbose=3)
 
     # Run SAST extraction
