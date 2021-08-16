@@ -134,6 +134,10 @@ def bigvul(minimal=True, sample=False):
     ]
     df_savedir = savedir / f"minimal_bigvul_{sample}.pq"
     df[keepcols].to_parquet(
-        df_savedir, object_encoding="json", index=0, compression="gzip"
+        df_savedir,
+        object_encoding="json",
+        index=0,
+        compression="gzip",
+        engine="fastparquet",
     )
     return df
