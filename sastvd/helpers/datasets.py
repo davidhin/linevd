@@ -54,13 +54,14 @@ def remove_comments(text):
     return re.sub(pattern, replacer, text)
 
 
-def generate_glove(dataset="bigvul"):
+def generate_glove(dataset="bigvul", sample=False):
     """Generate Glove embeddings for tokenised dataset."""
     if dataset == "bigvul":
-        df = bigvul()
+        df = bigvul(sample=sample)
+    MAX_ITER = 2 if sample else 3000
 
     # Only train GloVe embeddings on train samples
-    samples = df.loc[df.label == "train"]
+    samples = df[df.label == "train"].copy()
 
     # Preprocessing
     samples.before = svd.dfmp(
@@ -69,13 +70,13 @@ def generate_glove(dataset="bigvul"):
     lines = [i for j in samples.before.to_numpy() for i in j]
 
     # Save corpus
-    savedir = svd.get_dir(svd.processed_dir() / dataset / "glove")
+    savedir = svd.get_dir(svd.processed_dir() / dataset / f"glove_{sample}")
     with open(savedir / "corpus.txt", "w") as f:
         f.write("\n".join(lines))
 
     # Train Glove Model
     CORPUS = savedir / "corpus.txt"
-    svdglove.glove(CORPUS, MAX_ITER=5000)
+    svdglove.glove(CORPUS, MAX_ITER=MAX_ITER)
 
 
 def bigvul(minimal=True, sample=False):
