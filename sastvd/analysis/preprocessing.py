@@ -55,4 +55,5 @@ def preprocess(row):
             pkl.dump(sast_before, f)
 
 
-svd.dfmp(splits[JOB_ARRAY_NUMBER], preprocess, ordr=False)
+if __name__ == "__main__":
+    svd.dfmp(splits[JOB_ARRAY_NUMBER], preprocess, ordr=False)
