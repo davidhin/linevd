@@ -28,6 +28,7 @@ test_dl = GraphDataLoader(test_ds, batch_size=64, **dl_args)
 # %% Create model
 reload(ivd)
 dev = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+svd.debug(dev)
 model = ivd.IVDetect(input_size=200, hidden_size=100, num_layers=2, dropout=0.2)
 model.to(dev)
 
@@ -42,11 +43,11 @@ optimizer = torch.optim.Adam(model.parameters(), lr=0.0003)
 
 # Train loop
 ID = svd.get_run_id({})
-ID = "202108121558_79d3273"
+# ID = "202108121558_79d3273"
 logger = ml.LogWriter(
     model, svd.processed_dir() / "ivdetect" / ID, max_patience=100, val_every=30
 )
-logger.load_logger()
+# logger.load_logger()
 while True:
     for batch in train_dl:
 
