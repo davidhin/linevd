@@ -89,6 +89,7 @@ def bigvul(minimal=True, sample=False):
 
     EDGE CASE FIXING:
     id = 177775 should have removed line = 16 and added line = 17
+    id = 177860 should not have comments in the before/after
     """
     savedir = svd.get_dir(svd.cache_dir() / "minimal_datasets")
     if minimal:
