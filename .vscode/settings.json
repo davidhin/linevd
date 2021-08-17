@@ -39,5 +39,9 @@
       "source.organizeImports": true
     },
     "editor.defaultFormatter": "ms-python.python"
-  }
+  },
+  "python.testing.pytestArgs": ["tests"],
+  "python.testing.unittestEnabled": false,
+  "python.testing.nosetestsEnabled": false,
+  "python.testing.pytestEnabled": true
 }
