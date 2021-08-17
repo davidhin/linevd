@@ -282,6 +282,14 @@ def rdg(edges, gtype):
         return edges[(edges.etype == "AST")]
     if gtype == "pdg":
         return edges[(edges.etype == "REACHING_DEF") | (edges.etype == "CDG")]
+    if gtype == "all":
+        return edges[
+            (edges.etype == "REACHING_DEF")
+            | (edges.etype == "CDG")
+            | (edges.etype == "AST")
+            | (edges.etype == "EVAL_TYPE")
+            | (edges.etype == "REF")
+        ]
 
 
 def assign_line_num_to_local(nodes, edges, code):
