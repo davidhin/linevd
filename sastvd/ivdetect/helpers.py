@@ -343,15 +343,15 @@ class IVDetect(nn.Module):
             statement_feat_vecs.append(F2[idx])
             statement_feat_vecs.append(F3[idx])
 
-            if isinstance(data[n]["data"], list):
-                for d in data[n]["data"][:5]:
-                    f4_idx = node_dict[(sampleid, d)]
-                    statement_feat_vecs.append(F4[f4_idx])
+            # if isinstance(data[n]["data"], list):
+            #     for d in data[n]["data"][:5]:
+            #         f4_idx = node_dict[(sampleid, d)]
+            #         statement_feat_vecs.append(F4[f4_idx])
 
-            if isinstance(data[n]["control"], list):
-                for d in data[n]["control"][:5]:
-                    f5_idx = node_dict[(sampleid, d)]
-                    statement_feat_vecs.append(F5[f5_idx])
+            # if isinstance(data[n]["control"], list):
+            #     for d in data[n]["control"][:5]:
+            #         f5_idx = node_dict[(sampleid, d)]
+            #         statement_feat_vecs.append(F5[f5_idx])
 
             batched_feat_vecs.append(torch.stack(statement_feat_vecs))
 
