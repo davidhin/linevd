@@ -5,8 +5,8 @@
 #SBATCH --time=24:00:00
 #SBATCH --mem=16GB
 #SBATCH --gres=gpu:1
-#SBATCH --err="hpc/logs/ivdetect.info"
-#SBATCH --output="hpc/logs/ivdetect.info"
+#SBATCH --err="hpc/logs/ivdetect_%A.info"
+#SBATCH --output="hpc/logs/ivdetect_%A.info"
 #SBATCH --job-name="ivdetect"
 
 # Setup Python Environment
