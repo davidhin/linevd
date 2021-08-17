@@ -93,6 +93,12 @@ def gitsha():
     )
 
 
+def gitmessage():
+    """Get current git commit sha for reproducibility."""
+    m = subprocess.check_output(["git", "log", "-1", "--format=%s"]).strip().decode()
+    return "_".join(m.lower().split())
+
+
 def subprocess_cmd(command: str, verbose: int = 0, force_shell: bool = False):
     """Run command line process.
 
@@ -141,7 +147,7 @@ def get_run_id(args=None):
     """Generate run ID."""
     if not args:
         ID = datetime.now().strftime("%Y%m%d%H%M_{}".format(gitsha()))
-        return ID
+        return ID + "_" + gitmessage()
     ID = datetime.now().strftime(
         "%Y%m%d%H%M_{}_{}".format(
             gitsha(), "_".join([f"{v}" for _, v in vars(args).items()])
