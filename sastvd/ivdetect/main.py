@@ -17,8 +17,9 @@ import torch.nn.functional as F
 from dgl.dataloading import GraphDataLoader
 
 # Load data
+reload(ivd)
 train_ds = ivd.BigVulGraphDataset(partition="train")
-val_ds = ivd.BigVulGraphDataset(partition="val", sample=1000)
+val_ds = ivd.BigVulGraphDataset(partition="val")
 test_ds = ivd.BigVulGraphDataset(partition="test")
 dl_args = {"drop_last": False, "shuffle": True, "num_workers": 6}
 train_dl = GraphDataLoader(train_ds, batch_size=16, **dl_args)
@@ -26,7 +27,6 @@ val_dl = GraphDataLoader(val_ds, batch_size=16, **dl_args)
 test_dl = GraphDataLoader(test_ds, batch_size=64, **dl_args)
 
 # %% Create model
-reload(ivd)
 dev = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 svd.debug(dev)
 model = ivd.IVDetect(input_size=200, hidden_size=100, num_layers=2, dropout=0.2)
@@ -67,14 +67,15 @@ while True:
         if logger.log_val():
             model.eval()
             with torch.no_grad():
-                val_mets_total = []
+                all_pred = torch.empty((0, 2)).long().to(dev)
+                all_true = torch.empty((0)).long().to(dev)
                 for val_batch in val_dl:
                     val_batch = val_batch.to(dev)
                     val_labels = dgl.max_nodes(val_batch, "_VULN").long()
                     val_logits = model(val_batch, val_ds)
-                    val_mets = ml.get_metrics_logits(val_labels, val_logits)
-                    val_mets_total.append(val_mets)
-                val_mets = ml.dict_mean(val_mets_total)
+                    all_pred = torch.cat([all_pred, val_logits])
+                    all_true = torch.cat([all_true, val_labels])
+                val_mets = ml.get_metrics_logits(all_true, all_pred)
         logger.log(train_mets, val_mets)
         logger.save_logger()
 
