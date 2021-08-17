@@ -39,13 +39,13 @@ logits = model(batch, train_ds)
 
 # %% Optimiser
 criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=0.0003)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.0004)
 
 # Train loop
 ID = svd.get_run_id({})
 # ID = "202108121558_79d3273"
 logger = ml.LogWriter(
-    model, svd.processed_dir() / "ivdetect" / ID, max_patience=100, val_every=30
+    model, svd.processed_dir() / "ivdetect" / ID, max_patience=10000, val_every=30
 )
 # logger.load_logger()
 while True:
