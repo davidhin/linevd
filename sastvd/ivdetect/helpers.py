@@ -440,7 +440,7 @@ class BigVulGraphDataset:
         self.idx2id = pd.Series(self.df.id.values, index=self.df.idx).to_dict()
 
         # Load Glove vectors.
-        glove_path = svd.processed_dir() / "bigvul/glove/vectors.txt"
+        glove_path = svd.processed_dir() / "bigvul/glove_False/vectors.txt"
         self.emb_dict, _ = svdg.glove_dict(glove_path)
 
     def itempath(_id):
