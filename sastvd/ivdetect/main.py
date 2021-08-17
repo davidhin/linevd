@@ -85,20 +85,18 @@ while True:
 # Print test results
 logger.load_best_model()
 model.eval()
-all_pred = []
-all_true = []
+all_pred = torch.empty((0, 2)).long().to(dev)
+all_true = torch.empty((0)).long().to(dev)
 with torch.no_grad():
-    test_mets_total = []
     for test_batch in test_dl:
         test_batch = test_batch.to(dev)
         test_labels = dgl.max_nodes(test_batch, "_VULN").long()
         test_logits = model(test_batch, test_ds)
-        all_pred += test_logits[:, 1].tolist()
-        all_true += test_labels.tolist()
-        test_mets = ml.get_metrics_logits(test_labels, test_logits)
-        test_mets_total.append(test_mets)
-        logger.test(ml.dict_mean(test_mets_total))
-logger.test(ml.dict_mean(test_mets_total))
+        all_pred = torch.cat([all_pred, test_logits])
+        all_true = torch.cat([all_true, test_labels])
+        test_mets = ml.get_metrics_logits(all_true, all_pred)
+        logger.test(test_mets)
+logger.test(test_mets)
 rank_metr_test = ml.met_dict_to_str(svdr.rank_metr(all_pred, all_true))
 
 # %% Statement-level through GNNExplainer
