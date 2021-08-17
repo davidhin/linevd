@@ -233,13 +233,13 @@ class GruWrapper(nn.Module):
 class IVDetect(nn.Module):
     """IVDetect model."""
 
-    def __init__(self, input_size, hidden_size, num_layers, dropout=0):
+    def __init__(self, input_size, hidden_size, num_layers, dropout=0, gru_dropout=0.3):
         """Initilisation."""
         super(IVDetect, self).__init__()
-        self.gru = GruWrapper(input_size, hidden_size, num_layers, dropout=0)
-        self.gru2 = GruWrapper(input_size, hidden_size, num_layers, dropout=0)
-        self.gru3 = GruWrapper(input_size, hidden_size, num_layers, dropout=0)
-        self.gru4 = GruWrapper(input_size, hidden_size, num_layers, dropout=0)
+        self.gru = GruWrapper(input_size, hidden_size, num_layers, dropout=gru_dropout)
+        self.gru2 = GruWrapper(input_size, hidden_size, num_layers, dropout=gru_dropout)
+        self.gru3 = GruWrapper(input_size, hidden_size, num_layers, dropout=gru_dropout)
+        self.gru4 = GruWrapper(input_size, hidden_size, num_layers, dropout=gru_dropout)
         self.bigru = GruWrapper(
             hidden_size, hidden_size, num_layers, dropout=0, bidirectional=True
         )
