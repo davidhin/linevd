@@ -226,7 +226,7 @@ class BigVulDataset:
 
     def __getitem__(self, idx):
         """Must override."""
-        return self.df[self.df.idx == idx].to_dict("records")[0]
+        return self.df.iloc[idx].to_dict()
 
     def __len__(self):
         """Get length of dataset."""
