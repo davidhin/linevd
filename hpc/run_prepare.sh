@@ -12,4 +12,4 @@
 module load Singularity
 
 # Start singularity instance
-singularity exec -H /g/acvt/a1720858/sastvd main.sif python -u sastvd/analysis/prepare.py
+singularity exec -H /g/acvt/a1720858/sastvd main.sif python -u sastvd/scripts/prepare.py

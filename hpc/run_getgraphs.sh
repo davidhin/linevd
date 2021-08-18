@@ -13,4 +13,4 @@
 module load Singularity
 
 # Start singularity instance
-singularity exec -H /g/acvt/a1720858/sastvd main.sif python -u sastvd/analysis/getgraphs.py $SLURM_ARRAY_TASK_ID
+singularity exec -H /g/acvt/a1720858/sastvd main.sif python -u sastvd/scripts/getgraphs.py $SLURM_ARRAY_TASK_ID
