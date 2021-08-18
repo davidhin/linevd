@@ -154,6 +154,7 @@ class BigVulDataset:
             for i in glob(str(svd.processed_dir() / "bigvul/before/*nodes*"))
         ]
         self.df = bigvul()
+        self.partition = partition
         self.df = self.df[self.df.label == partition]
         self.df = self.df[self.df.id.isin(self.finished)]
 
@@ -230,3 +231,8 @@ class BigVulDataset:
     def __len__(self):
         """Get length of dataset."""
         return len(self.df)
+
+    def __repr__(self):
+        """Override representation."""
+        vulnperc = round(len(self.df[self.df.vul == 1]) / len(self), 3)
+        return f"BigVulDataset(partition={self.partition}, samples={len(self)}, vulnperc={vulnperc})"
