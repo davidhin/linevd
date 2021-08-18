@@ -264,7 +264,7 @@ class IVDetect(nn.Module):
         import sastvd.helpers.graphs as svdgr
         from importlib import reload
         dev = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        dataset = BigVulGraphDataset(partition="train", sample=10)
+        dataset = BigVulDatasetIVDetect(partition="train", sample=10)
         g = dgl.batch([dataset[0], dataset[1]]).to(dev)
 
         input_size = 200
@@ -404,115 +404,18 @@ class IVDetect(nn.Module):
         return out
 
 
-class BigVulGraphDataset:
-    """Represent BigVul as graph dataset."""
+class BigVulDatasetIVDetect(svdd.BigVulDataset):
+    """IVDetect version of BigVul."""
 
-    def __init__(self, partition="train", sample=-1):
-        """Init class."""
-        # Get finished samples
-        self.finished = [
-            int(Path(i).name.split(".")[0])
-            for i in glob(str(svd.processed_dir() / "bigvul/before/*nodes*"))
-        ]
-        self.df = svdd.bigvul()
-        self.df = self.df[self.df.label == partition]
-        self.df = self.df[self.df.id.isin(self.finished)]
-
-        # Balance training set
-        if partition == "train" or partition == "val":
-            vul = self.df[self.df.vul == 1]
-            nonvul = self.df[self.df.vul == 0].sample(len(vul), random_state=0)
-            self.df = pd.concat([vul, nonvul])
-
-        # Small sample (for debugging):
-        if sample > 0:
-            self.df = self.df.sample(sample, random_state=0)
-
-        # Filter out samples with no lineNumber from Joern output
-        self.df["valid"] = svd.dfmp(
-            self.df, BigVulGraphDataset.check_validity, "id", desc="Validate Samples: "
-        )
-        self.df = self.df[self.df.valid]
-
-        # Get mapping from index to sample ID.
-        self.df = self.df.reset_index(drop=True).reset_index()
-        self.df = self.df.rename(columns={"index": "idx"})
-        self.idx2id = pd.Series(self.df.id.values, index=self.df.idx).to_dict()
-
-        # Load Glove vectors.
+    def __init__(self, **kwargs):
+        """Init."""
+        super(BigVulDatasetIVDetect, self).__init__(**kwargs)
         glove_path = svd.processed_dir() / "bigvul/glove_False/vectors.txt"
         self.emb_dict, _ = svdg.glove_dict(glove_path)
 
-    def itempath(_id):
-        """Get itempath path from item id."""
-        return svd.processed_dir() / f"bigvul/before/{_id}.c"
-
-    def check_validity(_id):
-        """Check whether sample with id=_id has node/edges.
-
-        Example:
-        _id = 1320
-        with open(str(svd.processed_dir() / f"bigvul/before/{_id}.c") + ".nodes.json", "r") as f:
-            nodes = json.load(f)
-        """
-        valid = 0
-        with open(str(BigVulGraphDataset.itempath(_id)) + ".nodes.json", "r") as f:
-            nodes = json.load(f)
-            lineNums = set()
-            for n in nodes:
-                if "lineNumber" in n.keys():
-                    lineNums.add(n["lineNumber"])
-                    if len(lineNums) > 1:
-                        valid = 1
-                        break
-            if valid == 0:
-                return False
-        with open(str(BigVulGraphDataset.itempath(_id)) + ".edges.json", "r") as f:
-            edges = json.load(f)
-            edge_set = set([i[2] for i in edges])
-            if "REACHING_DEF" not in edge_set and "CDG" not in edge_set:
-                return False
-            return True
-
-    def get_vuln_indices(self, _id):
-        """Obtain vulnerable lines from sample ID."""
-        df = self.df[self.df.id == _id]
-        removed = df.removed.item()
-        return dict([(i, 1) for i in removed])
-
-    def _feat_ext_itempath(_id):
-        """Run feature extraction with itempath."""
-        feature_extraction(BigVulGraphDataset.itempath(_id))
-
-    def cache_features(self):
-        """Save features to disk as cache."""
-        svd.dfmp(
-            self.df,
-            BigVulGraphDataset._feat_ext_itempath,
-            "id",
-            ordr=False,
-            desc="Cache features: ",
-        )
-
-    def __getitem__(self, idx):
-        """Override getitem."""
-        _id = self.idx2id[idx]
-        n, e = feature_extraction(BigVulGraphDataset.itempath(_id))
-        n["vuln"] = n.id.map(self.get_vuln_indices(_id)).fillna(0)
-        g = dgl.graph(e)
-        g.ndata["_LINE"] = torch.Tensor(n["id"].astype(int).to_numpy())
-        g.ndata["_VULN"] = torch.Tensor(n["vuln"].astype(int).to_numpy())
-        g.ndata["_SAMPLE"] = torch.Tensor([_id] * len(n))
-        g = dgl.add_self_loop(g)
-        return g
-
-    def __len__(self):
-        """Get length of dataset."""
-        return len(self.df)
-
     def item(self, _id):
         """Get item data."""
-        n, _ = feature_extraction(BigVulGraphDataset.itempath(_id))
+        n, _ = feature_extraction(svdd.BigVulDataset.itempath(_id))
         n.subseq = n.subseq.apply(lambda x: svdg.get_embeddings(x, self.emb_dict, 200))
         n.nametypes = n.nametypes.apply(
             lambda x: svdg.get_embeddings(x, self.emb_dict, 200)
@@ -537,6 +440,28 @@ class BigVulGraphDataset:
 
         return {"df": n, "asts": asts}
 
-    def stats(self):
-        """Print dataset stats."""
-        print(self.df.groupby(["label", "vul"]).count()[["id"]])
+    def _feat_ext_itempath(_id):
+        """Run feature extraction with itempath."""
+        feature_extraction(svdd.BigVulDataset.itempath(_id))
+
+    def cache_features(self):
+        """Save features to disk as cache."""
+        svd.dfmp(
+            self.df,
+            svdd.BigVulDataset._feat_ext_itempath,
+            "id",
+            ordr=False,
+            desc="Cache features: ",
+        )
+
+    def __getitem__(self, idx):
+        """Override getitem."""
+        _id = self.idx2id[idx]
+        n, e = feature_extraction(svdd.BigVulDataset.itempath(_id))
+        n["vuln"] = n.id.map(self.get_vuln_indices(_id)).fillna(0)
+        g = dgl.graph(e)
+        g.ndata["_LINE"] = torch.Tensor(n["id"].astype(int).to_numpy())
+        g.ndata["_VULN"] = torch.Tensor(n["vuln"].astype(int).to_numpy())
+        g.ndata["_SAMPLE"] = torch.Tensor([_id] * len(n))
+        g = dgl.add_self_loop(g)
+        return g

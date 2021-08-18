@@ -18,9 +18,9 @@ from dgl.dataloading import GraphDataLoader
 
 # Load data
 reload(ivd)
-train_ds = ivd.BigVulGraphDataset(partition="train")
-val_ds = ivd.BigVulGraphDataset(partition="val")
-test_ds = ivd.BigVulGraphDataset(partition="test")
+train_ds = ivd.BigVulDatasetIVDetect(partition="train")
+val_ds = ivd.BigVulDatasetIVDetect(partition="val")
+test_ds = ivd.BigVulDatasetIVDetect(partition="test")
 dl_args = {"drop_last": False, "shuffle": True, "num_workers": 6}
 train_dl = GraphDataLoader(train_ds, batch_size=16, **dl_args)
 val_dl = GraphDataLoader(val_ds, batch_size=16, **dl_args)
