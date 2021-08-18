@@ -35,3 +35,4 @@ torchsummary
 torchinfo
 dgl-cu102
 tsne_torch
+pytorch-lightning
