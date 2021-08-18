@@ -1,10 +1,8 @@
 """Implementation of IVDetect."""
 
 
-import json
 import pickle as pkl
 from collections import defaultdict
-from glob import glob
 from pathlib import Path
 
 import dgl
