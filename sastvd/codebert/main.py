@@ -73,7 +73,8 @@ class LitCodebert(pl.LightningModule):
             bert_out = self.bert(ids, attention_mask=mask)
         fc1_out = self.fc1(bert_out["pooler_output"])
         fc2_out = self.fc2(fc1_out)
-        return fc2_out
+        out = F.softmax(fc2_out, dim=1)
+        return out
 
     def training_step(self, batch, batch_idx):
         """Training step."""
@@ -103,6 +104,8 @@ class LitCodebert(pl.LightningModule):
         ids, att_mask, labels = batch
         logits = self(ids, att_mask)
         loss = F.cross_entropy(logits, labels)
+        self.auroc.update(logits[:, 1], labels)
+        self.log("test_auroc", self.auroc, on_epoch=True, prog_bar=True, logger=True)
         return loss
 
     def configure_optimizers(self):
