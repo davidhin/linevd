@@ -1,3 +1,4 @@
+import pandas as pd
 import pytorch_lightning as pl
 import sastvd as svd
 import sastvd.helpers.datasets as svdd
@@ -8,19 +9,30 @@ from torch.utils.data import DataLoader
 from transformers import AutoModel, AutoTokenizer
 
 
-class BigVulDatasetNLP(svdd.BigVulDataset):
+class BigVulDatasetNLP:
     """Override getitem for codebert."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, partition="train", random_labels=False):
         """Init."""
-        super().__init__(**kwargs)
+        self.df = svdd.bigvul()
+        self.df = self.df[self.df.label == partition]
+        if partition == "train" or partition == "val":
+            vul = self.df[self.df.vul == 1]
+            nonvul = self.df[self.df.vul == 0].sample(len(vul), random_state=0)
+            self.df = pd.concat([vul, nonvul])
         tokenizer = AutoTokenizer.from_pretrained("microsoft/codebert-base")
         tk_args = {"padding": True, "truncation": True, "return_tensors": "pt"}
         text = [tokenizer.sep_token + " " + ct for ct in self.df.before.tolist()]
         tokenized = tokenizer(text, **tk_args)
         self.labels = self.df.vul.tolist()
+        if random_labels:
+            self.labels = torch.randint(0, 2, (1, len(self.df)))
         self.ids = tokenized["input_ids"]
         self.att_mask = tokenized["attention_mask"]
+
+    def __len__(self):
+        """Get length of dataset."""
+        return len(self.df)
 
     def __getitem__(self, idx):
         """Override getitem."""
@@ -33,9 +45,9 @@ class BigVulDatasetNLPDataModule(pl.LightningDataModule):
     def __init__(self, batch_size: int = 32, sample: int = -1):
         """Init class from bigvul dataset."""
         super().__init__()
-        self.train = BigVulDatasetNLP(partition="train", sample=sample)
-        self.val = BigVulDatasetNLP(partition="val", sample=sample)
-        self.test = BigVulDatasetNLP(partition="test", sample=sample)
+        self.train = BigVulDatasetNLP(partition="train")
+        self.val = BigVulDatasetNLP(partition="val")
+        self.test = BigVulDatasetNLP(partition="test")
         self.batch_size = batch_size
 
     def train_dataloader(self):
@@ -127,3 +139,26 @@ trainer = pl.Trainer(
 )
 tuned = trainer.tune(model, data)
 trainer.fit(model, data)
+
+
+# import sastvd.helpers.ml as ml
+# from tqdm import tqdm
+# run_id = "202108191652_2a65b8c_update_default_getitem_bigvul"
+# chkpoint = (
+#     svd.processed_dir()
+#     / f"codebert/{run_id}/lightning_logs/version_0/checkpoints/epoch=188-step=18900.ckpt"
+# )
+# model = LitCodebert.load_from_checkpoint(chkpoint)
+# model.cuda()
+# all_pred = torch.empty((0, 2)).long().cuda()
+# all_true = torch.empty((0)).long().cuda()
+# for batch in tqdm(data.test_dataloader()):
+#     ids, att_mask, labels = batch
+#     ids = ids.cuda()
+#     att_mask = att_mask.cuda()
+#     labels = labels.cuda()
+#     with torch.no_grad():
+#         logits = model(ids, att_mask)
+#     all_pred = torch.cat([all_pred, logits])
+#     all_true = torch.cat([all_true, labels])
+# ml.get_metrics_logits(all_true, all_pred)
