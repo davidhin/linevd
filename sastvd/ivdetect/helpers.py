@@ -10,7 +10,7 @@ import dgl.function as fn
 import networkx as nx
 import pandas as pd
 import sastvd as svd
-import sastvd.helpers.datasets as svdd
+import sastvd.helpers.dataclasses as svddc
 import sastvd.helpers.dl as dl
 import sastvd.helpers.glove as svdg
 import sastvd.helpers.joern as svdj
@@ -402,7 +402,7 @@ class IVDetect(nn.Module):
         return out
 
 
-class BigVulDatasetIVDetect(svdd.BigVulDataset):
+class BigVulDatasetIVDetect(svddc.BigVulDataset):
     """IVDetect version of BigVul."""
 
     def __init__(self, **kwargs):
@@ -413,7 +413,7 @@ class BigVulDatasetIVDetect(svdd.BigVulDataset):
 
     def item(self, _id):
         """Get item data."""
-        n, _ = feature_extraction(svdd.BigVulDataset.itempath(_id))
+        n, _ = feature_extraction(svddc.BigVulDataset.itempath(_id))
         n.subseq = n.subseq.apply(lambda x: svdg.get_embeddings(x, self.emb_dict, 200))
         n.nametypes = n.nametypes.apply(
             lambda x: svdg.get_embeddings(x, self.emb_dict, 200)
@@ -440,13 +440,13 @@ class BigVulDatasetIVDetect(svdd.BigVulDataset):
 
     def _feat_ext_itempath(_id):
         """Run feature extraction with itempath."""
-        feature_extraction(svdd.BigVulDataset.itempath(_id))
+        feature_extraction(svddc.BigVulDataset.itempath(_id))
 
     def cache_features(self):
         """Save features to disk as cache."""
         svd.dfmp(
             self.df,
-            svdd.BigVulDataset._feat_ext_itempath,
+            svddc.BigVulDataset._feat_ext_itempath,
             "id",
             ordr=False,
             desc="Cache features: ",
@@ -455,7 +455,7 @@ class BigVulDatasetIVDetect(svdd.BigVulDataset):
     def __getitem__(self, idx):
         """Override getitem."""
         _id = self.idx2id[idx]
-        n, e = feature_extraction(svdd.BigVulDataset.itempath(_id))
+        n, e = feature_extraction(svddc.BigVulDataset.itempath(_id))
         n["vuln"] = n.id.map(self.get_vuln_indices(_id)).fillna(0)
         g = dgl.graph(e)
         g.ndata["_LINE"] = torch.Tensor(n["id"].astype(int).to_numpy())
