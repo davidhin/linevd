@@ -26,7 +26,7 @@ class BigVulDatasetNLP:
         tokenized = tokenizer(text, **tk_args)
         self.labels = self.df.vul.tolist()
         if random_labels:
-            self.labels = torch.randint(0, 2, (1, len(self.df)))
+            self.labels = torch.randint(0, 2, (len(self.df),)).tolist()
         self.ids = tokenized["input_ids"]
         self.att_mask = tokenized["attention_mask"]
 
@@ -142,6 +142,7 @@ trainer.fit(model, data)
 
 # import sastvd.helpers.ml as ml
 # from tqdm import tqdm
+
 # run_id = "202108191652_2a65b8c_update_default_getitem_bigvul"
 # chkpoint = (
 #     svd.processed_dir()
@@ -157,7 +158,7 @@ trainer.fit(model, data)
 #     att_mask = att_mask.cuda()
 #     labels = labels.cuda()
 #     with torch.no_grad():
-#         logits = model(ids, att_mask)
+#         logits = F.softmax(model(ids, att_mask), dim=1)
 #     all_pred = torch.cat([all_pred, logits])
 #     all_true = torch.cat([all_true, labels])
 # ml.get_metrics_logits(all_true, all_pred)
