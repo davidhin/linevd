@@ -29,7 +29,7 @@ test_dl = GraphDataLoader(test_ds, batch_size=64, **dl_args)
 # %% Create model
 dev = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 svd.debug(dev)
-model = ivd.IVDetect(input_size=200, hidden_size=100, num_layers=2, dropout=0.2)
+model = ivd.IVDetect(200, 64)
 model.to(dev)
 
 # Debugging a single sample
@@ -39,7 +39,7 @@ logits = model(batch, train_ds)
 
 # %% Optimiser
 criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=0.0004)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
 
 # Train loop
 ID = svd.get_run_id({})
