@@ -2,6 +2,7 @@ import pandas as pd
 import pytorch_lightning as pl
 import sastvd as svd
 import sastvd.helpers.datasets as svdd
+import sastvd.ivdetect.evaluate as ivde
 import torch
 import torch.nn.functional as F
 import torchmetrics
@@ -39,30 +40,70 @@ class BigVulDatasetNLP:
         return self.ids[idx], self.att_mask[idx], self.labels[idx]
 
 
+class BigVulDatasetNLPLine:
+    """Override getitem for codebert."""
+
+    def __init__(self, partition="train"):
+        """Init."""
+        linedict = ivde.get_dep_add_lines_bigvul()
+        df = svdd.bigvul()
+        df = df[df.label == partition]
+        df = df[df.vul == 1].copy()
+        df = df.sample(min(1000, len(df)))
+
+        texts = []
+        self.labels = []
+
+        for row in df.itertuples():
+            line_info = linedict[row.id]
+            vuln_lines = set(list(line_info["removed"]) + line_info["depadd"])
+            for idx, line in enumerate(row.before.splitlines(), start=1):
+                line = line.strip()
+                if len(line) < 5:
+                    continue
+                if line[:2] == "//":
+                    continue
+                texts.append(line.strip())
+                self.labels.append(1 if idx in vuln_lines else 0)
+
+        tokenizer = AutoTokenizer.from_pretrained("microsoft/codebert-base")
+        tk_args = {"padding": True, "truncation": True, "return_tensors": "pt"}
+        text = [tokenizer.sep_token + " " + ct for ct in texts]
+        tokenized = tokenizer(text, **tk_args)
+        self.ids = tokenized["input_ids"]
+        self.att_mask = tokenized["attention_mask"]
+
+    def __len__(self):
+        """Get length of dataset."""
+        return len(self.labels)
+
+    def __getitem__(self, idx):
+        """Override getitem."""
+        return self.ids[idx], self.att_mask[idx], self.labels[idx]
+
+
 class BigVulDatasetNLPDataModule(pl.LightningDataModule):
     """Pytorch Lightning Datamodule for Bigvul."""
 
-    def __init__(self, batch_size: int = 32, sample: int = -1):
+    def __init__(self, DataClass, batch_size: int = 32, sample: int = -1):
         """Init class from bigvul dataset."""
         super().__init__()
-        self.train = BigVulDatasetNLP(partition="train")
-        self.val = BigVulDatasetNLP(partition="val")
-        self.test = BigVulDatasetNLP(partition="test")
+        self.train = DataClass(partition="train")
+        self.val = DataClass(partition="val")
+        self.test = DataClass(partition="test")
         self.batch_size = batch_size
 
     def train_dataloader(self):
         """Return train dataloader."""
-        return DataLoader(
-            self.train, shuffle=True, batch_size=self.batch_size, num_workers=6
-        )
+        return DataLoader(self.train, shuffle=True, batch_size=self.batch_size)
 
     def val_dataloader(self):
         """Return val dataloader."""
-        return DataLoader(self.val, batch_size=self.batch_size, num_workers=6)
+        return DataLoader(self.val, batch_size=self.batch_size)
 
     def test_dataloader(self):
         """Return test dataloader."""
-        return DataLoader(self.test, batch_size=self.batch_size, num_workers=6)
+        return DataLoader(self.test, batch_size=self.batch_size)
 
 
 class LitCodebert(pl.LightningModule):
@@ -78,6 +119,7 @@ class LitCodebert(pl.LightningModule):
         self.fc2 = torch.nn.Linear(256, 2)
         self.accuracy = torchmetrics.Accuracy()
         self.auroc = torchmetrics.AUROC(compute_on_step=False)
+        self.mcc = torchmetrics.MatthewsCorrcoef(2)
 
     def forward(self, ids, mask):
         """Forward pass."""
@@ -93,9 +135,13 @@ class LitCodebert(pl.LightningModule):
         logits = self(ids, att_mask)
         loss = F.cross_entropy(logits, labels)
 
-        self.log(
-            "train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True
-        )
+        pred = F.softmax(logits, dim=1)
+        acc = self.accuracy(pred.argmax(1), labels)
+        mcc = self.mcc(pred.argmax(1), labels)
+
+        self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True)
+        self.log("train_acc", acc, prog_bar=True, logger=True)
+        self.log("train_mcc", mcc, prog_bar=True, logger=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -103,11 +149,16 @@ class LitCodebert(pl.LightningModule):
         ids, att_mask, labels = batch
         logits = self(ids, att_mask)
         loss = F.cross_entropy(logits, labels)
-        self.log(
-            "val_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True
-        )
+
+        pred = F.softmax(logits, dim=1)
+        acc = self.accuracy(pred.argmax(1), labels)
+        mcc = self.mcc(pred.argmax(1), labels)
+
+        self.log("val_loss", loss, on_step=True, prog_bar=True, logger=True)
         self.auroc.update(logits[:, 1], labels)
-        self.log("val_auroc", self.auroc, on_epoch=True, prog_bar=True, logger=True)
+        self.log("val_auroc", self.auroc, prog_bar=True, logger=True)
+        self.log("val_acc", acc, prog_bar=True, logger=True)
+        self.log("val_mcc", mcc, prog_bar=True, logger=True)
         return loss
 
     def test_step(self, batch, batch_idx):
@@ -127,7 +178,7 @@ class LitCodebert(pl.LightningModule):
 run_id = svd.get_run_id()
 savepath = svd.get_dir(svd.processed_dir() / "codebert" / run_id)
 model = LitCodebert()
-data = BigVulDatasetNLPDataModule(batch_size=128)
+data = BigVulDatasetNLPDataModule(BigVulDatasetNLPLine, batch_size=256)
 checkpoint_callback = pl.callbacks.ModelCheckpoint(monitor="val_loss")
 trainer = pl.Trainer(
     gpus=1,
