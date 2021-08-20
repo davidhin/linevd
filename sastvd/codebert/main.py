@@ -85,8 +85,7 @@ class LitCodebert(pl.LightningModule):
             bert_out = self.bert(ids, attention_mask=mask)
         fc1_out = self.fc1(bert_out["pooler_output"])
         fc2_out = self.fc2(fc1_out)
-        out = F.softmax(fc2_out, dim=1)
-        return out
+        return fc2_out
 
     def training_step(self, batch, batch_idx):
         """Training step."""
