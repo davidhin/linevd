@@ -1,3 +1,4 @@
+import pandas as pd
 import sastvd as svd
 import sastvd.helpers.datasets as svdd
 import sastvd.helpers.git as svdg
@@ -69,3 +70,18 @@ def test_bigvul_diff_similarity_2():
     df["len_1"] = df.before.apply(lambda x: len(x.splitlines()))
     df["len_2"] = df.after.apply(lambda x: len(x.splitlines()))
     assert len(df[df.len_1 != df.len_2]) == 0
+
+
+def test_code2diff_cases():
+    """Test codediffs."""
+    df = svdd.bigvul(minimal=False, return_raw=True)
+    df = df[df.vul == 1]
+    dfd = df.set_index("id")[["func_before", "func_after"]].to_dict()
+
+    codediff = svdg.code2diff(dfd["func_before"][177775], dfd["func_after"][177775])
+    assert codediff["removed"] == [16]
+    assert codediff["added"] == [17]
+
+    codediff = svdg.code2diff(dfd["func_before"][180189], dfd["func_after"][180189])
+    assert codediff["removed"] == [36]
+    assert codediff["added"] == [24, 25, 26, 27, 28, 29, 37]

@@ -81,14 +81,13 @@ def generate_glove(dataset="bigvul", sample=False, cache=True):
     svdglove.glove(CORPUS, MAX_ITER=MAX_ITER)
 
 
-def bigvul(minimal=True, sample=False):
+def bigvul(minimal=True, sample=False, return_raw=False):
     """Read BigVul Data.
 
     Args:
         sample (bool): Only used for testing!
 
     EDGE CASE FIXING:
-    id = 177775 should have removed line = 16 and added line = 17
     id = 177860 should not have comments in the before/after
     """
     savedir = svd.get_dir(svd.cache_dir() / "minimal_datasets")
@@ -107,6 +106,10 @@ def bigvul(minimal=True, sample=False):
     # Remove comments
     df["func_before"] = svd.dfmp(df, remove_comments, "func_before", cs=500)
     df["func_after"] = svd.dfmp(df, remove_comments, "func_after", cs=500)
+
+    # Return raw (for testing)
+    if return_raw:
+        return df
 
     # Save codediffs
     cols = ["func_before", "func_after", "id", "dataset"]
