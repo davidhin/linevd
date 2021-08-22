@@ -69,12 +69,12 @@ def md_lines(patch: str):
     hunks = list(parsed_file)
     assert len(hunks) == 1
     hunk = hunks[0]
-    for line in hunk:
-        if line.is_added:
-            ret["added"].append(line.target_line_no)
-        if line.is_removed:
-            ret["removed"].append(line.source_line_no)
     ret["diff"] = str(hunk).split("\n", 1)[1]
+    for idx, ad in enumerate([i for i in ret["diff"].splitlines()], start=1):
+        if len(ad) > 0:
+            ad = ad[0]
+            if ad == "+" or ad == "-":
+                ret["added" if ad == "+" else "removed"].append(idx)
     return ret
 
 
