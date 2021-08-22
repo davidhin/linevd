@@ -5,7 +5,7 @@ import pandas as pd
 import pytorch_lightning as pl
 import sastvd as svd
 import sastvd.codebert as cb
-import sastvd.helpers.dataclasses as svddc
+import sastvd.helpers.dclass as svddc
 import sastvd.helpers.joern as svdj
 import sastvd.ivdetect.evaluate as ivde
 import torch as th

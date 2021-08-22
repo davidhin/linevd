@@ -11,7 +11,7 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 import sastvd as svd
-import sastvd.helpers.dataclasses as svddc
+import sastvd.helpers.dclass as svddc
 import sastvd.helpers.dl as dl
 import sastvd.helpers.glove as svdg
 import sastvd.helpers.joern as svdj
