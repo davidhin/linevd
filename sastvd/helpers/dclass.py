@@ -11,7 +11,7 @@ import sastvd.helpers.glove as svdglove
 class BigVulDataset:
     """Represent BigVul as graph dataset."""
 
-    def __init__(self, partition="train", sample=-1):
+    def __init__(self, partition="train", vulonly=False, sample=-1):
         """Init class."""
         # Get finished samples
         self.finished = [
@@ -32,6 +32,10 @@ class BigVulDataset:
         # Small sample (for debugging):
         if sample > 0:
             self.df = self.df.sample(sample, random_state=0)
+
+        # Filter only vulnerable
+        if vulonly:
+            self.df = self.df[self.df.vul == 1]
 
         # Filter out samples with no lineNumber from Joern output
         self.df["valid"] = svd.dfmp(
