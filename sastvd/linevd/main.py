@@ -16,6 +16,7 @@ import torchmetrics
 from dgl.data.utils import load_graphs, save_graphs
 from dgl.dataloading import GraphDataLoader
 from dgl.nn.pytorch import GATConv, GatedGraphConv
+from sastvd.ldgnn.cells import ResRGAT
 from tqdm import tqdm
 
 
@@ -174,7 +175,7 @@ class LitGAT(pl.LightningModule):
         self.auroc = torchmetrics.AUROC(compute_on_step=False)
         self.mcc = torchmetrics.MatthewsCorrcoef(2)
         self.weights = th.Tensor([1, 3]).cuda()
-        self.resrgat = ResRGAT(hdim=768, rdim=1, numlayers=5, dropout=0)
+        self.resrgat = ResRGAT(hdim=768, rdim=1, numlayers=5, dropout=0.2)
 
     def forward(self, g):
         """Forward pass."""
@@ -280,6 +281,7 @@ class LitGAT(pl.LightningModule):
 # %%
 run_id = svd.get_run_id()
 # run_id = "202108230932_4a2c563_update_dataset_cleaning"
+# run_id = "202108231311_0660a19_testing_ggnn_performance"
 savepath = svd.get_dir(svd.processed_dir() / "gat" / run_id)
 model = LitGAT()
 data = BigVulDatasetLineVDDataModule(batch_size=16)
