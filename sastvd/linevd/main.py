@@ -66,6 +66,8 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
     def __init__(self, **kwargs):
         """Init."""
         super(BigVulDatasetLineVD, self).__init__(**kwargs)
+        if kwargs.get("partition", "train") == "train":
+            self.df = self.df[self.df.vul == 1]
         lines = ivde.get_dep_add_lines_bigvul()
         lines = {k: set(list(v["removed"]) + v["depadd"]) for k, v in lines.items()}
         self.lines = lines
