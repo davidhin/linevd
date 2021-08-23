@@ -156,34 +156,40 @@ class LitGAT(pl.LightningModule):
         super().__init__()
         self.lr = lr
         self.save_hyperparameters()
-        self.ggnn = GatedGraphConv(
-            in_feats=embfeat, out_feats=embfeat, n_steps=8, n_etypes=2
-        )
-        self.ggnn2 = GatedGraphConv(
-            in_feats=embfeat, out_feats=embfeat, n_steps=8, n_etypes=2
-        )
-        self.gat = GATConv(in_feats=embfeat, out_feats=hfeat, num_heads=num_heads)
-        self.gat2 = GATConv(
-            in_feats=hfeat * num_heads, out_feats=hfeat, num_heads=num_heads
-        )
-        self.gat3 = GATConv(
-            in_feats=hfeat * num_heads, out_feats=hfeat, num_heads=num_heads
-        )
+        # self.ggnn = GatedGraphConv(
+        #     in_feats=embfeat, out_feats=embfeat, n_steps=8, n_etypes=2
+        # )
+        # self.ggnn2 = GatedGraphConv(
+        #     in_feats=embfeat, out_feats=embfeat, n_steps=8, n_etypes=2
+        # )
+        # self.gat = GATConv(in_feats=embfeat, out_feats=hfeat, num_heads=num_heads)
+        # self.gat2 = GATConv(
+        #     in_feats=hfeat * num_heads, out_feats=hfeat, num_heads=num_heads
+        # )
+        # self.gat3 = GATConv(
+        #     in_feats=hfeat * num_heads, out_feats=hfeat, num_heads=num_heads
+        # )
         self.fc = th.nn.Linear(embfeat, 2)
         self.accuracy = torchmetrics.Accuracy()
         self.auroc = torchmetrics.AUROC(compute_on_step=False)
         self.mcc = torchmetrics.MatthewsCorrcoef(2)
         self.weights = th.Tensor([1, 3]).cuda()
+        self.resrgat = ResRGAT(hdim=768, rdim=1, numlayers=5, dropout=0)
 
     def forward(self, g):
         """Forward pass."""
-        h = self.ggnn(g, g.ndata["_FEAT"], g.edata["_ETYPE"])
-        h = F.elu(h)
-        h = F.dropout(h, 0.3)
+        g.ndata["h"] = g.ndata["_FEAT"]
+        g.edata["emb"] = g.edata["_ETYPE"].unsqueeze(1)
+        h = self.resrgat(g).ndata["h"]
+        # print(h.shape)
 
-        h = self.ggnn2(g, h, g.edata["_ETYPE"])
-        h = F.elu(h)
-        h = F.dropout(h, 0.3)
+        # h = self.ggnn(g, g.ndata["_FEAT"], g.edata["_ETYPE"])
+        # h = F.elu(h)
+        # h = F.dropout(h, 0.3)
+
+        # h = self.ggnn2(g, h, g.edata["_ETYPE"])
+        # h = F.elu(h)
+        # h = F.dropout(h, 0.3)
 
         # h = self.gat2(g, h)
         # h = h.view(-1, h.size(1) * h.size(2))
@@ -276,7 +282,7 @@ run_id = svd.get_run_id()
 # run_id = "202108230932_4a2c563_update_dataset_cleaning"
 savepath = svd.get_dir(svd.processed_dir() / "gat" / run_id)
 model = LitGAT()
-data = BigVulDatasetLineVDDataModule(batch_size=32)
+data = BigVulDatasetLineVDDataModule(batch_size=16)
 checkpoint_callback = pl.callbacks.ModelCheckpoint(monitor="val_loss")
 trainer = pl.Trainer(
     gpus=1,
@@ -288,7 +294,8 @@ trainer = pl.Trainer(
 tuned = trainer.tune(model, data)
 trainer.fit(model, data)
 
+# %% TESTING
 # model = LitGAT.load_from_checkpoint(
-#     savepath / "lightning_logs/version_0/checkpoints/epoch=108-step=25179.ckpt"
+#     savepath / "lightning_logs/version_0/checkpoints/epoch=8-step=2079.ckpt"
 # )
 # trainer.test(model, data)
