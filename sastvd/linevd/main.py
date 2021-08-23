@@ -235,16 +235,28 @@ class LitGAT(pl.LightningModule):
         labels = batch.ndata["_VULN"].long()
         self.auroc.update(logits[:, 1], labels)
         self.log("test_auroc", self.auroc, on_epoch=True, prog_bar=True, logger=True)
-        return logits, labels
+        batch.ndata["pred"] = F.softmax(logits, dim=1)
+        preds = [
+            [
+                list(i.ndata["pred"].detach().cpu().numpy()),
+                list(i.ndata["_VULN"].detach().cpu().numpy()),
+            ]
+            for i in dgl.unbatch(batch)
+            if i.ndata["_VULN"].sum() > 0
+        ]
+        return logits, labels, preds
 
     def test_epoch_end(self, outputs):
         """Calculate metrics for whole test set."""
         all_pred = th.empty((0, 2)).long().cuda()
         all_true = th.empty((0)).long().cuda()
+        all_funcs = []
         for out in outputs:
             all_pred = th.cat([all_pred, out[0]])
             all_true = th.cat([all_true, out[1]])
+            all_funcs += out[2]
         all_pred = F.softmax(all_pred, dim=1)
+        print(ivde.eval_statements_list(all_funcs))
         print(ml.get_metrics_logits(all_true, all_pred))
         print(
             svdr.rank_metr(
