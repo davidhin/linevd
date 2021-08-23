@@ -52,8 +52,13 @@ def feature_extraction(_id):
     e.innode = e.innode.map(iddict)
     e.outnode = e.outnode.map(iddict)
 
+    # Map edge types
+    etypes = e.etype.tolist()
+    d = dict([(y, x) for x, y in enumerate(sorted(set(etypes)))])
+    etypes = [d[i] for i in etypes]
+
     # Return plain-text code, line number list, innodes, outnodes
-    return n.code.tolist(), n.id.tolist(), e.innode.tolist(), e.outnode.tolist()
+    return n.code.tolist(), n.id.tolist(), e.innode.tolist(), e.outnode.tolist(), etypes
 
 
 def chunks(lst, n):
@@ -68,8 +73,6 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
     def __init__(self, **kwargs):
         """Init."""
         super(BigVulDatasetLineVD, self).__init__(**kwargs)
-        if kwargs.get("partition", "train") == "train":
-            self.df = self.df[self.df.vul == 1]
         lines = ivde.get_dep_add_lines_bigvul()
         lines = {k: set(list(v["removed"]) + v["depadd"]) for k, v in lines.items()}
         self.lines = lines
@@ -81,17 +84,18 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
             g = load_graphs(str(savedir))[0][0]
             g.ndata["_VULN"] = g.ndata["_VULN"].long()
             return g
-        code, linenum, ei, eo = feature_extraction(svddc.BigVulDataset.itempath(_id))
+        code, lineno, ei, eo, et = feature_extraction(svddc.BigVulDataset.itempath(_id))
         if _id in self.lines:
-            vuln = [1 if i in self.lines[_id] else 0 for i in linenum]
+            vuln = [1 if i in self.lines[_id] else 0 for i in lineno]
         else:
-            vuln = [0 for _ in linenum]
+            vuln = [0 for _ in lineno]
         g = dgl.graph((eo, ei))
         code = [c.replace("\\t", "").replace("\\n", "") for c in code]
         features = [codebert.encode(c).detach().cpu() for c in chunks(code, 128)]
         g.ndata["_FEAT"] = th.cat(features)
-        g.ndata["_LINE"] = th.Tensor(linenum).int()
+        g.ndata["_LINE"] = th.Tensor(lineno).int()
         g.ndata["_VULN"] = th.Tensor(vuln).long()
+        g.edata["_ETYPE"] = th.Tensor(et).long()
         g = dgl.add_self_loop(g)
         save_graphs(str(savedir), [g])
         return g
@@ -115,7 +119,7 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
     def __init__(self, batch_size: int = 32, sample: int = -1):
         """Init class from bigvul dataset."""
         super().__init__()
-        self.train = BigVulDatasetLineVD(partition="train", sample=sample)
+        self.train = BigVulDatasetLineVD(partition="train", vulonly=True, sample=sample)
         self.val = BigVulDatasetLineVD(partition="val", sample=sample)
         self.test = BigVulDatasetLineVD(partition="test", sample=sample)
         codebert = cb.CodeBert()
@@ -163,7 +167,7 @@ class LitGAT(pl.LightningModule):
         self.accuracy = torchmetrics.Accuracy()
         self.auroc = torchmetrics.AUROC(compute_on_step=False)
         self.mcc = torchmetrics.MatthewsCorrcoef(2)
-        self.weights = th.Tensor([1, 10]).cuda()
+        self.weights = th.Tensor([1, 3]).cuda()
 
     def forward(self, g):
         """Forward pass."""
