@@ -7,6 +7,8 @@ import sastvd as svd
 import sastvd.codebert as cb
 import sastvd.helpers.dclass as svddc
 import sastvd.helpers.joern as svdj
+import sastvd.helpers.ml as ml
+import sastvd.helpers.rank_eval as svdr
 import sastvd.ivdetect.evaluate as ivde
 import torch as th
 import torch.nn.functional as F
@@ -161,6 +163,7 @@ class LitGAT(pl.LightningModule):
         self.accuracy = torchmetrics.Accuracy()
         self.auroc = torchmetrics.AUROC(compute_on_step=False)
         self.mcc = torchmetrics.MatthewsCorrcoef(2)
+        self.weights = th.Tensor([1, 10]).cuda()
 
     def forward(self, g):
         """Forward pass."""
@@ -184,7 +187,7 @@ class LitGAT(pl.LightningModule):
         """Training step."""
         logits = self(batch)
         labels = batch.ndata["_VULN"].long()
-        loss = F.cross_entropy(logits, labels)
+        loss = F.cross_entropy(logits, labels, weight=self.weights)
 
         pred = F.softmax(logits, dim=1)
         acc = self.accuracy(pred.argmax(1), labels)
@@ -216,17 +219,35 @@ class LitGAT(pl.LightningModule):
         """Test step."""
         logits = self(batch)
         labels = batch.ndata["_VULN"].long()
-        loss = F.cross_entropy(logits, labels)
         self.auroc.update(logits[:, 1], labels)
         self.log("test_auroc", self.auroc, on_epoch=True, prog_bar=True, logger=True)
-        return loss
+        return logits, labels
+
+    def test_epoch_end(self, outputs):
+        """Calculate metrics for whole test set."""
+        all_pred = th.empty((0, 2)).long().cuda()
+        all_true = th.empty((0)).long().cuda()
+        for out in outputs:
+            all_pred = th.cat([all_pred, out[0]])
+            all_true = th.cat([all_true, out[1]])
+        all_pred = F.softmax(all_pred, dim=1)
+        print(ml.get_metrics_logits(all_true, all_pred))
+        print(
+            svdr.rank_metr(
+                all_pred[:, 1].detach().cpu().numpy(),
+                all_true.detach().cpu().numpy(),
+            )
+        )
+        return outputs
 
     def configure_optimizers(self):
         """Configure optimizer."""
         return th.optim.AdamW(self.parameters(), lr=self.lr)
 
 
+# %%
 run_id = svd.get_run_id()
+# run_id = "202108230932_4a2c563_update_dataset_cleaning"
 savepath = svd.get_dir(svd.processed_dir() / "gat" / run_id)
 model = LitGAT()
 data = BigVulDatasetLineVDDataModule(batch_size=32)
@@ -240,3 +261,8 @@ trainer = pl.Trainer(
 )
 tuned = trainer.tune(model, data)
 trainer.fit(model, data)
+
+model = LitGAT.load_from_checkpoint(
+    savepath / "lightning_logs/version_0/checkpoints/epoch=108-step=25179.ckpt"
+)
+trainer.test(model, data)
