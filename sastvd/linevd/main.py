@@ -15,7 +15,7 @@ import torch.nn.functional as F
 import torchmetrics
 from dgl.data.utils import load_graphs, save_graphs
 from dgl.dataloading import GraphDataLoader
-from dgl.nn.pytorch import GATConv
+from dgl.nn.pytorch import GATConv, GatedGraphConv
 from tqdm import tqdm
 
 
@@ -156,6 +156,12 @@ class LitGAT(pl.LightningModule):
         super().__init__()
         self.lr = lr
         self.save_hyperparameters()
+        self.ggnn = GatedGraphConv(
+            in_feats=embfeat, out_feats=embfeat, n_steps=8, n_etypes=2
+        )
+        self.ggnn2 = GatedGraphConv(
+            in_feats=embfeat, out_feats=embfeat, n_steps=8, n_etypes=2
+        )
         self.gat = GATConv(in_feats=embfeat, out_feats=hfeat, num_heads=num_heads)
         self.gat2 = GATConv(
             in_feats=hfeat * num_heads, out_feats=hfeat, num_heads=num_heads
@@ -163,7 +169,7 @@ class LitGAT(pl.LightningModule):
         self.gat3 = GATConv(
             in_feats=hfeat * num_heads, out_feats=hfeat, num_heads=num_heads
         )
-        self.fc = th.nn.Linear(hfeat * num_heads, 2)
+        self.fc = th.nn.Linear(embfeat, 2)
         self.accuracy = torchmetrics.Accuracy()
         self.auroc = torchmetrics.AUROC(compute_on_step=False)
         self.mcc = torchmetrics.MatthewsCorrcoef(2)
@@ -171,18 +177,22 @@ class LitGAT(pl.LightningModule):
 
     def forward(self, g):
         """Forward pass."""
-        h = self.gat(g, g.ndata["_FEAT"])
-        h = h.view(-1, h.size(1) * h.size(2))
-        h = F.elu(h)
-
-        h = self.gat2(g, h)
-        h = h.view(-1, h.size(1) * h.size(2))
-        h = F.elu(h)
-
-        h = self.gat3(g, h)
-        h = h.view(-1, h.size(1) * h.size(2))
+        h = self.ggnn(g, g.ndata["_FEAT"], g.edata["_ETYPE"])
         h = F.elu(h)
         h = F.dropout(h, 0.3)
+
+        h = self.ggnn2(g, h, g.edata["_ETYPE"])
+        h = F.elu(h)
+        h = F.dropout(h, 0.3)
+
+        # h = self.gat2(g, h)
+        # h = h.view(-1, h.size(1) * h.size(2))
+        # h = F.elu(h)
+
+        # h = self.gat3(g, h)
+        # h = h.view(-1, h.size(1) * h.size(2))
+        # h = F.elu(h)
+        # h = F.dropout(h, 0.3)
 
         h = self.fc(h)
         return h
@@ -266,7 +276,7 @@ trainer = pl.Trainer(
 tuned = trainer.tune(model, data)
 trainer.fit(model, data)
 
-model = LitGAT.load_from_checkpoint(
-    savepath / "lightning_logs/version_0/checkpoints/epoch=108-step=25179.ckpt"
-)
-trainer.test(model, data)
+# model = LitGAT.load_from_checkpoint(
+#     savepath / "lightning_logs/version_0/checkpoints/epoch=108-step=25179.ckpt"
+# )
+# trainer.test(model, data)
