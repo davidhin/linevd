@@ -117,10 +117,18 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
 class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
     """Pytorch Lightning Datamodule for Bigvul."""
 
-    def __init__(self, batch_size: int = 32, sample: int = -1):
+    def __init__(
+        self,
+        batch_size: int = 32,
+        sample: int = -1,
+        methodlevel: bool = False,
+        nsampling: bool = False,
+        nsampling_hops: int = 1,
+    ):
         """Init class from bigvul dataset."""
         super().__init__()
-        self.train = BigVulDatasetLineVD(partition="train", vulonly=True, sample=sample)
+        vo = not methodlevel
+        self.train = BigVulDatasetLineVD(partition="train", vulonly=vo, sample=sample)
         self.val = BigVulDatasetLineVD(partition="val", sample=sample)
         self.test = BigVulDatasetLineVD(partition="test", sample=sample)
         codebert = cb.CodeBert()
@@ -128,17 +136,40 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
         self.val.cache_items(codebert)
         self.test.cache_items(codebert)
         self.batch_size = batch_size
+        self.nsampling = nsampling
+        self.nsampling_hops = nsampling_hops
+
+    def node_dl(self, g):
+        sampler = dgl.dataloading.MultiLayerFullNeighborSampler(self.nsampling_hops)
+        return dgl.dataloading.NodeDataLoader(
+            g,
+            g.nodes(),
+            sampler,
+            batch_size=self.batch_size,
+            shuffle=True,
+            drop_last=False,
+            num_workers=4,
+        )
 
     def train_dataloader(self):
         """Return train dataloader."""
+        if self.nsampling:
+            g = next(iter(GraphDataLoader(self.train, batch_size=len(self.train))))
+            return self.node_dl(g)
         return GraphDataLoader(self.train, shuffle=True, batch_size=self.batch_size)
 
     def val_dataloader(self):
         """Return val dataloader."""
+        if self.nsampling:
+            g = next(iter(GraphDataLoader(self.val, batch_size=len(self.val))))
+            return self.node_dl(g)
         return GraphDataLoader(self.val, batch_size=self.batch_size)
 
     def test_dataloader(self):
         """Return test dataloader."""
+        if self.nsampling:
+            g = next(iter(GraphDataLoader(self.test, batch_size=len(self.test))))
+            return self.node_dl(g)
         return GraphDataLoader(self.test, batch_size=self.batch_size)
 
 
