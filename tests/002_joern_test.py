@@ -24,6 +24,9 @@ def test_joern_graph():
     assert len(edges) == 116
 
 
+# Bigvul suspicious Joern IDs
+# 178958, 179986, 180111, 180254, 180256
+
 # print(before_func)
 # df = svdd.bigvul()
 # before_func = df.iloc[1].before
