@@ -1,4 +1,5 @@
 import os
+from glob import glob
 
 import dgl
 import pandas as pd
@@ -291,6 +292,7 @@ class LitGNN(pl.LightningModule):
         h = h.view(-1, h.size(1) * h.size(2))
         h = self.fc(h)
         h = F.elu(h)
+        h = F.dropout(h, 0.1)
 
         # GCN only
         # h = self.gcn(g, g.ndata["_CODEBERT"])
@@ -310,7 +312,6 @@ class LitGNN(pl.LightningModule):
         for hlayer in self.hidden:
             h = hlayer(h)
             h = F.elu(h)
-            h = F.dropout(h, 0.1)
         h = self.fc2(h)
 
         if self.methodlevel:
@@ -456,9 +457,7 @@ trainer = pl.Trainer(
 # trainer.fit(model, data)
 
 # %% TESTING
-from glob import glob
 
-import numpy as np
 
 run_id = "202108241550_ab00a1d_add_new_joern_test"
 best_model = glob(
@@ -470,25 +469,10 @@ best_model = glob(
     )
 )[0]
 model = LitGNN.load_from_checkpoint(best_model)
-trainer.test(model, test_dataloader=data.val_graph_dataloader())
+trainer.test(model, data)
 
-
-rank_metrs = []
-for af in model.all_funcs:
-    rank_metrs.append(svdr.rank_metr([i[1] for i in af[0]], af[1]))
-res = ml.dict_mean(rank_metrs)
-
-subset = [i for i in rank_metrs if not np.isnan(i["MFR"])]
-
-
-# svdr.rank_metr([i[1] for i in model.all_funcs[4][0]], model.all_funcs[4][1])
-# svdr.get_r([i[1] for i in model.all_funcs[3][0]], model.all_funcs[3][1])
-
-rank_metrs[10]
 model.res1vo
 model.res1
 model.res2
 model.res3
 model.res4
-
-data.test.stats()
