@@ -164,14 +164,14 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
         self.nsampling = nsampling
         self.nsampling_hops = nsampling_hops
 
-    def node_dl(self, g):
+    def node_dl(self, g, shuffle=False):
         sampler = dgl.dataloading.MultiLayerFullNeighborSampler(self.nsampling_hops)
         return dgl.dataloading.NodeDataLoader(
             g,
             g.nodes(),
             sampler,
             batch_size=self.batch_size,
-            shuffle=True,
+            shuffle=shuffle,
             drop_last=False,
             num_workers=1,
         )
@@ -180,7 +180,7 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
         """Return train dataloader."""
         if self.nsampling:
             g = next(iter(GraphDataLoader(self.train, batch_size=len(self.train))))
-            return self.node_dl(g)
+            return self.node_dl(g, shuffle=True)
         return GraphDataLoader(self.train, shuffle=True, batch_size=self.batch_size)
 
     def val_dataloader(self):
