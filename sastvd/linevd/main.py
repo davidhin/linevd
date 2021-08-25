@@ -453,12 +453,10 @@ trainer = pl.Trainer(
     num_sanity_val_steps=0,
     callbacks=[checkpoint_callback],
 )
-# tuned = trainer.tune(model, data)
-# trainer.fit(model, data)
+tuned = trainer.tune(model, data)
+trainer.fit(model, data)
 
 # %% TESTING
-
-
 run_id = "202108241550_ab00a1d_add_new_joern_test"
 best_model = glob(
     str(
