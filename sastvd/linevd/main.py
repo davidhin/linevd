@@ -262,16 +262,18 @@ class LitGNN(pl.LightningModule):
     def forward(self, g, test=False):
         """Forward pass.
 
-        data = BigVulDatasetLineVDDataModule(batch_size=1, sample=2)
+        data = BigVulDatasetLineVDDataModule(batch_size=1, sample=2, nsampling=True)
         g = next(iter(data.train_dataloader()))
         """
         if self.nsampling and not test:
+            hdst = g[2][-1].dstdata["_CODEBERT"]
             g2 = g[2][1]
             g = g[2][0]
             h = g.srcdata["_CODEBERT"]
         else:
             g2 = g
             h = g.ndata["_CODEBERT"]
+            hdst = h
 
         # Feed forward through ResRGat
         # g.ndata["h"] = g.ndata["_FEAT"]
@@ -286,13 +288,13 @@ class LitGNN(pl.LightningModule):
         # h = F.elu(h)
 
         # Two GAT
-        h = self.gat(g, h)
-        h = h.view(-1, h.size(1) * h.size(2))
-        h = self.gat2(g2, h)
-        h = h.view(-1, h.size(1) * h.size(2))
-        h = self.fc(h)
-        h = F.elu(h)
-        h = F.dropout(h, 0.1)
+        # h = self.gat(g, h)
+        # h = h.view(-1, h.size(1) * h.size(2))
+        # h = self.gat2(g2, h)
+        # h = h.view(-1, h.size(1) * h.size(2))
+        # h = self.fc(h)
+        # h = F.elu(h)
+        # h = F.dropout(h, 0.1)
 
         # GCN only
         # h = self.gcn(g, g.ndata["_CODEBERT"])
@@ -305,8 +307,8 @@ class LitGNN(pl.LightningModule):
         # h = F.elu(h)
 
         # FC Only
-        # h = self.fconly(h)
-        # h = F.elu(h)
+        h = self.fconly(hdst)
+        h = F.elu(h)
 
         # Hidden layers
         for hlayer in self.hidden:
@@ -342,7 +344,7 @@ class LitGNN(pl.LightningModule):
         pred = F.softmax(logits, dim=1)
         acc = self.accuracy(pred.argmax(1), labels)
         mcc = self.mcc(pred.argmax(1), labels)
-        print(pred.argmax(1), labels)
+        # print(pred.argmax(1), labels)
 
         self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True)
         self.log("train_acc", acc, prog_bar=True, logger=True)
@@ -457,20 +459,20 @@ tuned = trainer.tune(model, data)
 trainer.fit(model, data)
 
 # %% TESTING
-run_id = "202108241550_ab00a1d_add_new_joern_test"
-best_model = glob(
-    str(
-        svd.processed_dir()
-        / f"minibatch_tests_{samplesz}"
-        / run_id
-        / "lightning_logs/version_0/checkpoints/*.ckpt"
-    )
-)[0]
-model = LitGNN.load_from_checkpoint(best_model)
-trainer.test(model, data)
+# run_id = "202108251105_5a6e846_update_train_code"
+# best_model = glob(
+#     str(
+#         svd.processed_dir()
+#         / f"minibatch_tests_{samplesz}"
+#         / run_id
+#         / "lightning_logs/version_0/checkpoints/*.ckpt"
+#     )
+# )[0]
+# model = LitGNN.load_from_checkpoint(best_model)
+# trainer.test(model, data)
 
-model.res1vo
-model.res1
-model.res2
-model.res3
-model.res4
+# model.res1vo
+# model.res1
+# model.res2
+# model.res3
+# model.res4
