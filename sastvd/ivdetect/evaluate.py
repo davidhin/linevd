@@ -98,6 +98,18 @@ def eval_statements(sm_logits, labels, thresh=0.5):
     return ret
 
 
+def eval_statements_inter(stmt_pred_list, thresh=0.5):
+    """Intermediate calculation."""
+    total = len(stmt_pred_list)
+    ret = {k: 0 for k in range(1, 11)}
+    for item in stmt_pred_list:
+        eval_stmt = eval_statements(item[0], item[1], thresh)
+        for i in range(1, 11):
+            ret[i] += eval_stmt[i]
+    ret = {k: v / total for k, v in ret.items()}
+    return ret
+
+
 def eval_statements_list(stmt_pred_list, thresh=0.5, vo=False):
     """Apply eval statements to whole list of preds.
 
@@ -106,13 +118,14 @@ def eval_statements_list(stmt_pred_list, thresh=0.5, vo=False):
     item3 = [[[0.1, 0.9], [0.6, 0.4]], [1, 1]]
     stmt_pred_list = [item1, item2, item3]
     """
+    vo_list = [i for i in stmt_pred_list if sum(i[1]) > 0]
+    vulonly = eval_statements_inter(vo_list, thresh)
     if vo:
-        stmt_pred_list = [i for i in stmt_pred_list if sum(i[1]) > 0]
-    total = len(stmt_pred_list)
-    ret = {k: 0 for k in range(1, 11)}
-    for item in stmt_pred_list:
-        eval_stmt = eval_statements(item[0], item[1], thresh)
-        for i in range(1, 11):
-            ret[i] += eval_stmt[i]
-    ret = {k: v / total for k, v in ret.items()}
+        return vulonly
+    nvo_list = [i for i in stmt_pred_list if sum(i[1]) == 0]
+    nonvulnonly = eval_statements_inter(nvo_list, thresh)
+    ret = {}
+    print(vulonly, nonvulnonly)
+    for i in range(1, 11):
+        ret[i] = vulonly[i] * nonvulnonly[i]
     return ret

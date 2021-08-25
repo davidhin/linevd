@@ -459,20 +459,21 @@ tuned = trainer.tune(model, data)
 trainer.fit(model, data)
 
 # %% TESTING
+run_id = "202108251237_e14fc5f_codebert_only"
 # run_id = "202108251105_5a6e846_update_train_code"
-# best_model = glob(
-#     str(
-#         svd.processed_dir()
-#         / f"minibatch_tests_{samplesz}"
-#         / run_id
-#         / "lightning_logs/version_0/checkpoints/*.ckpt"
-#     )
-# )[0]
-# model = LitGNN.load_from_checkpoint(best_model)
-# trainer.test(model, data)
+best_model = glob(
+    str(
+        svd.processed_dir()
+        / f"minibatch_tests_{samplesz}"
+        / run_id
+        / "lightning_logs/version_0/checkpoints/*.ckpt"
+    )
+)[0]
+model = LitGNN.load_from_checkpoint(best_model)
+trainer.test(model, data)
 
-# model.res1vo
-# model.res1
-# model.res2
-# model.res3
-# model.res4
+model.res1vo
+model.res1
+model.res2
+model.res3
+model.res4
