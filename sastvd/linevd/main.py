@@ -15,7 +15,7 @@ import torch.nn.functional as F
 import torchmetrics
 from dgl.data.utils import load_graphs, save_graphs
 from dgl.dataloading import GraphDataLoader
-from dgl.nn.pytorch import GATConv, GatedGraphConv
+from dgl.nn.pytorch import GATConv, GatedGraphConv, GraphConv
 from sastvd.ldgnn.cells import ResRGAT
 from tqdm import tqdm
 
@@ -39,13 +39,21 @@ def ne_groupnodes(n, e):
     return nl, el
 
 
-def feature_extraction(_id):
-    """Extract graph feature (basic)."""
+def feature_extraction(_id, graph_type="cfgcdg"):
+    """Extract graph feature (basic).
+
+    _id = svddc.BigVulDataset.itempath(177775)
+    _id = svddc.BigVulDataset.itempath(180189)
+    _id = svddc.BigVulDataset.itempath(178958)
+    """
     # Get CPG
     n, e = svdj.get_node_edges(_id)
     n, e = ne_groupnodes(n, e)
-    e = svdj.rdg(e, "pdg")
+    e = svdj.rdg(e, graph_type)
     n = svdj.drop_lone_nodes(n, e)
+
+    # Plot graph
+    # svdj.plot_graph_node_edge_df(n, e)
 
     # Map line numbers to indexing
     n = n.reset_index(drop=True).reset_index()
@@ -58,6 +66,14 @@ def feature_extraction(_id):
     d = dict([(y, x) for x, y in enumerate(sorted(set(etypes)))])
     etypes = [d[i] for i in etypes]
 
+    # Append function name to code
+    try:
+        func_name = n[n.lineNumber == 1].name.item()
+    except:
+        print(_id)
+        func_name = ""
+    n.code = func_name + " " + n.name + " " + "</s>" + " " + n.code
+
     # Return plain-text code, line number list, innodes, outnodes
     return n.code.tolist(), n.id.tolist(), e.innode.tolist(), e.outnode.tolist(), etypes
 
@@ -68,6 +84,7 @@ def chunks(lst, n):
         yield lst[i : i + n]
 
 
+# %%
 class BigVulDatasetLineVD(svddc.BigVulDataset):
     """IVDetect version of BigVul."""
 
@@ -77,25 +94,32 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
         lines = ivde.get_dep_add_lines_bigvul()
         lines = {k: set(list(v["removed"]) + v["depadd"]) for k, v in lines.items()}
         self.lines = lines
+        self.graph_type = "cfgcdg"
 
     def item(self, _id, codebert=None):
         """Cache item."""
-        savedir = svd.get_dir(svd.cache_dir() / "bigvul_linevd_codebert") / str(_id)
+        savedir = svd.get_dir(
+            svd.cache_dir() / f"bigvul_linevd_codebert_{self.graph_type}"
+        ) / str(_id)
         if os.path.exists(savedir):
             g = load_graphs(str(savedir))[0][0]
-            g.ndata["_VULN"] = g.ndata["_VULN"].long()
             return g
-        code, lineno, ei, eo, et = feature_extraction(svddc.BigVulDataset.itempath(_id))
+        code, lineno, ei, eo, et = feature_extraction(
+            svddc.BigVulDataset.itempath(_id), self.graph_type
+        )
         if _id in self.lines:
             vuln = [1 if i in self.lines[_id] else 0 for i in lineno]
         else:
             vuln = [0 for _ in lineno]
         g = dgl.graph((eo, ei))
-        code = [c.replace("\\t", "").replace("\\n", "") for c in code]
-        features = [codebert.encode(c).detach().cpu() for c in chunks(code, 128)]
-        g.ndata["_FEAT"] = th.cat(features)
+
+        if codebert:
+            code = [c.replace("\\t", "").replace("\\n", "") for c in code]
+            features = [codebert.encode(c).detach().cpu() for c in chunks(code, 128)]
+            g.ndata["_CODEBERT"] = th.cat(features)
+        g.ndata["_RANDFEAT"] = th.rand(size=(g.number_of_nodes(), 100))
         g.ndata["_LINE"] = th.Tensor(lineno).int()
-        g.ndata["_VULN"] = th.Tensor(vuln).long()
+        g.ndata["_VULN"] = th.Tensor(vuln).float()
         g.edata["_ETYPE"] = th.Tensor(et).long()
         g = dgl.add_self_loop(g)
         save_graphs(str(savedir), [g])
@@ -148,7 +172,7 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
             batch_size=self.batch_size,
             shuffle=True,
             drop_last=False,
-            num_workers=4,
+            num_workers=1,
         )
 
     def train_dataloader(self):
@@ -165,28 +189,34 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
             return self.node_dl(g)
         return GraphDataLoader(self.val, batch_size=self.batch_size)
 
+    def val_graph_dataloader(self):
+        """Return test dataloader."""
+        return GraphDataLoader(self.val, batch_size=32)
+
     def test_dataloader(self):
         """Return test dataloader."""
-        if self.nsampling:
-            g = next(iter(GraphDataLoader(self.test, batch_size=len(self.test))))
-            return self.node_dl(g)
-        return GraphDataLoader(self.test, batch_size=self.batch_size)
+        return GraphDataLoader(self.test, batch_size=32)
 
 
 # %%
-class LitGAT(pl.LightningModule):
+class LitGNN(pl.LightningModule):
     """GAT."""
 
     def __init__(
         self,
-        hfeat: int = 128,
+        hfeat: int = 512,
         embfeat: int = 768,
         num_heads: int = 4,
         lr: float = 1e-3,
+        methodlevel: bool = False,
+        nsampling: bool = False,
     ):
         """Initilisation."""
         super().__init__()
         self.lr = lr
+        self.methodlevel = methodlevel
+        self.weights = th.Tensor([1, 1]).cuda()
+        self.nsampling = nsampling
         self.save_hyperparameters()
         # self.ggnn = GatedGraphConv(
         #     in_feats=embfeat, out_feats=embfeat, n_steps=8, n_etypes=2
@@ -194,56 +224,124 @@ class LitGAT(pl.LightningModule):
         # self.ggnn2 = GatedGraphConv(
         #     in_feats=embfeat, out_feats=embfeat, n_steps=8, n_etypes=2
         # )
-        # self.gat = GATConv(in_feats=embfeat, out_feats=hfeat, num_heads=num_heads)
-        # self.gat2 = GATConv(
-        #     in_feats=hfeat * num_heads, out_feats=hfeat, num_heads=num_heads
-        # )
-        # self.gat3 = GATConv(
-        #     in_feats=hfeat * num_heads, out_feats=hfeat, num_heads=num_heads
-        # )
-        self.fc = th.nn.Linear(embfeat, 2)
+        self.gat = GATConv(
+            in_feats=embfeat, out_feats=hfeat, num_heads=num_heads, feat_drop=0.2
+        )
+        self.gat2 = GATConv(
+            in_feats=hfeat * num_heads,
+            out_feats=hfeat,
+            num_heads=num_heads,
+            feat_drop=0.2,
+        )
+        self.gat3 = GATConv(
+            in_feats=hfeat * num_heads, out_feats=hfeat, num_heads=num_heads
+        )
         self.accuracy = torchmetrics.Accuracy()
         self.auroc = torchmetrics.AUROC(compute_on_step=False)
         self.mcc = torchmetrics.MatthewsCorrcoef(2)
-        self.weights = th.Tensor([1, 3]).cuda()
-        self.resrgat = ResRGAT(hdim=768, rdim=1, numlayers=5, dropout=0.2)
+        self.resrgat = ResRGAT(hdim=768, rdim=1, numlayers=1, dropout=0)
+        self.gcn = GraphConv(embfeat, hfeat)
+        self.gcn2 = GraphConv(hfeat, hfeat)
 
-    def forward(self, g):
-        """Forward pass."""
-        g.ndata["h"] = g.ndata["_FEAT"]
-        g.edata["emb"] = g.edata["_ETYPE"].unsqueeze(1)
-        h = self.resrgat(g).ndata["h"]
-        # print(h.shape)
+        self.fconly = th.nn.Linear(embfeat, hfeat)
+        self.fc = th.nn.Linear(hfeat * num_heads, hfeat)
 
-        # h = self.ggnn(g, g.ndata["_FEAT"], g.edata["_ETYPE"])
+        # Hidden Layers
+        self.fch = []
+        for _ in range(8):
+            self.fch.append(th.nn.Linear(hfeat, hfeat))
+        self.hidden = th.nn.ModuleList(self.fch)
+
+        self.fc2 = th.nn.Linear(hfeat, 2)
+        self.accuracy = torchmetrics.Accuracy()
+        self.auroc = torchmetrics.AUROC(compute_on_step=False)
+        self.mcc = torchmetrics.MatthewsCorrcoef(2)
+        self.dropout = th.nn.Dropout(0.5)
+
+    def forward(self, g, test=False):
+        """Forward pass.
+
+        data = BigVulDatasetLineVDDataModule(batch_size=1, sample=2)
+        g = next(iter(data.train_dataloader()))
+        """
+        if self.nsampling and not test:
+            g2 = g[2][1]
+            g = g[2][0]
+            h = g.srcdata["_CODEBERT"]
+        else:
+            g2 = g
+            h = g.ndata["_CODEBERT"]
+
+        # Feed forward through ResRGat
+        # g.ndata["h"] = g.ndata["_FEAT"]
+        # g.edata["emb"] = g.edata["_ETYPE"].unsqueeze(1)
+        # h = self.resrgat(g).ndata["h"]  # h = (*, EMB_SIZE)
         # h = F.elu(h)
-        # h = F.dropout(h, 0.3)
 
-        # h = self.ggnn2(g, h, g.edata["_ETYPE"])
-        # h = F.elu(h)
-        # h = F.dropout(h, 0.3)
-
-        # h = self.gat2(g, h)
+        # GAT + activation + FC
+        # h = self.gat(g, h)
         # h = h.view(-1, h.size(1) * h.size(2))
+        # h = self.fc(h)
         # h = F.elu(h)
 
-        # h = self.gat3(g, h)
-        # h = h.view(-1, h.size(1) * h.size(2))
-        # h = F.elu(h)
-        # h = F.dropout(h, 0.3)
-
+        # Two GAT
+        h = self.gat(g, h)
+        h = h.view(-1, h.size(1) * h.size(2))
+        h = self.gat2(g2, h)
+        h = h.view(-1, h.size(1) * h.size(2))
         h = self.fc(h)
-        return h
+        h = F.elu(h)
+
+        # GCN only
+        # h = self.gcn(g, g.ndata["_CODEBERT"])
+
+        # ResGAT + FC
+        # g.ndata["h"] = h
+        # g.edata["emb"] = g.edata["_ETYPE"].unsqueeze(1)
+        # h = self.resrgat(g).ndata["h"]
+        # h = self.fconly(h)
+        # h = F.elu(h)
+
+        # FC Only
+        # h = self.fconly(h)
+        # h = F.elu(h)
+
+        # Hidden layers
+        for hlayer in self.hidden:
+            h = hlayer(h)
+            h = F.elu(h)
+            h = F.dropout(h, 0.1)
+        h = self.fc2(h)
+
+        if self.methodlevel:
+            g.ndata["h"] = h
+            return dgl.mean_nodes(g, "h")
+        else:
+            return h
+
+    def shared_step(self, batch, test=False):
+        """Shared step."""
+        logits = self(batch, test)
+        if self.methodlevel:
+            if self.nsampling:
+                raise ValueError("Cannot train on method level with nsampling.")
+            labels = dgl.max_nodes(batch, "_VULN").long()
+        else:
+            if self.nsampling and not test:
+                labels = batch[2][-1].dstdata["_VULN"].long()
+            else:
+                labels = batch.ndata["_VULN"].long()
+        return logits, labels
 
     def training_step(self, batch, batch_idx):
         """Training step."""
-        logits = self(batch)
-        labels = batch.ndata["_VULN"].long()
+        logits, labels = self.shared_step(batch)
         loss = F.cross_entropy(logits, labels, weight=self.weights)
 
         pred = F.softmax(logits, dim=1)
         acc = self.accuracy(pred.argmax(1), labels)
         mcc = self.mcc(pred.argmax(1), labels)
+        print(pred.argmax(1), labels)
 
         self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True)
         self.log("train_acc", acc, prog_bar=True, logger=True)
@@ -252,9 +350,8 @@ class LitGAT(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         """Validate step."""
-        logits = self(batch)
-        labels = batch.ndata["_VULN"].long()
-        loss = F.cross_entropy(logits, labels)
+        logits, labels = self.shared_step(batch)
+        loss = F.cross_entropy(logits, labels, weight=self.weights)
 
         pred = F.softmax(logits, dim=1)
         acc = self.accuracy(pred.argmax(1), labels)
@@ -269,8 +366,7 @@ class LitGAT(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         """Test step."""
-        logits = self(batch)
-        labels = batch.ndata["_VULN"].long()
+        logits, labels = self.shared_step(batch, True)
         self.auroc.update(logits[:, 1], labels)
         self.log("test_auroc", self.auroc, on_epoch=True, prog_bar=True, logger=True)
         batch.ndata["pred"] = F.softmax(logits, dim=1)
@@ -280,7 +376,6 @@ class LitGAT(pl.LightningModule):
                 list(i.ndata["_VULN"].detach().cpu().numpy()),
             ]
             for i in dgl.unbatch(batch)
-            if i.ndata["_VULN"].sum() > 0
         ]
         return logits, labels, preds
 
@@ -294,15 +389,39 @@ class LitGAT(pl.LightningModule):
             all_true = th.cat([all_true, out[1]])
             all_funcs += out[2]
         all_pred = F.softmax(all_pred, dim=1)
-        print(ivde.eval_statements_list(all_funcs))
-        print(ml.get_metrics_logits(all_true, all_pred))
-        print(
-            svdr.rank_metr(
-                all_pred[:, 1].detach().cpu().numpy(),
-                all_true.detach().cpu().numpy(),
-            )
-        )
-        return outputs
+        self.all_funcs = all_funcs
+        self.all_true = all_true
+        self.all_pred = all_pred
+
+        # Custom ranked accuracy (inc negatives)
+        self.res1 = ivde.eval_statements_list(all_funcs)
+
+        # Custom ranked accuracy (only positives)
+        self.res1vo = ivde.eval_statements_list(all_funcs, vo=True)
+
+        # Regular metrics
+        self.res2 = ml.get_metrics_logits(all_true, all_pred)
+
+        # Ranked metrics
+        rank_metrs = []
+        for af in all_funcs:
+            rank_metrs.append(svdr.rank_metr([i[1] for i in af[0]], af[1]))
+        self.res3 = ml.dict_mean(rank_metrs)
+
+        # Method level prediction from statement level
+        method_level_pred = []
+        method_level_true = []
+        for af in model.all_funcs:
+            method_level_true.append(1 if sum(af[1]) > 0 else 0)
+            pred_method = 0
+            for logit in af[0]:
+                if logit[1] > 0.5:
+                    pred_method = 1
+                    break
+            method_level_pred.append(pred_method)
+        self.res4 = ml.get_metrics(method_level_true, method_level_pred)
+
+        return
 
     def configure_optimizers(self):
         """Configure optimizer."""
@@ -311,11 +430,20 @@ class LitGAT(pl.LightningModule):
 
 # %%
 run_id = svd.get_run_id()
-# run_id = "202108230932_4a2c563_update_dataset_cleaning"
-# run_id = "202108231311_0660a19_testing_ggnn_performance"
-savepath = svd.get_dir(svd.processed_dir() / "gat" / run_id)
-model = LitGAT()
-data = BigVulDatasetLineVDDataModule(batch_size=16)
+samplesz = -1
+savepath = svd.get_dir(svd.processed_dir() / f"minibatch_tests_{samplesz}" / run_id)
+model = LitGNN(methodlevel=False, nsampling=True)
+
+# Load data
+data = BigVulDatasetLineVDDataModule(
+    batch_size=1024,
+    sample=samplesz,
+    methodlevel=False,
+    nsampling=True,
+    nsampling_hops=2,
+)
+
+# # Train model
 checkpoint_callback = pl.callbacks.ModelCheckpoint(monitor="val_loss")
 trainer = pl.Trainer(
     gpus=1,
@@ -324,11 +452,43 @@ trainer = pl.Trainer(
     num_sanity_val_steps=0,
     callbacks=[checkpoint_callback],
 )
-tuned = trainer.tune(model, data)
-trainer.fit(model, data)
+# tuned = trainer.tune(model, data)
+# trainer.fit(model, data)
 
 # %% TESTING
-# model = LitGAT.load_from_checkpoint(
-#     savepath / "lightning_logs/version_0/checkpoints/epoch=8-step=2079.ckpt"
-# )
-# trainer.test(model, data)
+from glob import glob
+
+import numpy as np
+
+run_id = "202108241550_ab00a1d_add_new_joern_test"
+best_model = glob(
+    str(
+        svd.processed_dir()
+        / f"minibatch_tests_{samplesz}"
+        / run_id
+        / "lightning_logs/version_0/checkpoints/*.ckpt"
+    )
+)[0]
+model = LitGNN.load_from_checkpoint(best_model)
+trainer.test(model, test_dataloader=data.val_graph_dataloader())
+
+
+rank_metrs = []
+for af in model.all_funcs:
+    rank_metrs.append(svdr.rank_metr([i[1] for i in af[0]], af[1]))
+res = ml.dict_mean(rank_metrs)
+
+subset = [i for i in rank_metrs if not np.isnan(i["MFR"])]
+
+
+# svdr.rank_metr([i[1] for i in model.all_funcs[4][0]], model.all_funcs[4][1])
+# svdr.get_r([i[1] for i in model.all_funcs[3][0]], model.all_funcs[3][1])
+
+rank_metrs[10]
+model.res1vo
+model.res1
+model.res2
+model.res3
+model.res4
+
+data.test.stats()

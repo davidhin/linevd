@@ -187,27 +187,33 @@ def MAR(r):
     return np.mean(ret)
 
 
-def get_r(pred, true):
+def get_r(pred, true, r_thresh=0.5):
     """Sort predicted values based on output score."""
     zipped = list(zip(pred, true))
     zipped.sort(reverse=True)
-    return [1 if i[0] > 0.5 and i[1] == 1 else 0 for i in zipped]
+    return [1 if i[0] > r_thresh and i[1] == 1 else 0 for i in zipped]
 
 
-def rank_metr(pred, true):
+def rank_metr(pred, true, r_thresh=0.5):
     """Calculate all rank metrics."""
     if not any([i != 0 and i != 1 for i in pred]):
         print("Warning: Pred values are binary, not continuous.")
     ret = dict()
     kvals = [1, 3, 5, 10, 15, 20]
-    r = get_r(pred, true)
+    r = get_r(pred, true, r_thresh)
+    last_vals = [0, 0, 0, 0]
     for k in kvals:
         if k > len(r):
-            break
+            ret[f"nDCG@{k}"] = np.nan
+            ret[f"MAP@{k}"] = np.nan
+            ret[f"FR@{k}"] = np.nan
+            ret[f"AR@{k}"] = np.nan
+            continue
         ret[f"nDCG@{k}"] = ndcg_at_k(r, k)
         ret[f"MAP@{k}"] = mean_average_precision([r], k)
         ret[f"FR@{k}"] = FR(r, k)
         ret[f"AR@{k}"] = AR(r, k)
+        last_vals = [ret[f"nDCG@{k}"], ret[f"MAP@{k}"], ret[f"FR@{k}"], ret[f"AR@{k}"]]
 
     mean_true = np.mean(true)
     if mean_true == 0 or mean_true == 1:

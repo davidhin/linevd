@@ -67,7 +67,7 @@ def get_dep_add_lines_bigvul(cache=True):
     return lines_dict
 
 
-def eval_statements(sm_logits, labels):
+def eval_statements(sm_logits, labels, thresh=0.5):
     """Evaluate statement-level detection according to IVDetect.
 
     sm_logits = [
@@ -81,14 +81,13 @@ def eval_statements(sm_logits, labels):
     labels = [0, 0, 0, 0, 1, 0]
     """
     if sum(labels) == 0:
-        preds = [i for i in sm_logits if i[1] > 0.5]
+        preds = [i for i in sm_logits if i[1] > thresh]
         if len(preds) > 0:
             ret = {k: 0 for k in range(1, 11)}
         else:
             ret = {k: 1 for k in range(1, 11)}
     else:
         zipped = list(zip(sm_logits, labels))
-        zipped = [i for i in zipped if i[0][1] >= 0.5]
         zipped = sorted(zipped, key=lambda x: x[0][1], reverse=True)
         ret = {}
         for i in range(1, 11):
@@ -99,7 +98,7 @@ def eval_statements(sm_logits, labels):
     return ret
 
 
-def eval_statements_list(stmt_pred_list):
+def eval_statements_list(stmt_pred_list, thresh=0.5, vo=False):
     """Apply eval statements to whole list of preds.
 
     item1 = [[[0.1, 0.9], [0.6, 0.4], [0.4, 0.5]], [0, 1, 1]]
@@ -107,10 +106,12 @@ def eval_statements_list(stmt_pred_list):
     item3 = [[[0.1, 0.9], [0.6, 0.4]], [1, 1]]
     stmt_pred_list = [item1, item2, item3]
     """
+    if vo:
+        stmt_pred_list = [i for i in stmt_pred_list if sum(i[1]) > 0]
     total = len(stmt_pred_list)
     ret = {k: 0 for k in range(1, 11)}
     for item in stmt_pred_list:
-        eval_stmt = eval_statements(item[0], item[1])
+        eval_stmt = eval_statements(item[0], item[1], thresh)
         for i in range(1, 11):
             ret[i] += eval_stmt[i]
     ret = {k: v / total for k, v in ret.items()}

@@ -33,7 +33,9 @@ transformers
 torchtext
 torchsummary
 torchinfo
-dgl-cu102
+dgl-cu111>=0.7
 tsne_torch
 pytorch-lightning
 torch_scatter
+ujson
+unidecode

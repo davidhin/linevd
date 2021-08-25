@@ -1,6 +1,7 @@
 import pickle as pkl
 from pathlib import Path
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 from sklearn.metrics import (
@@ -106,7 +107,9 @@ def dict_mean(dict_list):
     """
     mean_dict = {}
     for key in dict_list[0].keys():
-        mean_dict[key] = sum(d[key] for d in dict_list) / len(dict_list)
+        mean_dict[key] = sum(d[key] for d in dict_list if not np.isnan(d[key])) / len(
+            [d[key] for d in dict_list if not np.isnan(d[key])]
+        )
     return mean_dict
 
 

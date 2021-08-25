@@ -29,6 +29,14 @@ class BigVulDataset:
             nonvul = self.df[self.df.vul == 0].sample(len(vul), random_state=0)
             self.df = pd.concat([vul, nonvul])
 
+        # Correct ratio for test set
+        if partition == "test":
+            nonvul = self.df[self.df.vul == 0]
+            vul = self.df[self.df.vul == 1].sample(
+                int(len(nonvul) / 16), random_state=0
+            )
+            self.df = pd.concat([vul, nonvul])
+
         # Small sample (for debugging):
         if sample > 0:
             self.df = self.df.sample(sample, random_state=0)
