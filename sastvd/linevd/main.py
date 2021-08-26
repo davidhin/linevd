@@ -16,7 +16,7 @@ import torch.nn.functional as F
 import torchmetrics
 from dgl.data.utils import load_graphs, save_graphs
 from dgl.dataloading import GraphDataLoader
-from dgl.nn.pytorch import GATConv, GatedGraphConv, GraphConv
+from dgl.nn.pytorch import GATConv, GraphConv
 from sastvd.ldgnn.cells import ResRGAT
 from tqdm import tqdm
 
@@ -211,6 +211,7 @@ class LitGNN(pl.LightningModule):
         lr: float = 1e-3,
         methodlevel: bool = False,
         nsampling: bool = False,
+        model: str = "mlp",
     ):
         """Initilisation."""
         super().__init__()
@@ -218,13 +219,8 @@ class LitGNN(pl.LightningModule):
         self.methodlevel = methodlevel
         self.weights = th.Tensor([1, 1]).cuda()
         self.nsampling = nsampling
+        self.model = model
         self.save_hyperparameters()
-        # self.ggnn = GatedGraphConv(
-        #     in_feats=embfeat, out_feats=embfeat, n_steps=8, n_etypes=2
-        # )
-        # self.ggnn2 = GatedGraphConv(
-        #     in_feats=embfeat, out_feats=embfeat, n_steps=8, n_etypes=2
-        # )
         self.gat = GATConv(
             in_feats=embfeat, out_feats=hfeat, num_heads=num_heads, feat_drop=0.2
         )
