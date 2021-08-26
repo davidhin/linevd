@@ -212,7 +212,7 @@ class LitGNN(pl.LightningModule):
         lr: float = 1e-3,
         methodlevel: bool = False,
         nsampling: bool = False,
-        model: str = "mlp",
+        model: str = "gat2layer",
     ):
         """Initilisation."""
         super().__init__()
@@ -222,6 +222,14 @@ class LitGNN(pl.LightningModule):
         self.nsampling = nsampling
         self.model = model
         self.save_hyperparameters()
+
+        # Metrics
+        self.accuracy = torchmetrics.Accuracy()
+        self.auroc = torchmetrics.AUROC(compute_on_step=False)
+        self.mcc = torchmetrics.MatthewsCorrcoef(2)
+
+        # model: gat2layer
+        if self.hparams.model == "gat2layer":
         self.gat = GATConv(
             in_feats=embfeat, out_feats=hfeat, num_heads=num_heads, feat_drop=0.2
         )
@@ -231,30 +239,23 @@ class LitGNN(pl.LightningModule):
             num_heads=num_heads,
             feat_drop=0.2,
         )
-        self.gat3 = GATConv(
-            in_feats=hfeat * num_heads, out_feats=hfeat, num_heads=num_heads
-        )
-        self.accuracy = torchmetrics.Accuracy()
-        self.auroc = torchmetrics.AUROC(compute_on_step=False)
-        self.mcc = torchmetrics.MatthewsCorrcoef(2)
-        self.resrgat = ResRGAT(hdim=768, rdim=1, numlayers=1, dropout=0)
-        self.gcn = GraphConv(embfeat, hfeat)
-        self.gcn2 = GraphConv(hfeat, hfeat)
+            self.dropout = th.nn.Dropout(0.5)
+            self.fc = th.nn.Linear(hfeat * num_heads, hfeat)
 
+        # model: mlp-only
+        if self.hparams.model == "mlponly":
         self.fconly = th.nn.Linear(embfeat, hfeat)
-        self.fc = th.nn.Linear(hfeat * num_heads, hfeat)
+
+        # self.resrgat = ResRGAT(hdim=768, rdim=1, numlayers=1, dropout=0)
+        # self.gcn = GraphConv(embfeat, hfeat)
+        # self.gcn2 = GraphConv(hfeat, hfeat)
 
         # Hidden Layers
         self.fch = []
         for _ in range(8):
             self.fch.append(th.nn.Linear(hfeat, hfeat))
         self.hidden = th.nn.ModuleList(self.fch)
-
         self.fc2 = th.nn.Linear(hfeat, 2)
-        self.accuracy = torchmetrics.Accuracy()
-        self.auroc = torchmetrics.AUROC(compute_on_step=False)
-        self.mcc = torchmetrics.MatthewsCorrcoef(2)
-        self.dropout = th.nn.Dropout(0.5)
 
     def forward(self, g, test=False):
         """Forward pass.
@@ -284,14 +285,15 @@ class LitGNN(pl.LightningModule):
         # h = self.fc(h)
         # h = F.elu(h)
 
-        # Two GAT
-        # h = self.gat(g, h)
-        # h = h.view(-1, h.size(1) * h.size(2))
-        # h = self.gat2(g2, h)
-        # h = h.view(-1, h.size(1) * h.size(2))
-        # h = self.fc(h)
-        # h = F.elu(h)
-        # h = F.dropout(h, 0.1)
+        # model: gat2layer
+        if self.hparams.model == "gat2layer":
+            h = self.gat(g, h)
+            h = h.view(-1, h.size(1) * h.size(2))
+            h = self.gat2(g2, h)
+            h = h.view(-1, h.size(1) * h.size(2))
+            h = self.fc(h)
+            h = F.elu(h)
+            h = self.dropout(h)
 
         # GCN only
         # h = self.gcn(g, g.ndata["_CODEBERT"])
@@ -303,7 +305,8 @@ class LitGNN(pl.LightningModule):
         # h = self.fconly(h)
         # h = F.elu(h)
 
-        # FC Only
+        # model: mlp-only
+        if self.hparams.model == "mlponly":
         h = self.fconly(hdst)
         h = F.elu(h)
 
