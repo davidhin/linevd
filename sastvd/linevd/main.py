@@ -407,9 +407,14 @@ class LitGNN(pl.LightningModule):
 
         # Ranked metrics
         rank_metrs = []
+        rank_metrs_vo = []
         for af in all_funcs:
-            rank_metrs.append(svdr.rank_metr([i[1] for i in af[0]], af[1]))
+            rank_metr_calc = svdr.rank_metr([i[1] for i in af[0]], af[1])
+            if max(af[1]) > 0:
+                rank_metrs_vo.append(rank_metr_calc)
+            rank_metrs.append(rank_metr_calc)
         self.res3 = ml.dict_mean(rank_metrs)
+        self.res3vo = ml.dict_mean(rank_metrs_vo)
 
         # Method level prediction from statement level
         method_level_pred = []
