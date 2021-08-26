@@ -1,3 +1,4 @@
+"""Main code for training. Probably needs refactoring."""
 import os
 
 import dgl
