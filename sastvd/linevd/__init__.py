@@ -230,20 +230,25 @@ class LitGNN(pl.LightningModule):
         # model: gat2layer
         if self.hparams.model == "gat2layer":
             self.gat = GATConv(
-                in_feats=embfeat, out_feats=hfeat, num_heads=num_heads, feat_drop=0.2
+                in_feats=self.hparams.embfeat,
+                out_feats=self.hparams.hfeat,
+                num_heads=self.hparams.num_heads,
+                feat_drop=0.2,
             )
             self.gat2 = GATConv(
-                in_feats=hfeat * num_heads,
-                out_feats=hfeat,
-                num_heads=num_heads,
+                in_feats=self.hparams.hfeat * self.hparams.num_heads,
+                out_feats=self.hparams.hfeat,
+                num_heads=self.hparams.num_heads,
                 feat_drop=0.2,
             )
             self.dropout = th.nn.Dropout(0.5)
-            self.fc = th.nn.Linear(hfeat * num_heads, hfeat)
+            self.fc = th.nn.Linear(
+                self.hparams.hfeat * self.hparams.num_heads, self.hparams.hfeat
+            )
 
         # model: mlp-only
         if self.hparams.model == "mlponly":
-            self.fconly = th.nn.Linear(embfeat, hfeat)
+            self.fconly = th.nn.Linear(self.hparams.embfeat, self.hparams.hfeat)
 
         # self.resrgat = ResRGAT(hdim=768, rdim=1, numlayers=1, dropout=0)
         # self.gcn = GraphConv(embfeat, hfeat)
@@ -252,9 +257,9 @@ class LitGNN(pl.LightningModule):
         # Hidden Layers
         self.fch = []
         for _ in range(8):
-            self.fch.append(th.nn.Linear(hfeat, hfeat))
+            self.fch.append(th.nn.Linear(self.hparams.hfeat, self.hparams.hfeat))
         self.hidden = th.nn.ModuleList(self.fch)
-        self.fc2 = th.nn.Linear(hfeat, 2)
+        self.fc2 = th.nn.Linear(self.hparams.hfeat, 2)
 
     def forward(self, g, test=False):
         """Forward pass.
@@ -262,7 +267,7 @@ class LitGNN(pl.LightningModule):
         data = BigVulDatasetLineVDDataModule(batch_size=1, sample=2, nsampling=True)
         g = next(iter(data.train_dataloader()))
         """
-        if self.nsampling and not test:
+        if self.hparams.nsampling and not test:
             hdst = g[2][-1].dstdata["_CODEBERT"]
             g2 = g[2][1]
             g = g[2][0]
@@ -315,7 +320,7 @@ class LitGNN(pl.LightningModule):
             h = F.elu(h)
         h = self.fc2(h)
 
-        if self.methodlevel:
+        if self.hparams.methodlevel:
             g.ndata["h"] = h
             return dgl.mean_nodes(g, "h")
         else:
@@ -324,12 +329,12 @@ class LitGNN(pl.LightningModule):
     def shared_step(self, batch, test=False):
         """Shared step."""
         logits = self(batch, test)
-        if self.methodlevel:
-            if self.nsampling:
+        if self.hparams.methodlevel:
+            if self.hparams.nsampling:
                 raise ValueError("Cannot train on method level with nsampling.")
             labels = dgl.max_nodes(batch, "_VULN").long()
         else:
-            if self.nsampling and not test:
+            if self.hparams.nsampling and not test:
                 labels = batch[2][-1].dstdata["_VULN"].long()
             else:
                 labels = batch.ndata["_VULN"].long()
