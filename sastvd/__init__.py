@@ -188,3 +188,9 @@ def dfmp(df, function, columns=None, ordr=True, workers=6, cs=10, desc="Run: "):
         for ret in tqdm(map_func(function, items, cs), total=len(items), desc=desc):
             processed.append(ret)
     return processed
+
+
+def chunks(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i : i + n]
