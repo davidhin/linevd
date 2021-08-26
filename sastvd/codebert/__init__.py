@@ -24,8 +24,7 @@ class CodeBert:
 
     def encode(self, sents: list):
         """Get CodeBert embeddings from a list of sentences."""
-        code_tokens = [i for i in sents]
-        tokens = [self.tokenizer.sep_token + " " + ct for ct in code_tokens]
+        tokens = [i for i in sents]
         tk_args = {"padding": True, "truncation": True, "return_tensors": "pt"}
         tokens = self.tokenizer(tokens, **tk_args).to(self._dev)
         with torch.no_grad():
