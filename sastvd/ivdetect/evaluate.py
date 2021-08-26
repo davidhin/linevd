@@ -125,7 +125,6 @@ def eval_statements_list(stmt_pred_list, thresh=0.5, vo=False):
     nvo_list = [i for i in stmt_pred_list if sum(i[1]) == 0]
     nonvulnonly = eval_statements_inter(nvo_list, thresh)
     ret = {}
-    print(vulonly, nonvulnonly)
     for i in range(1, 11):
         ret[i] = vulonly[i] * nonvulnonly[i]
     return ret
