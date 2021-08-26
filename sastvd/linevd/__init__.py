@@ -200,7 +200,7 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
 
 # %%
 class LitGNN(pl.LightningModule):
-    """GAT."""
+    """Main Trainer."""
 
     def __init__(
         self,
