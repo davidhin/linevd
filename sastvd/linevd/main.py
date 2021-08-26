@@ -165,6 +165,7 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
         self.nsampling_hops = nsampling_hops
 
     def node_dl(self, g, shuffle=False):
+        """Return node dataloader."""
         sampler = dgl.dataloading.MultiLayerFullNeighborSampler(self.nsampling_hops)
         return dgl.dataloading.NodeDataLoader(
             g,
