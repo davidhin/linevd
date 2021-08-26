@@ -28,7 +28,7 @@ class CodeBert:
         tk_args = {"padding": True, "truncation": True, "return_tensors": "pt"}
         tokens = self.tokenizer(tokens, **tk_args).to(self._dev)
         with torch.no_grad():
-            return self.model(tokens["input_ids"])[1]
+            return self.model(tokens["input_ids"], tokens["attention_mask"])[1]
 
 
 def plot_embeddings(embeddings, words):
