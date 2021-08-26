@@ -315,9 +315,11 @@ class LitGNN(pl.LightningModule):
             h = F.elu(h)
 
         # Hidden layers
-        for hlayer in self.hidden:
+        for idx, hlayer in enumerate(self.hidden):
             h = hlayer(h)
             h = F.elu(h)
+            if idx < (len(self.hidden) - 1):
+                h = self.hdropout(h)
         h = self.fc2(h)
 
         if self.hparams.methodlevel:
