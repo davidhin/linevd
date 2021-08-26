@@ -16,8 +16,7 @@ import torch.nn.functional as F
 import torchmetrics
 from dgl.data.utils import load_graphs, save_graphs
 from dgl.dataloading import GraphDataLoader
-from dgl.nn.pytorch import GATConv, GraphConv
-from sastvd.ldgnn.cells import ResRGAT
+from dgl.nn.pytorch import GATConv
 from tqdm import tqdm
 
 
@@ -230,21 +229,21 @@ class LitGNN(pl.LightningModule):
 
         # model: gat2layer
         if self.hparams.model == "gat2layer":
-        self.gat = GATConv(
-            in_feats=embfeat, out_feats=hfeat, num_heads=num_heads, feat_drop=0.2
-        )
-        self.gat2 = GATConv(
-            in_feats=hfeat * num_heads,
-            out_feats=hfeat,
-            num_heads=num_heads,
-            feat_drop=0.2,
-        )
+            self.gat = GATConv(
+                in_feats=embfeat, out_feats=hfeat, num_heads=num_heads, feat_drop=0.2
+            )
+            self.gat2 = GATConv(
+                in_feats=hfeat * num_heads,
+                out_feats=hfeat,
+                num_heads=num_heads,
+                feat_drop=0.2,
+            )
             self.dropout = th.nn.Dropout(0.5)
             self.fc = th.nn.Linear(hfeat * num_heads, hfeat)
 
         # model: mlp-only
         if self.hparams.model == "mlponly":
-        self.fconly = th.nn.Linear(embfeat, hfeat)
+            self.fconly = th.nn.Linear(embfeat, hfeat)
 
         # self.resrgat = ResRGAT(hdim=768, rdim=1, numlayers=1, dropout=0)
         # self.gcn = GraphConv(embfeat, hfeat)
@@ -307,8 +306,8 @@ class LitGNN(pl.LightningModule):
 
         # model: mlp-only
         if self.hparams.model == "mlponly":
-        h = self.fconly(hdst)
-        h = F.elu(h)
+            h = self.fconly(hdst)
+            h = F.elu(h)
 
         # Hidden layers
         for hlayer in self.hidden:
@@ -465,7 +464,7 @@ trainer.fit(model, data)
 
 # %% TESTING
 run_id = "202108251237_e14fc5f_codebert_only"
-# run_id = "202108251105_5a6e846_update_train_code"
+run_id = "202108251105_5a6e846_update_train_code"
 best_model = glob(
     str(
         svd.processed_dir()
@@ -474,11 +473,12 @@ best_model = glob(
         / "lightning_logs/version_0/checkpoints/*.ckpt"
     )
 )[0]
-model = LitGNN.load_from_checkpoint(best_model)
+model = LitGNN.load_from_checkpoint(best_model, strict=False)
 trainer.test(model, data)
 
 model.res1vo
 model.res1
 model.res2
 model.res3
+model.res3vo
 model.res4
