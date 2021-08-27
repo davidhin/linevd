@@ -99,6 +99,8 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
         ) / str(_id)
         if os.path.exists(savedir):
             g = load_graphs(str(savedir))[0][0]
+            if "_FVULN" not in g.ndata:
+                g.ndata["_FVULN"] = g.ndata["_VULN"].max().repeat((g.number_of_nodes()))
             return g
         code, lineno, ei, eo, et = feature_extraction(
             svddc.BigVulDataset.itempath(_id), self.graph_type
@@ -117,6 +119,7 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
         g.ndata["_RANDFEAT"] = th.rand(size=(g.number_of_nodes(), 100))
         g.ndata["_LINE"] = th.Tensor(lineno).int()
         g.ndata["_VULN"] = th.Tensor(vuln).float()
+        g.ndata["_FVULN"] = g.ndata["_VULN"].max().repeat((g.number_of_nodes()))
         g.edata["_ETYPE"] = th.Tensor(et).long()
         emb_path = svd.cache_dir() / f"codebert_method_level/{_id}.pt"
         g.ndata["_FUNC_EMB"] = th.load(emb_path).repeat((g.number_of_nodes(), 1))
@@ -170,7 +173,7 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
     ):
         """Init class from bigvul dataset."""
         super().__init__()
-        vo = not methodlevel
+        vo = False
         self.train = BigVulDatasetLineVD(partition="train", vulonly=vo, sample=sample)
         self.val = BigVulDatasetLineVD(partition="val", sample=sample)
         self.test = BigVulDatasetLineVD(partition="test", sample=sample)
@@ -275,6 +278,8 @@ class LitGNN(pl.LightningModule):
             self.fc = th.nn.Linear(
                 self.hparams.hfeat * self.hparams.num_heads, self.hparams.hfeat
             )
+            self.fconly = th.nn.Linear(self.hparams.embfeat, self.hparams.hfeat)
+            self.mlpdropout = th.nn.Dropout(self.hparams.mlpdropout)
 
         # model: mlp-only
         if "mlponly" in self.hparams.model:
@@ -305,10 +310,10 @@ class LitGNN(pl.LightningModule):
         """
         if self.hparams.nsampling and not test:
             hdst = g[2][-1].dstdata["_CODEBERT"]
+            h_func = g[2][-1].dstdata["_FUNC_EMB"]
             g2 = g[2][1]
             g = g[2][0]
             h = g.srcdata["_CODEBERT"]
-            h_func = g.srcdata["_FUNC_EMB"]
         else:
             g2 = g
             h = g.ndata["_CODEBERT"]
@@ -341,6 +346,7 @@ class LitGNN(pl.LightningModule):
             h = self.fc(h)
             h = F.elu(h)
             h = self.dropout(h)
+            h_func = self.mlpdropout(F.elu(self.fconly(h_func)))
 
         # GCN only
         # h = self.gcn(g, g.ndata["_CODEBERT"])
@@ -355,17 +361,22 @@ class LitGNN(pl.LightningModule):
         # model: mlp-only
         if "mlponly" in self.hparams.model:
             h = self.mlpdropout(F.elu(self.fconly(hdst)))
+            h_func = self.mlpdropout(F.elu(self.fconly(h_func)))
 
         # Hidden layers
         for idx, hlayer in enumerate(self.hidden):
             h = self.hdropout(F.elu(hlayer(h)))
+            h_func = self.hdropout(F.elu(hlayer(h_func)))
         h = self.fc2(h)
+        h_func = self.fc2(
+            h_func
+        )  # Share weights between method-level and statement-level tasks
 
         if self.hparams.methodlevel:
             g.ndata["h"] = h
             return dgl.mean_nodes(g, "h")
         else:
-            return h
+            return h, h_func  # Return two values for multitask training
 
     def shared_step(self, batch, test=False):
         """Shared step."""
@@ -374,39 +385,53 @@ class LitGNN(pl.LightningModule):
             if self.hparams.nsampling:
                 raise ValueError("Cannot train on method level with nsampling.")
             labels = dgl.max_nodes(batch, "_VULN").long()
+            labels_func = dgl.max_nodes(batch, "_FVULN").long()
         else:
             if self.hparams.nsampling and not test:
                 labels = batch[2][-1].dstdata["_VULN"].long()
+                labels_func = batch[2][-1].dstdata["_FVULN"].long()
             else:
                 labels = batch.ndata["_VULN"].long()
-        return logits, labels
+                labels_func = batch.ndata["_VULN"].long()
+        return logits, labels, labels_func
 
     def training_step(self, batch, batch_idx):
         """Training step."""
-        logits, labels = self.shared_step(batch)
-        loss = self.loss(logits, labels)
+        logits, labels, labels_func = self.shared_step(
+            batch
+        )  # Labels func should be the method-level label for statements
+        # print(logits.argmax(1), labels_func)
+        loss1 = self.loss(logits[0], labels)
+        loss2 = self.loss(logits[1], labels_func)
+        loss = (
+            loss1 + loss2
+        )  # Need some way of combining the losses for multitask training
 
-        pred = F.softmax(logits, dim=1)
+        pred = F.softmax(logits[0], dim=1)
         acc = self.accuracy(pred.argmax(1), labels)
+        acc_func = self.accuracy(logits[1].argmax(1), labels_func)
         mcc = self.mcc(pred.argmax(1), labels)
         # print(pred.argmax(1), labels)
 
         self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True)
         self.log("train_acc", acc, prog_bar=True, logger=True)
+        self.log("train_acc_func", acc_func, prog_bar=True, logger=True)
         self.log("train_mcc", mcc, prog_bar=True, logger=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         """Validate step."""
-        logits, labels = self.shared_step(batch)
-        loss = self.loss(logits, labels)
+        logits, labels, labels_func = self.shared_step(batch)
+        loss1 = self.loss(logits[0], labels)
+        loss2 = self.loss(logits[1], labels_func)
+        loss = loss1 + loss2
 
-        pred = F.softmax(logits, dim=1)
+        pred = F.softmax(logits[0], dim=1)
         acc = self.accuracy(pred.argmax(1), labels)
         mcc = self.mcc(pred.argmax(1), labels)
 
         self.log("val_loss", loss, on_step=True, prog_bar=True, logger=True)
-        self.auroc.update(logits[:, 1], labels)
+        self.auroc.update(logits[0][:, 1], labels)
         self.log("val_auroc", self.auroc, prog_bar=True, logger=True)
         self.log("val_acc", acc, prog_bar=True, logger=True)
         self.log("val_mcc", mcc, prog_bar=True, logger=True)
@@ -414,7 +439,9 @@ class LitGNN(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         """Test step."""
-        logits, labels = self.shared_step(batch, True)
+        logits, labels, labels_func = self.shared_step(
+            batch, True
+        )  # TODO: Make work for multitask
         self.auroc.update(logits[:, 1], labels)
         self.log("test_auroc", self.auroc, on_epoch=True, prog_bar=True, logger=True)
         batch.ndata["pred"] = F.softmax(logits, dim=1)
