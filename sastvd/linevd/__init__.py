@@ -1,5 +1,6 @@
 """Main code for training. Probably needs refactoring."""
 import os
+from glob import glob
 
 import dgl
 import pandas as pd
@@ -78,12 +79,6 @@ def feature_extraction(_id, graph_type="cfgcdg"):
     return n.code.tolist(), n.id.tolist(), e.innode.tolist(), e.outnode.tolist(), etypes
 
 
-def chunks(lst, n):
-    """Yield successive n-sized chunks from lst."""
-    for i in range(0, len(lst), n):
-        yield lst[i : i + n]
-
-
 # %%
 class BigVulDatasetLineVD(svddc.BigVulDataset):
     """IVDetect version of BigVul."""
@@ -115,12 +110,15 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
 
         if codebert:
             code = [c.replace("\\t", "").replace("\\n", "") for c in code]
-            features = [codebert.encode(c).detach().cpu() for c in chunks(code, 128)]
+            chunked_batches = svd.chunks(code, 128)
+            features = [codebert.encode(c).detach().cpu() for c in chunked_batches]
             g.ndata["_CODEBERT"] = th.cat(features)
         g.ndata["_RANDFEAT"] = th.rand(size=(g.number_of_nodes(), 100))
         g.ndata["_LINE"] = th.Tensor(lineno).int()
         g.ndata["_VULN"] = th.Tensor(vuln).float()
         g.edata["_ETYPE"] = th.Tensor(et).long()
+        emb_path = svd.cache_dir() / f"codebert_method_level/{_id}.pt"
+        g.ndata["_FUNC_EMB"] = th.load(emb_path).repeat((g.number_of_nodes(), 1))
         g = dgl.add_self_loop(g)
         save_graphs(str(savedir), [g])
         return g
@@ -132,6 +130,26 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
                 self.item(i, codebert)
             except Exception as E:
                 print(E)
+
+    def cache_codebert_method_level(self, codebert):
+        """Cache method-level embeddings using Codebert.
+
+        ONLY NEEDS TO BE RUN ONCE.
+        """
+        savedir = svd.get_dir(svd.cache_dir() / "codebert_method_level")
+        done = [int(i.split("/")[-1].split(".")[0]) for i in glob(str(savedir / "*"))]
+        done = set(done)
+        batches = svd.chunks((range(len(self.df))), 128)
+        for idx_batch in tqdm(batches):
+            batch_texts = self.df.iloc[idx_batch[0] : idx_batch[-1] + 1].before.tolist()
+            batch_ids = self.df.iloc[idx_batch[0] : idx_batch[-1] + 1].id.tolist()
+            if set(batch_ids).issubset(done):
+                continue
+            texts = ["</s> " + ct for ct in batch_texts]
+            embedded = codebert.encode(texts).detach().cpu()
+            assert len(batch_texts) == len(batch_ids)
+            for i in range(len(batch_texts)):
+                th.save(embedded[i], savedir / f"{batch_ids[i]}.pt")
 
     def __getitem__(self, idx):
         """Override getitem."""
@@ -156,6 +174,9 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
         self.val = BigVulDatasetLineVD(partition="val", sample=sample)
         self.test = BigVulDatasetLineVD(partition="test", sample=sample)
         codebert = cb.CodeBert()
+        self.train.cache_codebert_method_level(codebert)
+        self.val.cache_codebert_method_level(codebert)
+        self.test.cache_codebert_method_level(codebert)
         self.train.cache_items(codebert)
         self.val.cache_items(codebert)
         self.test.cache_items(codebert)
