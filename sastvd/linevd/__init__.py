@@ -308,9 +308,11 @@ class LitGNN(pl.LightningModule):
             g2 = g[2][1]
             g = g[2][0]
             h = g.srcdata["_CODEBERT"]
+            h_func = g.srcdata["_FUNC_EMB"]
         else:
             g2 = g
             h = g.ndata["_CODEBERT"]
+            h_func = g.ndata["_FUNC_EMB"]
             hdst = h
 
         # Feed forward through ResRGat
@@ -327,7 +329,7 @@ class LitGNN(pl.LightningModule):
 
         # model: contains femb
         if "+femb" in self.hparams.model:
-            h = th.cat([h, g.ndata["_FUNC_EMB"]])
+            h = th.cat([h, h_func], dim=1)
             h = F.elu(self.fc_femb(h))
 
         # model: gat2layer
