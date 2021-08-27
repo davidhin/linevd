@@ -178,7 +178,7 @@ class LitCodebert(pl.LightningModule):
 run_id = svd.get_run_id()
 savepath = svd.get_dir(svd.processed_dir() / "codebert" / run_id)
 model = LitCodebert()
-data = BigVulDatasetNLPDataModule(BigVulDatasetNLPLine, batch_size=256)
+data = BigVulDatasetNLPDataModule(BigVulDatasetNLP, batch_size=64)
 checkpoint_callback = pl.callbacks.ModelCheckpoint(monitor="val_loss")
 trainer = pl.Trainer(
     gpus=1,
@@ -189,7 +189,7 @@ trainer = pl.Trainer(
 )
 tuned = trainer.tune(model, data)
 trainer.fit(model, data)
-
+trainer.test(model, data)
 
 # import sastvd.helpers.ml as ml
 # from tqdm import tqdm
