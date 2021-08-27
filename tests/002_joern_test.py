@@ -26,6 +26,8 @@ def test_joern_graph():
 
 # Bigvul suspicious Joern IDs
 # 178958, 179986, 180111, 180254, 180256
+# 183008, 186024, 186854, 185466, 186856
+# 179552, 185465, 117854
 
 # print(before_func)
 # df = svdd.bigvul()
