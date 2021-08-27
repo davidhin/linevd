@@ -230,6 +230,7 @@ class LitGNN(pl.LightningModule):
         embfeat: int = 768,
         num_heads: int = 4,
         lr: float = 1e-3,
+        hdropout: float = 0.2,
         methodlevel: bool = False,
         nsampling: bool = False,
         model: str = "gat2layer",
@@ -280,7 +281,7 @@ class LitGNN(pl.LightningModule):
         for _ in range(8):
             self.fch.append(th.nn.Linear(self.hparams.hfeat, self.hparams.hfeat))
         self.hidden = th.nn.ModuleList(self.fch)
-        self.hdropout = th.nn.Dropout(0.2)
+        self.hdropout = th.nn.Dropout(self.hparams.hdropout)
         self.fc2 = th.nn.Linear(self.hparams.hfeat, 2)
 
     def forward(self, g, test=False):
