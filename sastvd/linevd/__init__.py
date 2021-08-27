@@ -9,6 +9,7 @@ import sastvd as svd
 import sastvd.codebert as cb
 import sastvd.helpers.dclass as svddc
 import sastvd.helpers.joern as svdj
+import sastvd.helpers.losses as svdloss
 import sastvd.helpers.ml as ml
 import sastvd.helpers.rank_eval as svdr
 import sastvd.ivdetect.evaluate as ivde
@@ -235,15 +236,21 @@ class LitGNN(pl.LightningModule):
         methodlevel: bool = False,
         nsampling: bool = False,
         model: str = "gat2layer",
+        loss: str = "ce",
     ):
         """Initilisation."""
         super().__init__()
         self.lr = lr
         self.methodlevel = methodlevel
-        self.weights = th.Tensor([1, 1]).cuda()
         self.nsampling = nsampling
         self.model = model
         self.save_hyperparameters()
+
+        # Loss
+        if loss == "sce":
+            self.loss = svdloss.SCELoss()
+        else:
+            self.loss = th.nn.CrossEntropyLoss()
 
         # Metrics
         self.accuracy = torchmetrics.Accuracy()
@@ -375,7 +382,7 @@ class LitGNN(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         """Training step."""
         logits, labels = self.shared_step(batch)
-        loss = F.cross_entropy(logits, labels, weight=self.weights)
+        loss = self.loss(logits, labels)
 
         pred = F.softmax(logits, dim=1)
         acc = self.accuracy(pred.argmax(1), labels)
@@ -390,7 +397,7 @@ class LitGNN(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         """Validate step."""
         logits, labels = self.shared_step(batch)
-        loss = F.cross_entropy(logits, labels, weight=self.weights)
+        loss = self.loss(logits, labels)
 
         pred = F.softmax(logits, dim=1)
         acc = self.accuracy(pred.argmax(1), labels)
