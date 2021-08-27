@@ -231,6 +231,7 @@ class LitGNN(pl.LightningModule):
         num_heads: int = 4,
         lr: float = 1e-3,
         hdropout: float = 0.2,
+        mlpdropout: float = 0.2,
         methodlevel: bool = False,
         nsampling: bool = False,
         model: str = "gat2layer",
@@ -250,7 +251,7 @@ class LitGNN(pl.LightningModule):
         self.mcc = torchmetrics.MatthewsCorrcoef(2)
 
         # model: gat2layer
-        if self.hparams.model == "gat2layer":
+        if "gat2layer" in self.hparams.model:
             self.gat = GATConv(
                 in_feats=self.hparams.embfeat,
                 out_feats=self.hparams.hfeat,
@@ -269,8 +270,13 @@ class LitGNN(pl.LightningModule):
             )
 
         # model: mlp-only
-        if self.hparams.model == "mlponly":
+        if "mlponly" in self.hparams.model:
             self.fconly = th.nn.Linear(self.hparams.embfeat, self.hparams.hfeat)
+            self.mlpdropout = th.nn.Dropout(self.hparams.mlpdropout)
+
+        # model: contains femb
+        if "+femb" in self.hparams.model:
+            self.fc_femb = th.nn.Linear(self.hparams.embfeat * 2, self.hparams.hfeat)
 
         # self.resrgat = ResRGAT(hdim=768, rdim=1, numlayers=1, dropout=0)
         # self.gcn = GraphConv(embfeat, hfeat)
@@ -312,8 +318,13 @@ class LitGNN(pl.LightningModule):
         # h = self.fc(h)
         # h = F.elu(h)
 
+        # model: contains femb
+        if "+femb" in self.hparams.model:
+            h = th.cat([h, g.ndata["_FUNC_EMB"]])
+            h = F.elu(self.fc_femb(h))
+
         # model: gat2layer
-        if self.hparams.model == "gat2layer":
+        if "gat2layer" in self.hparams.model:
             h = self.gat(g, h)
             h = h.view(-1, h.size(1) * h.size(2))
             h = self.gat2(g2, h)
@@ -333,16 +344,12 @@ class LitGNN(pl.LightningModule):
         # h = F.elu(h)
 
         # model: mlp-only
-        if self.hparams.model == "mlponly":
-            h = self.fconly(hdst)
-            h = F.elu(h)
+        if "mlponly" in self.hparams.model:
+            h = self.mlpdropout(F.elu(self.fconly(hdst)))
 
         # Hidden layers
         for idx, hlayer in enumerate(self.hidden):
-            h = hlayer(h)
-            h = F.elu(h)
-            if idx < (len(self.hidden) - 1):
-                h = self.hdropout(h)
+            h = self.hdropout(F.elu(hlayer(h)))
         h = self.fc2(h)
 
         if self.hparams.methodlevel:
