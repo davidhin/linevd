@@ -439,34 +439,46 @@ class LitGNN(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         """Test step."""
-        logits, labels, labels_func = self.shared_step(
+        logits, labels, _ = self.shared_step(
             batch, True
         )  # TODO: Make work for multitask
-        self.auroc.update(logits[:, 1], labels)
-        self.log("test_auroc", self.auroc, on_epoch=True, prog_bar=True, logger=True)
-        batch.ndata["pred"] = F.softmax(logits, dim=1)
-        preds = [
+        batch.ndata["pred"] = F.softmax(logits[0], dim=1)
+        batch.ndata["pred_func"] = F.softmax(logits[1], dim=1)
+        logits_f = []
+        labels_f = []
+        preds = []
+        for i in dgl.unbatch(batch):
+            preds.append(
             [
                 list(i.ndata["pred"].detach().cpu().numpy()),
                 list(i.ndata["_VULN"].detach().cpu().numpy()),
             ]
-            for i in dgl.unbatch(batch)
-        ]
-        return logits, labels, preds
+            )
+            logits_f.append(dgl.mean_nodes(i, "pred_func").detach().cpu())
+            labels_f.append(dgl.mean_nodes(i, "_FVULN").detach().cpu())
+        return [logits[0], logits_f], [labels, labels_f], preds
 
     def test_epoch_end(self, outputs):
         """Calculate metrics for whole test set."""
         all_pred = th.empty((0, 2)).long().cuda()
         all_true = th.empty((0)).long().cuda()
+        all_pred_f = []
+        all_true_f = []
         all_funcs = []
         for out in outputs:
-            all_pred = th.cat([all_pred, out[0]])
-            all_true = th.cat([all_true, out[1]])
+            all_pred = th.cat([all_pred, out[0][0]])
+            all_true = th.cat([all_true, out[1][0]])
+            all_pred_f += out[0][1]
+            all_true_f += out[1][1]
             all_funcs += out[2]
         all_pred = F.softmax(all_pred, dim=1)
+        all_pred_f = F.softmax(th.stack(all_pred_f).squeeze(), dim=1)
+        all_true_f = th.stack(all_true_f).squeeze().long()
         self.all_funcs = all_funcs
         self.all_true = all_true
         self.all_pred = all_pred
+        self.all_pred_f = all_pred_f
+        self.all_true_f = all_true_f
 
         # Custom ranked accuracy (inc negatives)
         self.res1 = ivde.eval_statements_list(all_funcs)
@@ -476,6 +488,7 @@ class LitGNN(pl.LightningModule):
 
         # Regular metrics
         self.res2 = ml.get_metrics_logits(all_true, all_pred)
+        self.res2f = ml.get_metrics_logits(all_true_f, all_pred_f)
 
         # Ranked metrics
         rank_metrs = []
