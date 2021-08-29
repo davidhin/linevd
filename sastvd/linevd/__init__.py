@@ -403,9 +403,8 @@ class LitGNN(pl.LightningModule):
         # print(logits.argmax(1), labels_func)
         loss1 = self.loss(logits[0], labels)
         loss2 = self.loss(logits[1], labels_func)
-        loss = (
-            loss1 + loss2
-        )  # Need some way of combining the losses for multitask training
+        # Need some way of combining the losses for multitask training
+        loss = loss1 + loss2
 
         pred = F.softmax(logits[0], dim=1)
         acc = self.accuracy(pred.argmax(1), labels)
@@ -449,10 +448,10 @@ class LitGNN(pl.LightningModule):
         preds = []
         for i in dgl.unbatch(batch):
             preds.append(
-            [
-                list(i.ndata["pred"].detach().cpu().numpy()),
-                list(i.ndata["_VULN"].detach().cpu().numpy()),
-            ]
+                [
+                    list(i.ndata["pred"].detach().cpu().numpy()),
+                    list(i.ndata["_VULN"].detach().cpu().numpy()),
+                ]
             )
             logits_f.append(dgl.mean_nodes(i, "pred_func").detach().cpu())
             labels_f.append(dgl.mean_nodes(i, "_FVULN").detach().cpu())
