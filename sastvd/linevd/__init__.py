@@ -237,6 +237,7 @@ class LitGNN(pl.LightningModule):
         lr: float = 1e-3,
         hdropout: float = 0.2,
         mlpdropout: float = 0.2,
+        gatdropout: float = 0.2,
         methodlevel: bool = False,
         nsampling: bool = False,
         model: str = "gat2layer",
@@ -270,15 +271,14 @@ class LitGNN(pl.LightningModule):
                 in_feats=self.hparams.embfeat,
                 out_feats=self.hparams.hfeat,
                 num_heads=self.hparams.num_heads,
-                feat_drop=0.2,
+                feat_drop=self.hparams.gatdropout,
             )
             self.gat2 = GATConv(
                 in_feats=self.hparams.hfeat * self.hparams.num_heads,
                 out_feats=self.hparams.hfeat,
                 num_heads=self.hparams.num_heads,
-                feat_drop=0.2,
+                feat_drop=self.hparams.gatdropout,
             )
-            self.dropout = th.nn.Dropout(0.5)
             self.fc = th.nn.Linear(
                 self.hparams.hfeat * self.hparams.num_heads, self.hparams.hfeat
             )
@@ -347,9 +347,7 @@ class LitGNN(pl.LightningModule):
             h = h.view(-1, h.size(1) * h.size(2))
             h = self.gat2(g2, h)
             h = h.view(-1, h.size(1) * h.size(2))
-            h = self.fc(h)
-            h = F.elu(h)
-            h = self.dropout(h)
+            h = self.mlpdropout(F.elu(self.fc(h)))
             h_func = self.mlpdropout(F.elu(self.fconly(h_func)))
 
         # GCN only
