@@ -9,6 +9,7 @@ from sklearn.metrics import (
     average_precision_score,
     confusion_matrix,
     f1_score,
+    matthews_corrcoef,
     precision_score,
     recall_score,
     roc_auc_score,
@@ -24,6 +25,7 @@ def get_metrics(true, pred, loss=-1, pr_auc=-1, roc_auc=-1):
     metrics["f1"] = f1_score(true, pred, zero_division=0)
     metrics["rec"] = recall_score(true, pred, zero_division=0)
     metrics["prec"] = precision_score(true, pred, zero_division=0)
+    metrics["mcc"] = matthews_corrcoef(true, pred)
     metrics["roc_auc"] = roc_auc
     metrics["pr_auc"] = pr_auc
     metrics["fpr"] = -1
