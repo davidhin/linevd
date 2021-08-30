@@ -17,17 +17,14 @@ from sklearn.metrics import (
 from torch.utils.tensorboard import SummaryWriter
 
 
-def get_metrics(true, pred, loss=-1, pr_auc=-1, roc_auc=-1):
+def get_metrics(true, pred):
     """Get relevant metrics given true labels and logits."""
     metrics = {}
-    metrics["loss"] = loss
     metrics["acc"] = accuracy_score(true, pred)
     metrics["f1"] = f1_score(true, pred, zero_division=0)
     metrics["rec"] = recall_score(true, pred, zero_division=0)
     metrics["prec"] = precision_score(true, pred, zero_division=0)
     metrics["mcc"] = matthews_corrcoef(true, pred)
-    metrics["roc_auc"] = roc_auc
-    metrics["pr_auc"] = pr_auc
     metrics["fpr"] = -1
     metrics["fnr"] = -1
     if sum(true + pred) != 0:
@@ -56,7 +53,11 @@ def get_metrics_logits(true, logits):
         pr_auc = average_precision_score(true_oh, logits)
     except:
         pr_auc = -1
-    ret = get_metrics(true, pred, loss, pr_auc, roc_auc)
+    ret = get_metrics(true, pred)
+    ret["roc_auc"] = roc_auc
+    ret["pr_auc"] = pr_auc
+    ret["pr_auc_pos"] = average_precision_score(true, logits[:, 1])
+    ret["loss"] = loss
     return ret
 
 
