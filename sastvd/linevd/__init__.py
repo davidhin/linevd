@@ -241,6 +241,7 @@ class LitGNN(pl.LightningModule):
         model: str = "gat2layer",
         loss: str = "ce",
         multitask: str = "linemethod",
+        stmtweight: int = 5,
     ):
         """Initilisation."""
         super().__init__()
@@ -254,7 +255,8 @@ class LitGNN(pl.LightningModule):
         if loss == "sce":
             self.loss = svdloss.SCELoss()
         else:
-            self.loss = th.nn.CrossEntropyLoss()
+            self.loss = th.nn.CrossEntropyLoss(weight=th.Tensor([1, stmtweight]).cuda())
+            self.loss_f = th.nn.CrossEntropyLoss()
 
         # Metrics
         self.accuracy = torchmetrics.Accuracy()
@@ -403,7 +405,7 @@ class LitGNN(pl.LightningModule):
         )  # Labels func should be the method-level label for statements
         # print(logits.argmax(1), labels_func)
         loss1 = self.loss(logits[0], labels)
-        loss2 = self.loss(logits[1], labels_func)
+        loss2 = self.loss_f(logits[1], labels_func)
         # Need some way of combining the losses for multitask training
         loss = 0
         if "line" in self.hparams.multitask:
@@ -434,7 +436,7 @@ class LitGNN(pl.LightningModule):
             loss1 = self.loss(logits[0], labels)
             loss += loss1
         if "method" in self.hparams.multitask:
-            loss2 = self.loss(logits[1], labels_func)
+            loss2 = self.loss_f(logits[1], labels_func)
             loss += loss2
 
         logits = logits[1] if self.hparams.multitask == "method" else logits[0]
