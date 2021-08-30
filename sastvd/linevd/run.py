@@ -15,6 +15,7 @@ model = lvd.LitGNN(
     loss="ce",
     hdropout=0.2,
     multitask="linemethod",
+    stmtweight=5,
 )
 
 # Load data
@@ -41,12 +42,20 @@ trainer.fit(model, data)
 
 # %% TESTING
 reload(lvd)
-run_id = "202108271123_8dd6708_update_joern_test_ids"  # Codebert single-task (line)
-run_id = "202108300848_107b176_whitespace_update"  # Codebert + GAT single-task (method)
-run_id = "202108301010_107b176_whitespace_update"  # Codebert + GAT single-task (line)
+# Codebert single-task (line)
+run_id = "202108271123_8dd6708_update_joern_test_ids"
 
-run_id = "202108301139_8a89360_update_multitask_model"  # Codebert + GAT (multitask) + W
-run_id = "202108271658_2ac4767_update_default_codebert"  # Codebert + GAT (multitask)
+# Codebert + GAT single-task (method)
+run_id = "202108300848_107b176_whitespace_update"
+
+# Codebert + GAT single-task (line)
+run_id = "202108301010_107b176_whitespace_update"
+
+# Codebert + GAT (multitask) Weighted 1:30
+run_id = "202108301139_8a89360_update_multitask_model"
+
+# Codebert + GAT (multitask) Weighted 1:1
+run_id = "202108271658_2ac4767_update_default_codebert"
 
 best_model = glob(
     str(
