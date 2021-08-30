@@ -464,6 +464,7 @@ class LitGNN(pl.LightningModule):
                 [
                     list(i.ndata["pred"].detach().cpu().numpy()),
                     list(i.ndata["_VULN"].detach().cpu().numpy()),
+                    i.ndata["pred_func"].argmax(1).detach().cpu(),
                 ]
             )
             logits_f.append(dgl.mean_nodes(i, "pred_func").detach().cpu())
@@ -499,6 +500,15 @@ class LitGNN(pl.LightningModule):
         self.res1vo = ivde.eval_statements_list(all_funcs, vo=True, thresh=0)
 
         # Regular metrics
+        multitask_pred = []
+        multitask_true = []
+        for af in all_funcs:
+            line_pred = list(zip(af[0], af[2]))
+            multitask_pred += [list(i[0]) if i[1] == 1 else [1, 0] for i in line_pred]
+            multitask_true += af[1]
+        multitask_true = th.LongTensor(multitask_true)
+        multitask_pred = th.Tensor(multitask_pred)
+        self.res2mt = ml.get_metrics_logits(multitask_true, multitask_pred)
         self.res2 = ml.get_metrics_logits(all_true, all_pred)
         self.res2f = ml.get_metrics_logits(all_true_f, all_pred_f)
 
@@ -506,7 +516,7 @@ class LitGNN(pl.LightningModule):
         rank_metrs = []
         rank_metrs_vo = []
         for af in all_funcs:
-            rank_metr_calc = svdr.rank_metr([i[1] for i in af[0]], af[1])
+            rank_metr_calc = svdr.rank_metr([i[1] for i in af[0]], af[1], 0)
             if max(af[1]) > 0:
                 rank_metrs_vo.append(rank_metr_calc)
             rank_metrs.append(rank_metr_calc)
