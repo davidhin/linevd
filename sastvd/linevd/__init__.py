@@ -19,6 +19,7 @@ import torchmetrics
 from dgl.data.utils import load_graphs, save_graphs
 from dgl.dataloading import GraphDataLoader
 from dgl.nn.pytorch import GATConv
+from sklearn.metrics import PrecisionRecallDisplay, precision_recall_curve
 from tqdm import tqdm
 
 
@@ -508,6 +509,8 @@ class LitGNN(pl.LightningModule):
             line_pred = list(zip(af[0], af[2]))
             multitask_pred += [list(i[0]) if i[1] == 1 else [1, 0] for i in line_pred]
             multitask_true += af[1]
+        self.linevd_pred = multitask_pred
+        self.linevd_true = multitask_true
         multitask_true = th.LongTensor(multitask_true)
         multitask_pred = th.Tensor(multitask_pred)
         self.res2mt = ml.get_metrics_logits(multitask_true, multitask_pred)
@@ -538,6 +541,15 @@ class LitGNN(pl.LightningModule):
             method_level_pred.append(pred_method)
         self.res4 = ml.get_metrics(method_level_true, method_level_pred)
 
+        return
+
+    def plot_pr_curve(self):
+        """Plot Precision-Recall Curve for Positive Class (after test)."""
+        precision, recall, thresholds = precision_recall_curve(
+            self.linevd_true, [i[1] for i in self.linevd_pred]
+        )
+        disp = PrecisionRecallDisplay(precision, recall)
+        disp.plot()
         return
 
     def configure_optimizers(self):
