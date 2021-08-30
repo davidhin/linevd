@@ -14,8 +14,9 @@ model = lvd.LitGNN(
     model="gat2layer",
     loss="ce",
     hdropout=0.2,
+    gatdropout=0.1,
     multitask="linemethod",
-    stmtweight=5,
+    stmtweight=20,
 )
 
 # Load data
@@ -57,6 +58,15 @@ run_id = "202108301139_8a89360_update_multitask_model"
 # Codebert + GAT (multitask) Weighted 1:1
 run_id = "202108271658_2ac4767_update_default_codebert"
 
+# Codebert + GAT (multitask) Weighted 1:5
+run_id = "202108301341_59b6c98_final_update_run_script"
+
+# Codebert + GAT (multitask) Weighted 1:10
+run_id = "202108301341_59b6c98_final_update_run_script"
+
+# Codebert + GAT (multitask) Weighted 1:20
+run_id = "202108301536_40f42a0_update_run_layout"
+
 best_model = glob(
     str(
         svd.processed_dir()
@@ -77,3 +87,4 @@ print(model.res2f)
 print(model.res3)
 print(model.res3vo)
 print(model.res4)
+model.plot_pr_curve()
