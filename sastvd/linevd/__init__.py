@@ -240,6 +240,7 @@ class LitGNN(pl.LightningModule):
         nsampling: bool = False,
         model: str = "gat2layer",
         loss: str = "ce",
+        multitask: str = "linemethod",
     ):
         """Initilisation."""
         super().__init__()
@@ -392,7 +393,7 @@ class LitGNN(pl.LightningModule):
                 labels_func = batch[2][-1].dstdata["_FVULN"].long()
             else:
                 labels = batch.ndata["_VULN"].long()
-                labels_func = batch.ndata["_VULN"].long()
+                labels_func = batch.ndata["_FVULN"].long()
         return logits, labels, labels_func
 
     def training_step(self, batch, batch_idx):
@@ -404,11 +405,18 @@ class LitGNN(pl.LightningModule):
         loss1 = self.loss(logits[0], labels)
         loss2 = self.loss(logits[1], labels_func)
         # Need some way of combining the losses for multitask training
-        loss = loss1 + loss2
+        loss = 0
+        if "line" in self.hparams.multitask:
+            loss1 = self.loss(logits[0], labels)
+            loss += loss1
+        if "method" in self.hparams.multitask:
+            loss2 = self.loss(logits[1], labels_func)
+            loss += loss2
 
-        pred = F.softmax(logits[0], dim=1)
+        logits = logits[1] if self.hparams.multitask == "method" else logits[0]
+        pred = F.softmax(logits, dim=1)
         acc = self.accuracy(pred.argmax(1), labels)
-        acc_func = self.accuracy(logits[1].argmax(1), labels_func)
+        acc_func = self.accuracy(logits.argmax(1), labels_func)
         mcc = self.mcc(pred.argmax(1), labels)
         # print(pred.argmax(1), labels)
 
@@ -421,16 +429,21 @@ class LitGNN(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         """Validate step."""
         logits, labels, labels_func = self.shared_step(batch)
-        loss1 = self.loss(logits[0], labels)
-        loss2 = self.loss(logits[1], labels_func)
-        loss = loss1 + loss2
+        loss = 0
+        if "line" in self.hparams.multitask:
+            loss1 = self.loss(logits[0], labels)
+            loss += loss1
+        if "method" in self.hparams.multitask:
+            loss2 = self.loss(logits[1], labels_func)
+            loss += loss2
 
-        pred = F.softmax(logits[0], dim=1)
+        logits = logits[1] if self.hparams.multitask == "method" else logits[0]
+        pred = F.softmax(logits, dim=1)
         acc = self.accuracy(pred.argmax(1), labels)
         mcc = self.mcc(pred.argmax(1), labels)
 
         self.log("val_loss", loss, on_step=True, prog_bar=True, logger=True)
-        self.auroc.update(logits[0][:, 1], labels)
+        self.auroc.update(logits[:, 1], labels)
         self.log("val_auroc", self.auroc, prog_bar=True, logger=True)
         self.log("val_acc", acc, prog_bar=True, logger=True)
         self.log("val_mcc", mcc, prog_bar=True, logger=True)
@@ -483,7 +496,7 @@ class LitGNN(pl.LightningModule):
         self.res1 = ivde.eval_statements_list(all_funcs)
 
         # Custom ranked accuracy (only positives)
-        self.res1vo = ivde.eval_statements_list(all_funcs, vo=True)
+        self.res1vo = ivde.eval_statements_list(all_funcs, vo=True, thresh=0)
 
         # Regular metrics
         self.res2 = ml.get_metrics_logits(all_true, all_pred)
