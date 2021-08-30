@@ -86,7 +86,7 @@ def code2diff(old: str, new: str):
 
 def _c2dhelper(item):
     """Given item with func_before, func_after, id, and dataset, save gitdiff."""
-    savedir = svd.get_dir(svd.interim_dir() / item["dataset"])
+    savedir = svd.get_dir(svd.cache_dir() / item["dataset"] / "gitdiff")
     savepath = savedir / f"{item['id']}.git.pkl"
     if os.path.exists(savepath):
         return
@@ -110,7 +110,7 @@ def mp_code2diff(df):
 
 def get_codediff(dataset, iid):
     """Get codediff from file."""
-    savedir = svd.get_dir(svd.interim_dir() / dataset)
+    savedir = svd.get_dir(svd.cache_dir() / dataset / "gitdiff")
     savepath = savedir / f"{iid}.git.pkl"
     try:
         with open(savepath, "rb") as f:
