@@ -33,7 +33,7 @@ class BigVulDataset:
         if partition == "test":
             nonvul = self.df[self.df.vul == 0]
             vul = self.df[self.df.vul == 1].sample(
-                int(len(nonvul) / 16), random_state=0
+                int(len(nonvul) / 20), random_state=0
             )
             self.df = pd.concat([vul, nonvul])
 
