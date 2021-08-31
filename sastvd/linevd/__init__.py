@@ -247,17 +247,15 @@ class LitGNN(pl.LightningModule):
     ):
         """Initilisation."""
         super().__init__()
-        self.lr = lr
-        self.methodlevel = methodlevel
-        self.nsampling = nsampling
-        self.model = model
         self.save_hyperparameters()
 
         # Loss
-        if loss == "sce":
+        if self.hparams.loss == "sce":
             self.loss = svdloss.SCELoss()
         else:
-            self.loss = th.nn.CrossEntropyLoss(weight=th.Tensor([1, stmtweight]).cuda())
+            self.loss = th.nn.CrossEntropyLoss(
+                weight=th.Tensor([1, self.hparams.stmtweight]).cuda()
+            )
             self.loss_f = th.nn.CrossEntropyLoss()
 
         # Metrics
@@ -552,4 +550,4 @@ class LitGNN(pl.LightningModule):
 
     def configure_optimizers(self):
         """Configure optimizer."""
-        return th.optim.AdamW(self.parameters(), lr=self.lr)
+        return th.optim.AdamW(self.parameters(), lr=self.hparams.lr)
