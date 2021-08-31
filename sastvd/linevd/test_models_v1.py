@@ -4,6 +4,7 @@ from importlib import reload
 import pytorch_lightning as pl
 import sastvd as svd
 import sastvd.linevd as lvd
+from ray.tune import Analysis
 
 # %% TESTING
 reload(lvd)
@@ -62,3 +63,12 @@ print(model.res3)
 print(model.res3vo)
 print(model.res4)
 model.plot_pr_curve()
+
+# %% Raytune runs
+run_id = "202109010724_bfb2547_explicit_set_num_workers_getgraphs"
+result_dir = "raytune_-1"
+ckpt_str = "lightning_logs/version_1/checkpoints/*.ckpt"
+
+savepath = svd.get_dir(svd.processed_dir() / "raytune_-1" / run_id / "tune_linevd")
+analysis = Analysis(savepath, default_metric="loss", default_mode="min")
+best_model = glob(analysis.get_best_logdir() + "/*.ckpt")
