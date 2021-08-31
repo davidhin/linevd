@@ -39,3 +39,4 @@ pytorch-lightning
 torch_scatter
 ujson
 unidecode
+ray[tune]
