@@ -1,90 +1,70 @@
-from glob import glob
-from importlib import reload
-
 import pytorch_lightning as pl
 import sastvd as svd
 import sastvd.linevd as lvd
+from ray import tune
+from ray.tune.integration.pytorch_lightning import TuneReportCallback
 
-run_id = svd.get_run_id()
-samplesz = -1
-savepath = svd.get_dir(svd.processed_dir() / f"minibatch_tests_{samplesz}" / run_id)
-model = lvd.LitGNN(
-    methodlevel=False,
-    nsampling=True,
-    model="gat2layer",
-    loss="ce",
-    hdropout=0.2,
-    gatdropout=0.1,
-    multitask="linemethod",
-    stmtweight=20,
-)
 
-# Load data
-data = lvd.BigVulDatasetLineVDDataModule(
-    batch_size=1024,
-    sample=samplesz,
-    methodlevel=False,
-    nsampling=True,
-    nsampling_hops=2,
-)
-
-# # Train model
-checkpoint_callback = pl.callbacks.ModelCheckpoint(monitor="val_loss")
-trainer = pl.Trainer(
-    gpus=1,
-    auto_lr_find=True,
-    default_root_dir=savepath,
-    num_sanity_val_steps=0,
-    callbacks=[checkpoint_callback],
-    max_epochs=20000,
-)
-tuned = trainer.tune(model, data)
-trainer.fit(model, data)
-
-# %% TESTING
-reload(lvd)
-# Codebert single-task (line)
-run_id = "202108271123_8dd6708_update_joern_test_ids"
-
-# Codebert + GAT single-task (method)
-run_id = "202108300848_107b176_whitespace_update"
-
-# Codebert + GAT single-task (line)
-run_id = "202108301010_107b176_whitespace_update"
-
-# Codebert + GAT (multitask) Weighted 1:30
-run_id = "202108301139_8a89360_update_multitask_model"
-
-# Codebert + GAT (multitask) Weighted 1:1
-run_id = "202108271658_2ac4767_update_default_codebert"
-
-# Codebert + GAT (multitask) Weighted 1:5
-run_id = "202108301341_59b6c98_final_update_run_script"
-
-# Codebert + GAT (multitask) Weighted 1:10
-run_id = "202108301341_59b6c98_final_update_run_script"
-
-# Codebert + GAT (multitask) Weighted 1:20
-run_id = "202108301536_40f42a0_update_run_layout"
-
-best_model = glob(
-    str(
-        svd.processed_dir()
-        / f"minibatch_tests_{samplesz}"
-        / run_id
-        / "lightning_logs/version_0/checkpoints/*.ckpt"
+def train_linevd(config, samplesz=-1, max_epochs=1000, num_gpus=1):
+    """Wrap Pytorch Lightning to pass to RayTune."""
+    model = lvd.LitGNN(
+        hfeat=config["hfeat"],
+        methodlevel=False,
+        nsampling=True,
+        model=config["modeltype"],
+        loss="ce",
+        hdropout=config["hdropout"],
+        gatdropout=config["gatdropout"],
+        num_heads=4,
+        multitask="linemethod",
+        stmtweight=config["stmtweight"],
     )
-)[0]
-model = lvd.LitGNN.load_from_checkpoint(best_model, strict=False)
-trainer.test(model, data)
 
-# %% Print results
-print(model.res1vo)
-print(model.res1)
-print(model.res2)
-print(model.res2mt)
-print(model.res2f)
-print(model.res3)
-print(model.res3vo)
-print(model.res4)
-model.plot_pr_curve()
+    # Load data
+    data = lvd.BigVulDatasetLineVDDataModule(
+        batch_size=1024,
+        sample=samplesz,
+        methodlevel=False,
+        nsampling=True,
+        nsampling_hops=2,
+    )
+
+    # # Train model
+    checkpoint_callback = pl.callbacks.ModelCheckpoint(monitor="val_loss")
+    raytune_callback = TuneReportCallback({"loss": "val_loss"}, on="validation_end")
+    trainer = pl.Trainer(
+        gpus=num_gpus,
+        auto_lr_find=True,
+        default_root_dir=savepath,
+        num_sanity_val_steps=0,
+        callbacks=[checkpoint_callback, raytune_callback],
+        max_epochs=max_epochs,
+    )
+    trainer.tune(model, data)
+    trainer.fit(model, data)
+
+
+# Hyperparameters
+config = {
+    "hfeat": tune.choice([512]),
+    "stmtweight": tune.choice([1, 5, 30, 40]),
+    "hdropout": tune.choice([0.2, 0.25]),
+    "gatdropout": tune.choice([0.1, 0.2, 0.25]),
+    "modeltype": tune.choice(["gat2layer"]),
+}
+
+samplesz = -1
+trainable = tune.with_parameters(train_linevd, samplesz=samplesz)
+run_id = svd.get_run_id()
+savepath = svd.get_dir(svd.processed_dir() / f"raytune_{samplesz}" / run_id)
+
+analysis = tune.run(
+    trainable,
+    resources_per_trial={"cpu": 1, "gpu": 0.5},
+    metric="loss",
+    mode="min",
+    config=config,
+    num_samples=10,
+    name="tune_linevd",
+    local_dir=savepath,
+)
