@@ -8,7 +8,7 @@ from ray.tune.integration.pytorch_lightning import (
 )
 
 
-def train_linevd(config, samplesz=-1, max_epochs=100, num_gpus=1):
+def train_linevd(config, samplesz=-1, max_epochs=100, num_gpus=1, checkpoint_dir=None):
     """Wrap Pytorch Lightning to pass to RayTune."""
     model = lvd.LitGNN(
         hfeat=config["hfeat"],
@@ -34,13 +34,9 @@ def train_linevd(config, samplesz=-1, max_epochs=100, num_gpus=1):
 
     # # Train model
     checkpoint_callback = pl.callbacks.ModelCheckpoint(monitor="val_loss")
-    raytune_callback = TuneReportCallback(
-        ["train_loss", "val_loss", "val_auroc"], on="validation_end"
-    )
-    rtckpt_callback = TuneReportCheckpointCallback(
-        metrics={"loss": "val_loss"}, filename="checkpoint", on="validation_end"
-    )
-
+    metrics = ["train_loss", "val_loss", "val_auroc"]
+    raytune_callback = TuneReportCallback(metrics, on="validation_end")
+    rtckpt_callback = TuneReportCheckpointCallback(metrics, on="validation_end")
     trainer = pl.Trainer(
         gpus=num_gpus,
         auto_lr_find=True,
@@ -73,7 +69,7 @@ analysis = tune.run(
     metric="val_loss",
     mode="min",
     config=config,
-    num_samples=10,
+    num_samples=20,
     name="tune_linevd",
     local_dir=savepath,
     keep_checkpoints_num=1,
