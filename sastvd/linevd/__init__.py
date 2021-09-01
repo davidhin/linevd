@@ -304,11 +304,13 @@ class LitGNN(pl.LightningModule):
         self.hdropout = th.nn.Dropout(self.hparams.hdropout)
         self.fc2 = th.nn.Linear(self.hparams.hfeat, 2)
 
-    def forward(self, g, test=False):
+    def forward(self, g, test=False, e_weights=[], feat_override=""):
         """Forward pass.
 
         data = BigVulDatasetLineVDDataModule(batch_size=1, sample=2, nsampling=True)
         g = next(iter(data.train_dataloader()))
+
+        e_weights and h_override are just used for GNNExplainer.
         """
         if self.hparams.nsampling and not test:
             hdst = g[2][-1].dstdata["_CODEBERT"]
@@ -322,6 +324,8 @@ class LitGNN(pl.LightningModule):
         else:
             g2 = g
             h = g.ndata["_CODEBERT"]
+            if len(feat_override) > 0:
+                h = g.ndata[feat_override]
             h_func = g.ndata["_FUNC_EMB"]
             hdst = h
 
@@ -354,6 +358,15 @@ class LitGNN(pl.LightningModule):
                 h = h.view(-1, h.size(1) * h.size(2))
             h = self.mlpdropout(F.elu(self.fc(h)))
             h_func = self.mlpdropout(F.elu(self.fconly(h_func)))
+
+        # Edge masking (for GNNExplainer)
+        if test and len(e_weights) > 0:
+            g.ndata["h"] = h
+            g.edata["ew"] = e_weights
+            g.update_all(
+                dgl.function.u_mul_e("h", "ew", "m"), dgl.function.mean("m", "h")
+            )
+            h = g.ndata["h"]
 
         # GCN only
         # h = self.gcn(g, g.ndata["_CODEBERT"])
