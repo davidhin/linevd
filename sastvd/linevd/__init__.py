@@ -247,6 +247,7 @@ class LitGNN(pl.LightningModule):
     ):
         """Initilisation."""
         super().__init__()
+        self.lr = lr
         self.save_hyperparameters()
 
         # Loss
@@ -570,4 +571,4 @@ class LitGNN(pl.LightningModule):
 
     def configure_optimizers(self):
         """Configure optimizer."""
-        return th.optim.AdamW(self.parameters(), lr=self.hparams.lr)
+        return th.optim.AdamW(self.parameters(), lr=self.lr)
