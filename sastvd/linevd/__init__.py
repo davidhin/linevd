@@ -395,7 +395,7 @@ class LitGNN(pl.LightningModule):
 
         if self.hparams.methodlevel:
             g.ndata["h"] = h
-            return dgl.mean_nodes(g, "h")
+            return dgl.mean_nodes(g, "h"), None
         else:
             return h, h_func  # Return two values for multitask training
 
@@ -406,7 +406,7 @@ class LitGNN(pl.LightningModule):
             if self.hparams.nsampling:
                 raise ValueError("Cannot train on method level with nsampling.")
             labels = dgl.max_nodes(batch, "_VULN").long()
-            labels_func = dgl.max_nodes(batch, "_FVULN").long()
+            labels_func = None
         else:
             if self.hparams.nsampling and not test:
                 labels = batch[2][-1].dstdata["_VULN"].long()
@@ -423,25 +423,28 @@ class LitGNN(pl.LightningModule):
         )  # Labels func should be the method-level label for statements
         # print(logits.argmax(1), labels_func)
         loss1 = self.loss(logits[0], labels)
+        if not self.hparams.methodlevel:
         loss2 = self.loss_f(logits[1], labels_func)
         # Need some way of combining the losses for multitask training
         loss = 0
         if "line" in self.hparams.multitask:
             loss1 = self.loss(logits[0], labels)
             loss += loss1
-        if "method" in self.hparams.multitask:
+        if "method" in self.hparams.multitask and not self.hparams.methodlevel:
             loss2 = self.loss(logits[1], labels_func)
             loss += loss2
 
         logits = logits[1] if self.hparams.multitask == "method" else logits[0]
         pred = F.softmax(logits, dim=1)
         acc = self.accuracy(pred.argmax(1), labels)
+        if not self.hparams.methodlevel:
         acc_func = self.accuracy(logits.argmax(1), labels_func)
         mcc = self.mcc(pred.argmax(1), labels)
         # print(pred.argmax(1), labels)
 
         self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True)
         self.log("train_acc", acc, prog_bar=True, logger=True)
+        if not self.hparams.methodlevel:
         self.log("train_acc_func", acc_func, prog_bar=True, logger=True)
         self.log("train_mcc", mcc, prog_bar=True, logger=True)
         return loss
