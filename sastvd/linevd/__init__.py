@@ -18,7 +18,7 @@ import torch.nn.functional as F
 import torchmetrics
 from dgl.data.utils import load_graphs, save_graphs
 from dgl.dataloading import GraphDataLoader
-from dgl.nn.pytorch import GATConv
+from dgl.nn.pytorch import GATConv, GraphConv
 from sklearn.metrics import PrecisionRecallDisplay, precision_recall_curve
 from tqdm import tqdm
 
@@ -244,6 +244,7 @@ class LitGNN(pl.LightningModule):
         loss: str = "ce",
         multitask: str = "linemethod",
         stmtweight: int = 5,
+        gnntype: str = "gat",
     ):
         """Initilisation."""
         super().__init__()
@@ -264,23 +265,28 @@ class LitGNN(pl.LightningModule):
         self.auroc = torchmetrics.AUROC(compute_on_step=False)
         self.mcc = torchmetrics.MatthewsCorrcoef(2)
 
+        # GraphConv Type
+        hfeat = self.hparams.hfeat
+        gatdrop = self.hparams.gatdropout
+        numheads = self.hparams.num_heads
+        embfeat = self.hparams.embfeat
+        gnn_args = {"out_feats": hfeat}
+        if self.hparams.gnntype == "gat":
+            gnn = GATConv
+            gat_args = {"num_heads": numheads, "feat_drop": gatdrop}
+            gnn1_args = {**gnn_args, **gat_args, "in_feats": embfeat}
+            gnn2_args = {**gnn_args, **gat_args, "in_feats": hfeat * numheads}
+        elif self.hparams.gnntype == "gcn":
+            gnn = GraphConv
+            gnn1_args = {"in_feats": embfeat, **gnn_args}
+            gnn2_args = {"in_feats": hfeat, **gnn_args}
+
         # model: gat2layer
         if "gat" in self.hparams.model:
-            self.gat = GATConv(
-                in_feats=self.hparams.embfeat,
-                out_feats=self.hparams.hfeat,
-                num_heads=self.hparams.num_heads,
-                feat_drop=self.hparams.gatdropout,
-            )
-            self.gat2 = GATConv(
-                in_feats=self.hparams.hfeat * self.hparams.num_heads,
-                out_feats=self.hparams.hfeat,
-                num_heads=self.hparams.num_heads,
-                feat_drop=self.hparams.gatdropout,
-            )
-            self.fc = th.nn.Linear(
-                self.hparams.hfeat * self.hparams.num_heads, self.hparams.hfeat
-            )
+            self.gat = gnn(**gnn1_args)
+            self.gat2 = gnn(**gnn2_args)
+            fcin = hfeat * numheads if self.hparams.gnntype == "gat" else hfeat
+            self.fc = th.nn.Linear(fcin, self.hparams.hfeat)
             self.fconly = th.nn.Linear(self.hparams.embfeat, self.hparams.hfeat)
             self.mlpdropout = th.nn.Dropout(self.hparams.mlpdropout)
 
@@ -351,12 +357,15 @@ class LitGNN(pl.LightningModule):
         if "gat" in self.hparams.model:
             if "gat2layer" in self.hparams.model:
                 h = self.gat(g, h)
-                h = h.view(-1, h.size(1) * h.size(2))
+                if self.hparams.gnntype == "gat":
+                    h = h.view(-1, h.size(1) * h.size(2))
                 h = self.gat2(g2, h)
-                h = h.view(-1, h.size(1) * h.size(2))
+                if self.hparams.gnntype == "gat":
+                    h = h.view(-1, h.size(1) * h.size(2))
             elif "gat1layer" in self.hparams.model:
                 h = self.gat(g2, h)
-                h = h.view(-1, h.size(1) * h.size(2))
+                if self.hparams.gnntype == "gat":
+                    h = h.view(-1, h.size(1) * h.size(2))
             h = self.mlpdropout(F.elu(self.fc(h)))
             h_func = self.mlpdropout(F.elu(self.fconly(h_func)))
 
