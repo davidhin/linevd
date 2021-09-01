@@ -1,5 +1,7 @@
 import math
 
+import dgl
+import pytorch_lightning as pl
 import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
@@ -183,42 +185,56 @@ class NodeExplainerModule(nn.Module):
         return total_loss
 
 
+class GNNExplainerLit(pl.LightningModule):
+    """Main Trainer."""
 
-# def assign_node_importance(model, g):
-#     """Assign node importance scores to DGL graph based on GNNExplainer."""
-#     explainer = NodeExplainerModule(
-#         model=model, num_edges=g.number_of_edges(), node_feat_dim=768
-#     )
-#     optim = th.optim.Adam(explainer.parameters(), lr=0.05, weight_decay=0)
-#     model.eval()
-#     model_logits = model(g, test=True)[0]
-#     g.ndata["linepred"] = F.softmax(model_logits)[:, 1]
-#     model_predict = F.one_hot(th.argmax(model_logits, dim=-1), 2)
-#     sub_feats = g.ndata["_CODEBERT"]
+    def __init__(self, model, g):
+        """Initilisation."""
+        super().__init__()
+        for param in model.parameters():
+            param.requires_grad = False
+        self.explainer = NodeExplainerModule(
+            model=model, num_edges=g.number_of_edges(), node_feat_dim=768
+        )
+        self.model_logits = model(g, test=True)[0]
+        self.model_predict = F.one_hot(th.argmax(self.model_logits, dim=-1), 2)
+        self.sub_feats = g.ndata["_CODEBERT"]
+        self.g = g
 
-#     for epoch in tqdm(range(15)):
-#         explainer.train()
-#         exp_logits = explainer(g, sub_feats)
-#         loss = explainer._loss(exp_logits, model_predict)
+    def forward(self, g):
+        """Forward pass."""
+        exp_logits = self.explainer(g, self.sub_feats)
+        return exp_logits
 
-#         optim.zero_grad()
-#         loss.backward()
-#         print(loss)
-#         optim.step()
+    def training_step(self, batch, batch_idx):
+        """Training step."""
+        exp_logits = self(batch)[0]
+        loss = self.explainer._loss(exp_logits, self.model_predict)
+        self.log("train_loss", loss, on_epoch=True, prog_bar=False)
+        return loss
 
-#     edge_weights = explainer.edge_mask.sigmoid().detach()
+    def train_dataloader(self):
+        """Train on the single graph."""
+        return dgl.dataloading.GraphDataLoader([self.g])
 
-#     # Get Aggregate weight importances into nodes
-#     g.ndata["line_importance"] = th.ones(g.number_of_nodes()) * 2
-#     g.edata["edge_mask"] = edge_weights
-#     g.update_all(
-#         dgl.function.u_mul_e("line_importance", "edge_mask", "m"),
-#         dgl.function.mean("m", "line_importance"),
-#     )
-
-#     return
+    def configure_optimizers(self):
+        """Configure optimizer."""
+        return th.optim.AdamW(self.parameters(), lr=0.01, weight_decay=0)
 
 
-# assign_node_importance(model, g)
-# g.ndata["line_importance"]
-
+def get_node_importances(model, g):
+    """Assign node importance scores to DGL graph based on GNNExplainer."""
+    gnne = GNNExplainerLit(model.cuda(), g.to("cuda"))
+    trainer = pl.Trainer(
+        gpus=1, max_epochs=50, default_root_dir="/tmp/", log_every_n_steps=1
+    )
+    trainer.fit(gnne)
+    edge_weights = gnne.explainer.edge_mask.sigmoid().detach()
+    # Get Aggregate weight importances into nodes
+    g.ndata["line_importance"] = th.ones(g.number_of_nodes()) * 2
+    g.edata["edge_mask"] = edge_weights
+    g.update_all(
+        dgl.function.u_mul_e("line_importance", "edge_mask", "m"),
+        dgl.function.mean("m", "line_importance"),
+    )
+    return g.ndata["line_importance"].squeeze()
