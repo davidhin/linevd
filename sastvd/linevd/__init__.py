@@ -264,7 +264,7 @@ class LitGNN(pl.LightningModule):
         self.mcc = torchmetrics.MatthewsCorrcoef(2)
 
         # model: gat2layer
-        if "gat2layer" in self.hparams.model:
+        if "gat" in self.hparams.model:
             self.gat = GATConv(
                 in_feats=self.hparams.embfeat,
                 out_feats=self.hparams.hfeat,
@@ -315,7 +315,10 @@ class LitGNN(pl.LightningModule):
             h_func = g[2][-1].dstdata["_FUNC_EMB"]
             g2 = g[2][1]
             g = g[2][0]
-            h = g.srcdata["_CODEBERT"]
+            if "gat2layer" in self.hparams.model:
+                h = g.srcdata["_CODEBERT"]
+            elif "gat1layer" in self.hparams.model:
+                h = g2.srcdata["_CODEBERT"]
         else:
             g2 = g
             h = g.ndata["_CODEBERT"]
@@ -340,11 +343,15 @@ class LitGNN(pl.LightningModule):
             h = F.elu(self.fc_femb(h))
 
         # model: gat2layer
-        if "gat2layer" in self.hparams.model:
-            h = self.gat(g, h)
-            h = h.view(-1, h.size(1) * h.size(2))
-            h = self.gat2(g2, h)
-            h = h.view(-1, h.size(1) * h.size(2))
+        if "gat" in self.hparams.model:
+            if "gat2layer" in self.hparams.model:
+                h = self.gat(g, h)
+                h = h.view(-1, h.size(1) * h.size(2))
+                h = self.gat2(g2, h)
+                h = h.view(-1, h.size(1) * h.size(2))
+            elif "gat1layer" in self.hparams.model:
+                h = self.gat(g2, h)
+                h = h.view(-1, h.size(1) * h.size(2))
             h = self.mlpdropout(F.elu(self.fc(h)))
             h_func = self.mlpdropout(F.elu(self.fconly(h_func)))
 
