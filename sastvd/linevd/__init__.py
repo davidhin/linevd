@@ -424,7 +424,7 @@ class LitGNN(pl.LightningModule):
         # print(logits.argmax(1), labels_func)
         loss1 = self.loss(logits[0], labels)
         if not self.hparams.methodlevel:
-        loss2 = self.loss_f(logits[1], labels_func)
+            loss2 = self.loss_f(logits[1], labels_func)
         # Need some way of combining the losses for multitask training
         loss = 0
         if "line" in self.hparams.multitask:
@@ -438,14 +438,14 @@ class LitGNN(pl.LightningModule):
         pred = F.softmax(logits, dim=1)
         acc = self.accuracy(pred.argmax(1), labels)
         if not self.hparams.methodlevel:
-        acc_func = self.accuracy(logits.argmax(1), labels_func)
+            acc_func = self.accuracy(logits.argmax(1), labels_func)
         mcc = self.mcc(pred.argmax(1), labels)
         # print(pred.argmax(1), labels)
 
         self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True)
         self.log("train_acc", acc, prog_bar=True, logger=True)
         if not self.hparams.methodlevel:
-        self.log("train_acc_func", acc_func, prog_bar=True, logger=True)
+            self.log("train_acc_func", acc_func, prog_bar=True, logger=True)
         self.log("train_mcc", mcc, prog_bar=True, logger=True)
         return loss
 
