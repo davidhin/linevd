@@ -246,10 +246,12 @@ class LitGNN(pl.LightningModule):
         multitask: str = "linemethod",
         stmtweight: int = 5,
         gnntype: str = "gat",
+        random: bool = False,
     ):
         """Initilisation."""
         super().__init__()
         self.lr = lr
+        self.random = random
         self.save_hyperparameters()
 
         # Loss
@@ -336,6 +338,11 @@ class LitGNN(pl.LightningModule):
                 h = g.ndata[feat_override]
             h_func = g.ndata["_FUNC_EMB"]
             hdst = h
+
+        if self.random:
+            return th.rand((h.shape[0], 2)).to(self.device), th.rand(
+                h_func.shape[0], 2
+            ).to(self.device)
 
         # Feed forward through ResRGat
         # g.ndata["h"] = g.ndata["_FEAT"]
