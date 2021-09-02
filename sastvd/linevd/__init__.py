@@ -13,6 +13,7 @@ import sastvd.helpers.losses as svdloss
 import sastvd.helpers.ml as ml
 import sastvd.helpers.rank_eval as svdr
 import sastvd.ivdetect.evaluate as ivde
+import sastvd.linevd.gnnexplainer as lvdgne
 import torch as th
 import torch.nn.functional as F
 import torchmetrics
@@ -489,7 +490,7 @@ class LitGNN(pl.LightningModule):
 
         if self.hparams.methodlevel:
             labels_f = labels
-            return logits[0], labels_f
+            return logits[0], labels_f, dgl.unbatch(batch)
 
         batch.ndata["pred"] = F.softmax(logits[0], dim=1)
         batch.ndata["pred_func"] = F.softmax(logits[1], dim=1)
@@ -510,28 +511,47 @@ class LitGNN(pl.LightningModule):
 
     def test_epoch_end(self, outputs):
         """Calculate metrics for whole test set."""
-        if self.hparams.methodlevel:
-            all_pred_f = []
-            all_true_f = []
-            for out in outputs:
-                all_pred_f += out[0]
-                all_true_f += out[1]
-            all_pred_f = F.softmax(th.stack(all_pred_f).squeeze(), dim=1)
-            all_true_f = th.stack(all_true_f).squeeze().long()
-            self.res2f = ml.get_metrics_logits(all_true_f, all_pred_f)
-            return
-
         all_pred = th.empty((0, 2)).long().cuda()
         all_true = th.empty((0)).long().cuda()
         all_pred_f = []
         all_true_f = []
         all_funcs = []
-        for out in outputs:
-            all_pred = th.cat([all_pred, out[0][0]])
-            all_true = th.cat([all_true, out[1][0]])
-            all_pred_f += out[0][1]
-            all_true_f += out[1][1]
-            all_funcs += out[2]
+        from importlib import reload
+
+        reload(lvdgne)
+        if self.hparams.methodlevel:
+            for out in outputs:
+                all_pred_f += out[0]
+                all_true_f += out[1]
+                for idx, g in enumerate(out[2]):
+                    all_true = th.cat([all_true, g.ndata["_VULN"]])
+                    gnnelogits = th.zeros((g.number_of_nodes(), 2), device="cuda")
+                    gnnelogits[:, 0] = 1
+                    if out[0][idx].argmax() > 0:
+                        zeros = th.zeros(g.number_of_nodes(), device="cuda")
+                        try:
+                            importance = lvdgne.get_node_importances(self, g)
+                            importance = importance.unsqueeze(1)
+                            gnnelogits = th.cat([zeros.unsqueeze(1), importance], dim=1)
+                        except:
+                            pass
+                    all_pred = th.cat([all_pred, gnnelogits])
+                    func_pred = out[0][idx].argmax().repeat(g.number_of_nodes())
+                    all_funcs.append(
+                        [
+                            gnnelogits.detach().cpu().numpy(),
+                            g.ndata["_VULN"].detach().cpu().numpy(),
+                            func_pred.detach().cpu(),
+                        ]
+                    )
+            all_true = all_true.long()
+        else:
+            for out in outputs:
+                all_pred = th.cat([all_pred, out[0][0]])
+                all_true = th.cat([all_true, out[1][0]])
+                all_pred_f += out[0][1]
+                all_true_f += out[1][1]
+                all_funcs += out[2]
         all_pred = F.softmax(all_pred, dim=1)
         all_pred_f = F.softmax(th.stack(all_pred_f).squeeze(), dim=1)
         all_true_f = th.stack(all_true_f).squeeze().long()
@@ -553,7 +573,7 @@ class LitGNN(pl.LightningModule):
         for af in all_funcs:
             line_pred = list(zip(af[0], af[2]))
             multitask_pred += [list(i[0]) if i[1] == 1 else [1, 0] for i in line_pred]
-            multitask_true += af[1]
+            multitask_true += list(af[1])
         self.linevd_pred = multitask_pred
         self.linevd_true = multitask_true
         multitask_true = th.LongTensor(multitask_true)
@@ -570,7 +590,11 @@ class LitGNN(pl.LightningModule):
             if max(af[1]) > 0:
                 rank_metrs_vo.append(rank_metr_calc)
             rank_metrs.append(rank_metr_calc)
-        self.res3 = ml.dict_mean(rank_metrs)
+        try:
+            self.res3 = ml.dict_mean(rank_metrs)
+        except Exception as E:
+            print(E)
+            pass
         self.res3vo = ml.dict_mean(rank_metrs_vo)
 
         # Method level prediction from statement level
