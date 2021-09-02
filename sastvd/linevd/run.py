@@ -8,7 +8,7 @@ from ray.tune.integration.pytorch_lightning import (
 )
 
 
-def train_linevd(config, samplesz=-1, max_epochs=100, num_gpus=1, checkpoint_dir=None):
+def train_linevd(config, samplesz=-1, max_epochs=130, num_gpus=1, checkpoint_dir=None):
     """Wrap Pytorch Lightning to pass to RayTune."""
     model = lvd.LitGNN(
         hfeat=config["hfeat"],
@@ -21,6 +21,7 @@ def train_linevd(config, samplesz=-1, max_epochs=100, num_gpus=1, checkpoint_dir
         num_heads=4,
         multitask="linemethod",
         stmtweight=config["stmtweight"],
+        gnntype=config["gnntype"],
     )
 
     # Load data
@@ -56,6 +57,7 @@ config = {
     "hdropout": tune.choice([0.2, 0.25, 0.3]),
     "gatdropout": tune.choice([0.15, 0.2]),
     "modeltype": tune.choice(["gat1layer", "gat2layer"]),
+    "gnntype": tune.choice(["gat", "gcn"]),
 }
 
 samplesz = -1
@@ -65,13 +67,14 @@ savepath = svd.get_dir(svd.processed_dir() / f"raytune_{samplesz}" / run_id)
 
 analysis = tune.run(
     trainable,
-    resources_per_trial={"cpu": 1, "gpu": 0.5},
+    resources_per_trial={"cpu": 1, "gpu": 1},
     metric="val_loss",
     mode="min",
     config=config,
-    num_samples=20,
+    num_samples=50,
     name="tune_linevd",
     local_dir=savepath,
     keep_checkpoints_num=1,
     checkpoint_score_attr="val_loss",
+    checkpoint_freq=1,
 )
