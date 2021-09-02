@@ -486,6 +486,11 @@ class LitGNN(pl.LightningModule):
         logits, labels, _ = self.shared_step(
             batch, True
         )  # TODO: Make work for multitask
+
+        if self.hparams.methodlevel:
+            labels_f = labels
+            return logits[0], labels_f
+
         batch.ndata["pred"] = F.softmax(logits[0], dim=1)
         batch.ndata["pred_func"] = F.softmax(logits[1], dim=1)
         logits_f = []
@@ -505,6 +510,17 @@ class LitGNN(pl.LightningModule):
 
     def test_epoch_end(self, outputs):
         """Calculate metrics for whole test set."""
+        if self.hparams.methodlevel:
+            all_pred_f = []
+            all_true_f = []
+            for out in outputs:
+                all_pred_f += out[0]
+                all_true_f += out[1]
+            all_pred_f = F.softmax(th.stack(all_pred_f).squeeze(), dim=1)
+            all_true_f = th.stack(all_true_f).squeeze().long()
+            self.res2f = ml.get_metrics_logits(all_true_f, all_pred_f)
+            return
+
         all_pred = th.empty((0, 2)).long().cuda()
         all_true = th.empty((0)).long().cuda()
         all_pred_f = []
