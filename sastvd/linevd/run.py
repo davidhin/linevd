@@ -53,7 +53,7 @@ def train_linevd(config, samplesz=-1, max_epochs=130, num_gpus=1, checkpoint_dir
 # Hyperparameters
 config = {
     "hfeat": tune.choice([512]),
-    "stmtweight": tune.choice([1, 5, 30, 40]),
+    "stmtweight": tune.choice([1, 5, 10, 15, 30, 40]),
     "hdropout": tune.choice([0.2, 0.25, 0.3]),
     "gatdropout": tune.choice([0.15, 0.2]),
     "modeltype": tune.choice(["gat1layer", "gat2layer"]),
