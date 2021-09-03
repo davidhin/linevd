@@ -53,7 +53,7 @@ def feature_extraction(_id, graph_type="cfgcdg"):
     # Get CPG
     n, e = svdj.get_node_edges(_id)
     n, e = ne_groupnodes(n, e)
-    e = svdj.rdg(e, graph_type)
+    e = svdj.rdg(e, graph_type.split("+")[0])
     n = svdj.drop_lone_nodes(n, e)
 
     # Plot graph
@@ -71,12 +71,13 @@ def feature_extraction(_id, graph_type="cfgcdg"):
     etypes = [d[i] for i in etypes]
 
     # Append function name to code
-    try:
-        func_name = n[n.lineNumber == 1].name.item()
-    except:
-        print(_id)
-        func_name = ""
-    n.code = func_name + " " + n.name + " " + "</s>" + " " + n.code
+    if "+raw" not in graph_type:
+        try:
+            func_name = n[n.lineNumber == 1].name.item()
+        except:
+            print(_id)
+            func_name = ""
+        n.code = func_name + " " + n.name + " " + "</s>" + " " + n.code
 
     # Return plain-text code, line number list, innodes, outnodes
     return n.code.tolist(), n.id.tolist(), e.innode.tolist(), e.outnode.tolist(), etypes
@@ -86,13 +87,13 @@ def feature_extraction(_id, graph_type="cfgcdg"):
 class BigVulDatasetLineVD(svddc.BigVulDataset):
     """IVDetect version of BigVul."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, gtype="cfgcdg", **kwargs):
         """Init."""
         super(BigVulDatasetLineVD, self).__init__(**kwargs)
         lines = ivde.get_dep_add_lines_bigvul()
         lines = {k: set(list(v["removed"]) + v["depadd"]) for k, v in lines.items()}
         self.lines = lines
-        self.graph_type = "cfgcdg"
+        self.graph_type = gtype
 
     def item(self, _id, codebert=None):
         """Cache item."""
@@ -172,13 +173,13 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
         methodlevel: bool = False,
         nsampling: bool = False,
         nsampling_hops: int = 1,
+        gtype: str = "cfgcdg",
     ):
         """Init class from bigvul dataset."""
         super().__init__()
-        vo = False
-        self.train = BigVulDatasetLineVD(partition="train", vulonly=vo, sample=sample)
-        self.val = BigVulDatasetLineVD(partition="val", sample=sample)
-        self.test = BigVulDatasetLineVD(partition="test", sample=sample)
+        self.train = BigVulDatasetLineVD(partition="train", sample=sample, gtype=gtype)
+        self.val = BigVulDatasetLineVD(partition="val", sample=sample, gtype=gtype)
+        self.test = BigVulDatasetLineVD(partition="test", sample=sample, gtype=gtype)
         codebert = cb.CodeBert()
         self.train.cache_codebert_method_level(codebert)
         self.val.cache_codebert_method_level(codebert)
@@ -247,6 +248,7 @@ class LitGNN(pl.LightningModule):
         stmtweight: int = 5,
         gnntype: str = "gat",
         random: bool = False,
+        scea: float = 0.7,
     ):
         """Initilisation."""
         super().__init__()
@@ -256,7 +258,7 @@ class LitGNN(pl.LightningModule):
 
         # Loss
         if self.hparams.loss == "sce":
-            self.loss = svdloss.SCELoss()
+            self.loss = svdloss.SCELoss(self.hparams.scea, 1 - self.hparams.scea)
         else:
             self.loss = th.nn.CrossEntropyLoss(
                 weight=th.Tensor([1, self.hparams.stmtweight]).cuda()
