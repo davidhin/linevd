@@ -187,20 +187,20 @@ def MAR(r):
     return np.mean(ret)
 
 
-def get_r(pred, true, r_thresh=0.5):
+def get_r(pred, true, r_thresh=0.5, idx=0):
     """Sort predicted values based on output score."""
     zipped = list(zip(pred, true))
-    zipped.sort(reverse=True)
+    zipped.sort(reverse=True, key=lambda x: x[idx])
     return [1 if i[0] > r_thresh and i[1] == 1 else 0 for i in zipped]
 
 
-def rank_metr(pred, true, r_thresh=0.5):
+def rank_metr(pred, true, r_thresh=0.5, perfect=False):
     """Calculate all rank metrics."""
     if not any([i != 0 and i != 1 for i in pred]):
         print("Warning: Pred values are binary, not continuous.")
     ret = dict()
     kvals = [1, 3, 5, 10, 15, 20]
-    r = get_r(pred, true, r_thresh)
+    r = get_r(pred, true, r_thresh, idx=1 if perfect else 0)
     last_vals = [0, 0, 0, 0]
     for k in kvals:
         if k > len(r):
