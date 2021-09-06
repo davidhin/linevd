@@ -8,6 +8,7 @@ import sastvd.linevd as lvd
 from ray.tune import Analysis
 
 # Load raytune analysis object
+run_id = "202109061248_c5a12e0_keep_2_checkpoints"  # Additional runs
 run_id = "202109031655_f87dcf9_add_perfect_test"
 d = svd.processed_dir() / f"raytune_-1/{run_id}/tune_linevd"
 analysis = Analysis(d)
