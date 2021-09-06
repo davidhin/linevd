@@ -1,4 +1,3 @@
-from glob import glob
 from importlib import reload
 
 import pytorch_lightning as pl
@@ -57,7 +56,7 @@ def save_html_preds(vid, model, data):
     line_preds = preds(model, data, vid)
     vulns = [i[1] for i in line_preds if i[2] == 1]
     line_preds = line_preds
-    line_preds = {i[1]: i[0] for i in line_preds}
+    line_preds = {i[1] - 1: i[0] for i in line_preds}
     hljs.linevd_to_html(svddc.BigVulDataset.itempath(vid), line_preds, vulns)
 
 
