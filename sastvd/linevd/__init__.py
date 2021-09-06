@@ -259,6 +259,7 @@ class LitGNN(pl.LightningModule):
         # Loss
         if self.hparams.loss == "sce":
             self.loss = svdloss.SCELoss(self.hparams.scea, 1 - self.hparams.scea)
+            self.loss_f = th.nn.CrossEntropyLoss()
         else:
             self.loss = th.nn.CrossEntropyLoss(
                 weight=th.Tensor([1, self.hparams.stmtweight]).cuda()
