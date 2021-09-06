@@ -79,3 +79,7 @@ for gtype in gtypes:
                 res_rows.append({**mets, **hparams})
             res_df = pd.DataFrame.from_records(res_rows)
             res_df.to_csv(svd.outputs_dir() / f"{run_id}.csv", index=0)
+
+# Test components
+res_df = pd.read_csv(svd.outputs_dir() / f"{run_id}.csv")
+res_df.groupby(["config/gtype", "config/stmtweight"]).mean()
