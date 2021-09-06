@@ -80,6 +80,6 @@ analysis = tune.run(
     num_samples=100,
     name="tune_linevd",
     local_dir=savepath,
-    keep_checkpoints_num=1,
+    keep_checkpoints_num=2,
     checkpoint_score_attr="min-val_loss",
 )
