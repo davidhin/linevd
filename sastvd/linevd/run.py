@@ -39,7 +39,7 @@ def train_linevd(config, samplesz=-1, max_epochs=130, num_gpus=1, checkpoint_dir
     checkpoint_callback = pl.callbacks.ModelCheckpoint(monitor="val_loss")
     metrics = ["train_loss", "val_loss", "val_auroc"]
     raytune_callback = TuneReportCallback(metrics, on="validation_end")
-    rtckpt_callback = TuneReportCheckpointCallback("val_loss", on="validation_end")
+    rtckpt_callback = TuneReportCheckpointCallback(metrics, on="validation_end")
     trainer = pl.Trainer(
         gpus=num_gpus,
         auto_lr_find=True,
@@ -77,7 +77,7 @@ analysis = tune.run(
     metric="val_loss",
     mode="min",
     config=config,
-    num_samples=100,
+    num_samples=1000,
     name="tune_linevd",
     local_dir=savepath,
     keep_checkpoints_num=2,
