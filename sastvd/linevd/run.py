@@ -11,7 +11,7 @@ from ray.tune.integration.pytorch_lightning import (
 def train_linevd(config, samplesz=-1, max_epochs=130, num_gpus=1, checkpoint_dir=None):
     """Wrap Pytorch Lightning to pass to RayTune."""
     model = lvd.LitGNN(
-        # hfeat=config["hfeat"],
+        hfeat=config["hfeat"],
         methodlevel=False,
         nsampling=True,
         model=config["modeltype"],
@@ -54,7 +54,7 @@ def train_linevd(config, samplesz=-1, max_epochs=130, num_gpus=1, checkpoint_dir
 
 # Hyperparameters
 config = {
-    # "hfeat": tune.choice([512]),
+    "hfeat": tune.choice([128, 256, 512]),
     "stmtweight": tune.choice([2, 5, 10, 15, 30, 40]),
     "hdropout": tune.choice([0.15, 0.2, 0.25, 0.3]),
     "gatdropout": tune.choice([0.1, 0.15, 0.2]),
