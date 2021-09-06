@@ -15,14 +15,14 @@ def train_linevd(config, samplesz=-1, max_epochs=130, num_gpus=1, checkpoint_dir
         methodlevel=False,
         nsampling=True,
         model=config["modeltype"],
-        # loss=config["loss"],
+        loss=config["loss"],
         hdropout=config["hdropout"],
         gatdropout=config["gatdropout"],
         num_heads=4,
         multitask="linemethod",
         stmtweight=config["stmtweight"],
         gnntype=config["gnntype"],
-        # scea=config["scea"],
+        scea=config["scea"],
     )
 
     # Load data
@@ -54,14 +54,14 @@ def train_linevd(config, samplesz=-1, max_epochs=130, num_gpus=1, checkpoint_dir
 
 # Hyperparameters
 config = {
-    "hfeat": tune.choice([128, 256, 512]),
-    "stmtweight": tune.choice([2, 5, 10, 15, 30, 40]),
+    "hfeat": tune.choice([256, 512]),
+    "stmtweight": tune.choice([2, 5, 8, 10, 12, 15, 18, 20]),
     "hdropout": tune.choice([0.15, 0.2, 0.25, 0.3]),
     "gatdropout": tune.choice([0.1, 0.15, 0.2]),
     "modeltype": tune.choice(["gat1layer", "gat2layer", "mlponly"]),
     "gnntype": tune.choice(["gat", "gcn"]),
-    # "loss": tune.choice(["ce"]),
-    # "scea": tune.choice([0.5]),
+    "loss": tune.choice(["ce", "sce"]),
+    "scea": tune.choice([0.4, 0.5, 0.6]),
     "gtype": tune.choice(["cfgcdg", "cfgcdg+raw", "pdg", "pdg+raw"]),
     "batch_size": tune.choice([256, 512, 1024]),
 }
