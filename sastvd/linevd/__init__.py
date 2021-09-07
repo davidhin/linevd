@@ -43,16 +43,24 @@ def ne_groupnodes(n, e):
     return nl, el
 
 
-def feature_extraction(_id, graph_type="cfgcdg"):
+def feature_extraction(_id, graph_type="cfgcdg", return_nodes=False):
     """Extract graph feature (basic).
 
     _id = svddc.BigVulDataset.itempath(177775)
     _id = svddc.BigVulDataset.itempath(180189)
     _id = svddc.BigVulDataset.itempath(178958)
+
+    return_nodes arg is used to get the node information (for empirical evaluation).
     """
     # Get CPG
     n, e = svdj.get_node_edges(_id)
     n, e = ne_groupnodes(n, e)
+
+    # Return node metadata
+    if return_nodes:
+        return n
+
+    # Filter nodes
     e = svdj.rdg(e, graph_type.split("+")[0])
     n = svdj.drop_lone_nodes(n, e)
 
@@ -513,6 +521,7 @@ class LitGNN(pl.LightningModule):
                     list(i.ndata["pred"].detach().cpu().numpy()),
                     list(i.ndata["_VULN"].detach().cpu().numpy()),
                     i.ndata["pred_func"].argmax(1).detach().cpu(),
+                    list(i.ndata["_LINE"].detach().cpu().numpy()),
                 ]
             )
             logits_f.append(dgl.mean_nodes(i, "pred_func").detach().cpu())
