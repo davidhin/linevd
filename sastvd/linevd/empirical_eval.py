@@ -1,4 +1,5 @@
-from collections import defaultdict
+from collections import Counter, defaultdict
+from math import sqrt
 
 import pandas as pd
 import pytorch_lightning as pl
@@ -128,4 +129,63 @@ if __name__ == "__main__":
             if stmt["pred"][1] < 0.50 and stmt["vul"] == 1:
                 stmt_fn.append(stmt)
 
-    # Main Analysis (TODO)
+    # Main Analysis - Statement-level
+    def count_labels(stmts):
+        """Get info about statements."""
+        label_info = []
+        for info in stmts:
+            if info["_label"] == "CALL" and "<operator>" in info["name"]:
+                label_info.append("CALL_OPERATOR")
+                continue
+            if info["_label"] == "CONTROL_STRUCTURE":
+                label_info.append(info["controlStructureType"])
+                continue
+            label_info.append(info["_label"])
+        return Counter(label_info)
+
+    def calc_mcc(tp, fp, tn, fn):
+        """Generalised MCC."""
+        x = (tp + fp) * (tp + fn) * (tn + fp) * (tn + fn)
+        return ((tp * tn) - (fp * fn)) / sqrt(x)
+
+    counts = [
+        count_labels(stmt_fp),
+        count_labels(stmt_fn),
+        count_labels(stmt_tp),
+        count_labels(stmt_tn),
+    ]
+    all_node_types = set([j for k in [list(i.keys()) for i in counts] for j in k])
+    ntmat = []
+    for node_type in all_node_types:
+        fp = counts[0][node_type] if node_type in counts[0] else 0
+        fn = counts[1][node_type] if node_type in counts[1] else 0
+        tp = counts[2][node_type] if node_type in counts[2] else 0
+        tn = counts[3][node_type] if node_type in counts[3] else 0
+        try:
+            mcc = calc_mcc(tp, fp, tn, fn)
+        except:
+            mcc = None
+        if node_type == "METHOD_PARAMETER_IN":
+            node_type = "Parameter In"
+        if node_type == "METHOD_PARAMETER_OUT":
+            node_type = "Parameter Out"
+        if node_type == "ThrowStatement":
+            node_type = "Throw Statement"
+        if node_type == "JUMP_TARGET":
+            node_type = "Jump Target"
+        ntmat.append(
+            {
+                "Node Type": node_type.title(),
+                "TP": tp,
+                "FP": fp,
+                "TN": tn,
+                "FN": fn,
+                "MCC": round(mcc, 2) if mcc else None,
+            }
+        )
+
+    # Get final dataframe
+    stmt_analysis = pd.DataFrame.from_records(ntmat).sort_values("MCC", ascending=0)
+    print(stmt_analysis.to_latex(index=0))
+
+    # Func analysis: length of function, number of interprocedural calls, other software metrics.
