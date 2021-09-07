@@ -548,11 +548,14 @@ class LitGNN(pl.LightningModule):
                     gnnelogits[:, 0] = 1
                     if out[0][idx].argmax() > 0:
                         zeros = th.zeros(g.number_of_nodes(), device="cuda")
+                        importance = th.ones(g.number_of_nodes(), device="cuda")
                         try:
-                            importance = lvdgne.get_node_importances(self, g)
+                            if out[1][idx] == 1:
+                                importance = lvdgne.get_node_importances(self, g)
                             importance = importance.unsqueeze(1)
                             gnnelogits = th.cat([zeros.unsqueeze(1), importance], dim=1)
-                        except:
+                        except Exception as E:
+                            print(E)
                             pass
                     all_pred = th.cat([all_pred, gnnelogits])
                     func_pred = out[0][idx].argmax().repeat(g.number_of_nodes())

@@ -226,7 +226,7 @@ def get_node_importances(model, g):
     """Assign node importance scores to DGL graph based on GNNExplainer."""
     gnne = GNNExplainerLit(model.cuda(), g.to("cuda"))
     trainer = pl.Trainer(
-        gpus=1, max_epochs=5, default_root_dir="/tmp/", log_every_n_steps=1
+        gpus=1, max_epochs=100, default_root_dir="/tmp/", log_every_n_steps=1
     )
     trainer.fit(gnne)
     edge_weights = gnne.explainer.edge_mask.sigmoid().detach()
