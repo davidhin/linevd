@@ -178,4 +178,6 @@ def bigvul(minimal=True, sample=False, return_raw=False):
         compression="gzip",
         engine="fastparquet",
     )
+    metadata_cols = df.columns[:17].tolist() + ["project"]
+    df[metadata_cols].to_csv(svd.cache_dir() / "bigvul/bigvul_metadata.csv", index=0)
     return df
