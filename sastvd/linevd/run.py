@@ -63,7 +63,7 @@ config = {
     "loss": tune.choice(["ce", "sce"]),
     "scea": tune.choice([0.4, 0.5, 0.6]),
     "gtype": tune.choice(["cfgcdg", "cfgcdg+raw", "pdg", "pdg+raw"]),
-    "batch_size": tune.choice([256, 512, 1024]),
+    "batch_size": tune.choice([1024]),
 }
 
 samplesz = -1
