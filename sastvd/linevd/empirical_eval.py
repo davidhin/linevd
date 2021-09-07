@@ -61,7 +61,10 @@ class EmpEvalBigVul:
 
         for i in range(len(preds[0])):
             s_pred_data[preds[3][i]]["vul"] = preds[1][i]
-            s_pred_data[preds[3][i]]["pred"] = list(preds[0][i])
+            if f_data["pred"] == 1:
+                s_pred_data[preds[3][i]]["pred"] = list(preds[0][i])
+            else:
+                s_pred_data[preds[3][i]]["pred"] = [1, 0]
             s_pred_data[preds[3][i]].update(s_data[preds[3][i]])
 
         return f_data, dict(s_pred_data)
@@ -96,16 +99,33 @@ if __name__ == "__main__":
     model = lvd.LitGNN.load_from_checkpoint(best_model, strict=False)
     trainer.test(model, data)
 
+    # Check statement metrics
+    print(model.res2mt)
+
     # Eval empirically
     eebv = EmpEvalBigVul(model.all_funcs, data.test)
     eebv.eval_test()
 
-    # Evaluate true-positive method predictions
-    # Evaluate false-positive method predictions
-    # Evaluate false-negative method predictions
-    # Evaluate true-negative method predictions
+    # Func matrix evaluation
+    func_tp = [i for i in eebv.func_results if i["pred"] == 1 and i["vul"] == 1]
+    func_tn = [i for i in eebv.func_results if i["pred"] == 0 and i["vul"] == 0]
+    func_fp = [i for i in eebv.func_results if i["pred"] == 1 and i["vul"] == 0]
+    func_fn = [i for i in eebv.func_results if i["pred"] == 0 and i["vul"] == 1]
 
-    # Evaluate true-positive statement predictions
-    # Evaluate false-positive statement predictions
-    # Evaluate false-negative statement predictions
-    # Evaluate true-negative statement predictions
+    # Statement matrix evaluation
+    stmt_tp = []
+    stmt_tn = []
+    stmt_fp = []
+    stmt_fn = []
+    for func in eebv.stmt_results:
+        for stmt in func.values():
+            if stmt["pred"][1] > 0.50 and stmt["vul"] == 1:
+                stmt_tp.append(stmt)
+            if stmt["pred"][1] < 0.50 and stmt["vul"] == 0:
+                stmt_tn.append(stmt)
+            if stmt["pred"][1] > 0.50 and stmt["vul"] == 0:
+                stmt_fp.append(stmt)
+            if stmt["pred"][1] < 0.50 and stmt["vul"] == 1:
+                stmt_fn.append(stmt)
+
+    # Main Analysis (TODO)
