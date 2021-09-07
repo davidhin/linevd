@@ -538,6 +538,7 @@ class LitGNN(pl.LightningModule):
         from importlib import reload
 
         reload(lvdgne)
+        reload(ml)
         if self.hparams.methodlevel:
             for out in outputs:
                 all_pred_f += out[0]
@@ -600,6 +601,7 @@ class LitGNN(pl.LightningModule):
         self.linevd_true = multitask_true
         multitask_true = th.LongTensor(multitask_true)
         multitask_pred = th.Tensor(multitask_pred)
+        self.f1thresh = ml.best_f1(multitask_true, [i[1] for i in multitask_pred])
         self.res2mt = ml.get_metrics_logits(multitask_true, multitask_pred)
         self.res2 = ml.get_metrics_logits(all_true, all_pred)
         self.res2f = ml.get_metrics_logits(all_true_f, all_pred_f)

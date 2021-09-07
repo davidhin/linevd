@@ -10,11 +10,31 @@ from sklearn.metrics import (
     confusion_matrix,
     f1_score,
     matthews_corrcoef,
+    precision_recall_curve,
     precision_score,
     recall_score,
     roc_auc_score,
 )
 from torch.utils.tensorboard import SummaryWriter
+
+
+def best_f1(true, pos_logits):
+    """Find optimal threshold for F1 score.
+
+    true = [1, 0, 0, 1]
+    pos_logits = [0.27292988, 0.27282527, 0.7942509, 0.20574914]
+    """
+    precision, recall, thresholds = precision_recall_curve(true, pos_logits)
+    thresh_scores = []
+    for i in range(len(thresholds)):
+        if precision[i] + recall[i] == 0:
+            continue
+        f1 = (2 * (precision[i] * recall[i])) / (precision[i] + recall[i])
+        thresh = thresholds[i]
+        thresh_scores.append([f1, thresh])
+    thresh_scores = sorted(thresh_scores, reverse=True)
+    thresh_scores = [i for i in thresh_scores if i[0] > 0]
+    return thresh_scores[0][-1]
 
 
 def get_metrics(true, pred):
@@ -43,8 +63,11 @@ def get_metrics_logits(true, logits):
         true_oh = torch.nn.functional.one_hot(true).detach().cpu().numpy()
         true = true.detach().cpu().numpy()
     if torch.is_tensor(logits):
+        sm_logits = torch.nn.functional.softmax(logits, dim=1)
+        pos_logits = sm_logits[:, 1].detach().cpu().numpy()
         logits = logits.detach().cpu().numpy()
-    pred = logits.argmax(1)
+    f1_threshold = best_f1(true, pos_logits)
+    pred = [1 if i > f1_threshold else 0 for i in pos_logits]
     try:
         roc_auc = roc_auc_score(true, logits[:, 1])
     except:

@@ -9,8 +9,11 @@ import sastvd.linevd as lvd
 import torch as th
 from tqdm import tqdm
 
-# PDG+RAW, Gat1Layer
+# LineVD (pdg+raw)
 checkpoint = "raytune_-1/202109031655_f87dcf9_add_perfect_test/tune_linevd/train_linevd_2a3f5_00013_13_gatdropout=0.2,gnntype=gat,gtype=pdg+raw,hdropout=0.3,modeltype=gat2layer,stmtweight=10_2021-09-04_07-55-21/checkpoint_epoch=129-step=63310/checkpoint"
+
+# Codebert Line-level (cfgcdg)
+checkpoint = "minibatch_tests_-1/202108271123_8dd6708_update_joern_test_ids/lightning_logs/version_0/checkpoints/epoch=202-step=77952.ckpt"
 
 # Load modules
 model = lvd.LitGNN()
