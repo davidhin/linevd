@@ -6,6 +6,7 @@ import pytorch_lightning as pl
 import sastvd as svd
 import sastvd.helpers.dclass as svddc
 import sastvd.linevd as lvd
+import sastvd.linevd.c_builtins as cbuiltin
 from tqdm import tqdm
 
 
@@ -134,9 +135,16 @@ if __name__ == "__main__":
         """Get info about statements."""
         label_info = []
         for info in stmts:
-            if info["_label"] == "CALL" and "<operator>" in info["name"]:
-                label_info.append("CALL_OPERATOR")
-                continue
+            if info["_label"] == "CALL":
+                if "<operator>" in info["name"]:
+                    label_info.append("Operation Call")
+                    continue
+                elif info["name"] in cbuiltin.l_funcs:
+                    label_info.append("Builtin Function Call")
+                    continue
+                else:
+                    label_info.append("External Function Call")
+                    continue
             if info["_label"] == "CONTROL_STRUCTURE":
                 label_info.append(info["controlStructureType"])
                 continue
@@ -173,14 +181,18 @@ if __name__ == "__main__":
             node_type = "Throw Statement"
         if node_type == "JUMP_TARGET":
             node_type = "Jump Target"
+        if node_type == "FIELD_IDENTIFIER":
+            node_type = "Field Identifier"
+        if node_type == "ThrowStatement":
+            continue
         ntmat.append(
             {
-                "Node Type": node_type.title(),
+                "Statement Type": node_type.title(),
                 "TP": tp,
                 "FP": fp,
                 "TN": tn,
                 "FN": fn,
-                "MCC": round(mcc, 2) if mcc else None,
+                "MCC": abs(round(mcc, 2)) if mcc else None,
             }
         )
 
