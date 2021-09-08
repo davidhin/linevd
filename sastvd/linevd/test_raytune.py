@@ -8,8 +8,13 @@ import sastvd.linevd as lvd
 from ray.tune import Analysis
 
 # Load raytune analysis object
-run_id = "202109061248_c5a12e0_keep_2_checkpoints"  # Additional runs
+# run_id = "202109061248_c5a12e0_keep_2_checkpoints"  # Additional runs
 run_id = "202109031655_f87dcf9_add_perfect_test"
+# run_id = "202109061634_099b37f_modify_test_models_script"
+# run_id = "202109071705_7e3cb4c_update_hparams"
+# run_id = "202109080845_d5d33a2_add_optimal_f1"  # Codebert method-only
+# run_id = "202109080911_d5d33a2_add_optimal_f1"  # Codebert line-only
+
 d = svd.processed_dir() / f"raytune_-1/{run_id}/tune_linevd"
 analysis = Analysis(d)
 df = analysis.dataframe().sort_values("val_loss")
@@ -30,6 +35,7 @@ def get_relevant_metrics(trial_result):
     ret["stmt_fnr"] = trial_result[3]["fnr"]
     ret["stmt_rocauc"] = trial_result[3]["roc_auc"]
     ret["stmt_prauc"] = trial_result[3]["pr_auc"]
+    ret["stmt_prauc_pos"] = trial_result[3]["pr_auc_pos"]
     ret["func_f1"] = trial_result[4]["f1"]
     ret["func_rec"] = trial_result[4]["rec"]
     ret["func_prec"] = trial_result[4]["prec"]
@@ -82,5 +88,20 @@ for gtype in gtypes:
             res_df.to_csv(svd.outputs_dir() / f"{run_id}.csv", index=0)
 
 # Test components
-res_df = pd.read_csv(svd.outputs_dir() / f"{run_id}.csv")
-res_df.groupby(["config/gtype", "config/stmtweight"]).mean()
+results = glob(str(svd.outputs_dir() / "*.csv"))
+results = [i for i in results if "add_optimal_f1" not in i]
+results = [i for i in results if "_val.csv" not in i]
+res_df = pd.concat([pd.read_csv(i) for i in results])
+res_df["stmtfunc"] = res_df.stmt_f1 + res_df.func_f1
+res_df = res_df.sort_values("stmtfunc", ascending=0)
+metrics = ["stmt_f1", "stmt_rocauc", "stmt_prauc", "MAP@5", "nDCG@5"]
+print(
+    res_df.groupby(["config/modeltype"])
+    .head(1)[["config/modeltype", "config/gnntype"] + metrics]
+    .to_latex(index=0)
+)
+print(
+    res_df.groupby(["config/gtype"])
+    .head(1)[["config/gtype"] + metrics]
+    .to_latex(index=0)
+)
