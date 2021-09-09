@@ -3,6 +3,7 @@ import re
 
 import pandas as pd
 import sastvd as svd
+import sastvd.helpers.doc2vec as svdd2v
 import sastvd.helpers.git as svdg
 import sastvd.helpers.glove as svdglove
 import sastvd.helpers.tokenise as svdt
@@ -83,6 +84,34 @@ def generate_glove(dataset="bigvul", sample=False, cache=True):
     # Train Glove Model
     CORPUS = savedir / "corpus.txt"
     svdglove.glove(CORPUS, MAX_ITER=MAX_ITER)
+
+
+def generate_d2v(dataset="bigvul", sample=False, cache=True):
+    """Train Doc2Vec model for tokenised dataset."""
+    savedir = svd.get_dir(svd.processed_dir() / dataset / f"d2v_{sample}")
+    if os.path.exists(savedir / "d2v.model") and cache:
+        svd.debug("Already trained Doc2Vec.")
+        return
+    if dataset == "bigvul":
+        df = bigvul(sample=sample)
+
+    # Only train Doc2Vec on train samples
+    samples = df[df.label == "train"].copy()
+
+    # Preprocessing
+    samples.before = svd.dfmp(
+        samples, svdt.tokenise_lines, "before", cs=200, desc="Get lines: "
+    )
+    lines = [i for j in samples.before.to_numpy() for i in j]
+
+    # Train Doc2Vec model
+    model = svdd2v.train_d2v(lines)
+
+    # Test Most Similar
+    most_sim = model.dv.most_similar([model.infer_vector("memcpy".split())])
+    for i in most_sim:
+        print(lines[i[0]])
+    model.save(str(savedir / "d2v.model"))
 
 
 def bigvul(minimal=True, sample=False, return_raw=False, splits="default"):
