@@ -86,7 +86,7 @@ def generate_glove(dataset="bigvul", sample=False, cache=True):
     svdglove.glove(CORPUS, MAX_ITER=MAX_ITER)
 
 
-def generate_d2v(dataset="bigvul", sample=False, cache=True):
+def generate_d2v(dataset="bigvul", sample=False, cache=True, **kwargs):
     """Train Doc2Vec model for tokenised dataset."""
     savedir = svd.get_dir(svd.processed_dir() / dataset / f"d2v_{sample}")
     if os.path.exists(savedir / "d2v.model") and cache:
@@ -105,7 +105,7 @@ def generate_d2v(dataset="bigvul", sample=False, cache=True):
     lines = [i for j in samples.before.to_numpy() for i in j]
 
     # Train Doc2Vec model
-    model = svdd2v.train_d2v(lines)
+    model = svdd2v.train_d2v(lines, **kwargs)
 
     # Test Most Similar
     most_sim = model.dv.most_similar([model.infer_vector("memcpy".split())])
