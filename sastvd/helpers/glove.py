@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 import sastvd as svd
+import sastvd.helpers.tokenise as svdt
 from scipy import spatial
 
 
@@ -122,6 +123,7 @@ def get_embeddings(text: str, emb_dict: dict, emb_size: int = 100) -> np.array:
     Returns:
         np.array: Array of embeddings, shape (seq_length, emb_size)
     """
+    text = svdt.tokenise(text)
     return [
         emb_dict[i] if i in emb_dict else np.full(emb_size, 0.001) for i in text.split()
     ]
