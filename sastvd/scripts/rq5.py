@@ -18,7 +18,7 @@ config = {
     "splits": tune.choice(
         [
             "crossproject-linux",
-            "crossproject-Chrome",
+            # "crossproject-Chrome",
             "crossproject-Android",
             "crossproject-qemu",
         ]
