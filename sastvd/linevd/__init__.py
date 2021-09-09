@@ -308,17 +308,17 @@ class LitGNN(pl.LightningModule):
             self.gat2 = gnn(**gnn2_args)
             fcin = hfeat * numheads if self.hparams.gnntype == "gat" else hfeat
             self.fc = th.nn.Linear(fcin, self.hparams.hfeat)
-            self.fconly = th.nn.Linear(self.hparams.embfeat, self.hparams.hfeat)
+            self.fconly = th.nn.Linear(embfeat, self.hparams.hfeat)
             self.mlpdropout = th.nn.Dropout(self.hparams.mlpdropout)
 
         # model: mlp-only
         if "mlponly" in self.hparams.model:
-            self.fconly = th.nn.Linear(self.hparams.embfeat, self.hparams.hfeat)
+            self.fconly = th.nn.Linear(embfeat, self.hparams.hfeat)
             self.mlpdropout = th.nn.Dropout(self.hparams.mlpdropout)
 
         # model: contains femb
         if "+femb" in self.hparams.model:
-            self.fc_femb = th.nn.Linear(self.hparams.embfeat * 2, self.hparams.hfeat)
+            self.fc_femb = th.nn.Linear(embfeat * 2, self.hparams.hfeat)
 
         # self.resrgat = ResRGAT(hdim=768, rdim=1, numlayers=1, dropout=0)
         # self.gcn = GraphConv(embfeat, hfeat)
