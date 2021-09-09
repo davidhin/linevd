@@ -11,14 +11,14 @@ import sastvd.helpers.glove as svdglove
 class BigVulDataset:
     """Represent BigVul as graph dataset."""
 
-    def __init__(self, partition="train", vulonly=False, sample=-1):
+    def __init__(self, partition="train", vulonly=False, sample=-1, splits="default"):
         """Init class."""
         # Get finished samples
         self.finished = [
             int(Path(i).name.split(".")[0])
             for i in glob(str(svd.processed_dir() / "bigvul/before/*nodes*"))
         ]
-        self.df = svdds.bigvul()
+        self.df = svdds.bigvul(splits=splits)
         self.partition = partition
         self.df = self.df[self.df.label == partition]
         self.df = self.df[self.df.id.isin(self.finished)]

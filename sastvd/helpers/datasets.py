@@ -85,11 +85,12 @@ def generate_glove(dataset="bigvul", sample=False, cache=True):
     svdglove.glove(CORPUS, MAX_ITER=MAX_ITER)
 
 
-def bigvul(minimal=True, sample=False, return_raw=False):
+def bigvul(minimal=True, sample=False, return_raw=False, splits="default"):
     """Read BigVul Data.
 
     Args:
         sample (bool): Only used for testing!
+        splits (str): default, crossproject
 
     EDGE CASE FIXING:
     id = 177860 should not have comments in the before/after
@@ -97,9 +98,22 @@ def bigvul(minimal=True, sample=False, return_raw=False):
     savedir = svd.get_dir(svd.cache_dir() / "minimal_datasets")
     if minimal:
         try:
-            return pd.read_parquet(
+            df = pd.read_parquet(
                 savedir / f"minimal_bigvul_{sample}.pq", engine="fastparquet"
             ).dropna()
+
+            if splits == "crossproject":
+                md = pd.read_csv(svd.cache_dir() / "bigvul/bigvul_metadata.csv")
+                nonlinux = md[md.project != "linux"].id.tolist()
+                trid, vaid = train_test_split(nonlinux, test_size=0.1, random_state=1)
+                teid = md[md.project == "linux"].id.tolist()
+                teid = {k: "test" for k in teid}
+                trid = {k: "train" for k in trid}
+                vaid = {k: "val" for k in vaid}
+                cross_project_splits = {**trid, **vaid, **teid}
+                df["label"] = df.id.map(cross_project_splits)
+
+            return df
         except:
             pass
     filename = "MSR_data_cleaned_SAMPLE.csv" if sample else "MSR_data_cleaned.csv"

@@ -182,12 +182,14 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
         nsampling: bool = False,
         nsampling_hops: int = 1,
         gtype: str = "cfgcdg",
+        splits: str = "default",
     ):
         """Init class from bigvul dataset."""
         super().__init__()
-        self.train = BigVulDatasetLineVD(partition="train", sample=sample, gtype=gtype)
-        self.val = BigVulDatasetLineVD(partition="val", sample=sample, gtype=gtype)
-        self.test = BigVulDatasetLineVD(partition="test", sample=sample, gtype=gtype)
+        dataargs = {"sample": sample, "gtype": gtype, "splits": splits}
+        self.train = BigVulDatasetLineVD(partition="train", **dataargs)
+        self.val = BigVulDatasetLineVD(partition="val", **dataargs)
+        self.test = BigVulDatasetLineVD(partition="test", **dataargs)
         codebert = cb.CodeBert()
         self.train.cache_codebert_method_level(codebert)
         self.val.cache_codebert_method_level(codebert)

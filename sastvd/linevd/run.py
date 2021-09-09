@@ -33,6 +33,7 @@ def train_linevd(config, samplesz=-1, max_epochs=130, num_gpus=1, checkpoint_dir
         nsampling=True,
         nsampling_hops=2,
         gtype=config["gtype"],
+        splits=config["splits"],
     )
 
     # # Train model
@@ -65,6 +66,7 @@ config = {
     "gtype": tune.choice(["pdg", "pdg+raw"]),
     "batch_size": tune.choice([1024]),
     "multitask": tune.choice(["linemethod"]),
+    "splits": tune.choice(["crossproject"]),  # This should be default or crossproject
 }
 
 samplesz = -1
