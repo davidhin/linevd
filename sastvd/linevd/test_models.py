@@ -16,8 +16,8 @@ checkpoint = "raytune_-1/202109031655_f87dcf9_add_perfect_test/tune_linevd/train
 checkpoint = "minibatch_tests_-1/202108271123_8dd6708_update_joern_test_ids/lightning_logs/version_0/checkpoints/epoch=202-step=77952.ckpt"
 
 # Load modules
-model = lvd.LitGNN()
-datamodule_args = {"batch_size": 1024, "nsampling_hops": 2, "gtype": "pdg+raw"}
+model = lvd.LitGNN(random=True)
+datamodule_args = {"batch_size": 1024, "nsampling_hops": 2, "gtype": "cfgcdg"}
 data = lvd.BigVulDatasetLineVDDataModule(**datamodule_args)
 trainer = pl.Trainer(gpus=1, default_root_dir="/tmp/")
 
@@ -36,6 +36,14 @@ print(model.res3)
 print(model.res3vo)
 print(model.res4)
 model.plot_pr_curve()
+
+
+# get_relevant_metrics(
+#     ["", "codebert", model.res1vo, model.res2mt, model.res2f, model.res3vo]
+# )
+# get_relevant_metrics(
+#     ["", "random", model.res1vo, model.res2mt, model.res2f, model.res3vo]
+# )
 
 # %% Find sample
 
