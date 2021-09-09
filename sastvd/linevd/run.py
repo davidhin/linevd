@@ -66,7 +66,14 @@ config = {
     "gtype": tune.choice(["pdg", "pdg+raw"]),
     "batch_size": tune.choice([1024]),
     "multitask": tune.choice(["linemethod"]),
-    "splits": tune.choice(["crossproject"]),  # This should be default or crossproject
+    "splits": tune.choice(
+        [
+            "crossproject-linux",
+            "crossproject-Chrome",
+            "crossproject-Android",
+            "crossproject-qemu",
+        ]
+    ),
 }
 
 samplesz = -1

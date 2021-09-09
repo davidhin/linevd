@@ -90,7 +90,7 @@ def bigvul(minimal=True, sample=False, return_raw=False, splits="default"):
 
     Args:
         sample (bool): Only used for testing!
-        splits (str): default, crossproject
+        splits (str): default, crossproject-(linux|Chrome|Android|qemu)
 
     EDGE CASE FIXING:
     id = 177860 should not have comments in the before/after
@@ -102,11 +102,16 @@ def bigvul(minimal=True, sample=False, return_raw=False, splits="default"):
                 savedir / f"minimal_bigvul_{sample}.pq", engine="fastparquet"
             ).dropna()
 
-            if splits == "crossproject":
+            md = pd.read_csv(svd.cache_dir() / "bigvul/bigvul_metadata.csv")
+            md.groupby("project").count().sort_values("id")
+
+            if "crossproject" in splits:
+                project = splits.split("-")[-1]
+                assert project in ["qemu", "Android", "Chrome", "linux"]
                 md = pd.read_csv(svd.cache_dir() / "bigvul/bigvul_metadata.csv")
-                nonlinux = md[md.project != "linux"].id.tolist()
-                trid, vaid = train_test_split(nonlinux, test_size=0.1, random_state=1)
-                teid = md[md.project == "linux"].id.tolist()
+                nonproject = md[md.project != project].id.tolist()
+                trid, vaid = train_test_split(nonproject, test_size=0.1, random_state=1)
+                teid = md[md.project == project].id.tolist()
                 teid = {k: "test" for k in teid}
                 trid = {k: "train" for k in trid}
                 vaid = {k: "val" for k in vaid}
