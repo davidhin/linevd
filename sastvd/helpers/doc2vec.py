@@ -22,7 +22,9 @@ def train_d2v(
         format="%(asctime)s : %(levelname)s : %(message)s", level=logging.INFO
     )
 
-    train_corpus = [TaggedDocument(doc, [i]) for i, doc in enumerate(train_corpus)]
+    train_corpus = [
+        TaggedDocument(doc.split(), [i]) for i, doc in enumerate(train_corpus)
+    ]
     model = Doc2Vec(
         vector_size=vector_size,
         window=window,
