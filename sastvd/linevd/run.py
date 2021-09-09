@@ -12,6 +12,7 @@ def train_linevd(config, samplesz=-1, max_epochs=130, num_gpus=1, checkpoint_dir
     """Wrap Pytorch Lightning to pass to RayTune."""
     model = lvd.LitGNN(
         hfeat=config["hfeat"],
+        embtype=config["embtype"],
         methodlevel=False,
         nsampling=True,
         model=config["modeltype"],
@@ -56,6 +57,7 @@ def train_linevd(config, samplesz=-1, max_epochs=130, num_gpus=1, checkpoint_dir
 # Hyperparameters
 config = {
     "hfeat": tune.choice([512]),
+    "embtype": tune.choice(["codebert", "glove"]),
     "stmtweight": tune.choice([1, 2, 5, 8, 10]),
     "hdropout": tune.choice([0.25, 0.3]),
     "gatdropout": tune.choice([0.15, 0.2]),

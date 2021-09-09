@@ -249,7 +249,8 @@ class LitGNN(pl.LightningModule):
     def __init__(
         self,
         hfeat: int = 512,
-        embfeat: int = 768,
+        embtype: str = "codebert",
+        embfeat: int = -1,  # Keep for legacy purposes
         num_heads: int = 4,
         lr: float = 1e-3,
         hdropout: float = 0.2,
@@ -270,6 +271,14 @@ class LitGNN(pl.LightningModule):
         self.lr = lr
         self.random = random
         self.save_hyperparameters()
+
+        # Set params based on embedding type
+        if embtype == "codebert":
+            self.hparams.embfeat = 768
+            self.EMBED = "_CODEBERT"
+        if embtype == "glove":
+            self.hparams.embfeat = 200
+            self.EMBED = "_GLOVE"
 
         # Loss
         if self.hparams.loss == "sce":
@@ -341,17 +350,17 @@ class LitGNN(pl.LightningModule):
         e_weights and h_override are just used for GNNExplainer.
         """
         if self.hparams.nsampling and not test:
-            hdst = g[2][-1].dstdata["_CODEBERT"]
+            hdst = g[2][-1].dstdata[self.EMBED]
             h_func = g[2][-1].dstdata["_FUNC_EMB"]
             g2 = g[2][1]
             g = g[2][0]
             if "gat2layer" in self.hparams.model:
-                h = g.srcdata["_CODEBERT"]
+                h = g.srcdata[self.EMBED]
             elif "gat1layer" in self.hparams.model:
-                h = g2.srcdata["_CODEBERT"]
+                h = g2.srcdata[self.EMBED]
         else:
             g2 = g
-            h = g.ndata["_CODEBERT"]
+            h = g.ndata[self.EMBED]
             if len(feat_override) > 0:
                 h = g.ndata[feat_override]
             h_func = g.ndata["_FUNC_EMB"]
