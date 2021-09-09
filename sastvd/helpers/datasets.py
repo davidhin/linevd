@@ -9,10 +9,10 @@ import sastvd.helpers.tokenise as svdt
 from sklearn.model_selection import train_test_split
 
 
-def train_val_test_split_df(df, idcol, stratifycol):
+def train_val_test_split_df(df, idcol, labelcol):
     """Add train/val/test column into dataframe."""
     X = df[idcol]
-    y = df[stratifycol]
+    y = df[labelcol]
     train_rat = 0.8
     val_rat = 0.1
     test_rat = 0.1
