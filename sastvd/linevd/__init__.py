@@ -357,18 +357,6 @@ class LitGNN(pl.LightningModule):
                 h_func.shape[0], 2
             ).to(self.device)
 
-        # Feed forward through ResRGat
-        # g.ndata["h"] = g.ndata["_FEAT"]
-        # g.edata["emb"] = g.edata["_ETYPE"].unsqueeze(1)
-        # h = self.resrgat(g).ndata["h"]  # h = (*, EMB_SIZE)
-        # h = F.elu(h)
-
-        # GAT + activation + FC
-        # h = self.gat(g, h)
-        # h = h.view(-1, h.size(1) * h.size(2))
-        # h = self.fc(h)
-        # h = F.elu(h)
-
         # model: contains femb
         if "+femb" in self.hparams.model:
             h = th.cat([h, h_func], dim=1)
@@ -398,16 +386,6 @@ class LitGNN(pl.LightningModule):
                 dgl.function.u_mul_e("h", "ew", "m"), dgl.function.mean("m", "h")
             )
             h = g.ndata["h"]
-
-        # GCN only
-        # h = self.gcn(g, g.ndata["_CODEBERT"])
-
-        # ResGAT + FC
-        # g.ndata["h"] = h
-        # g.edata["emb"] = g.edata["_ETYPE"].unsqueeze(1)
-        # h = self.resrgat(g).ndata["h"]
-        # h = self.fconly(h)
-        # h = F.elu(h)
 
         # model: mlp-only
         if "mlponly" in self.hparams.model:
