@@ -10,21 +10,24 @@ from ray.tune import Analysis
 # Default splits
 # run_id = "202109061248_c5a12e0_keep_2_checkpoints"  # Additional runs
 splits = "default"
-run_id = "202109031655_f87dcf9_add_perfect_test"
+run_id = "raytune_-1/202109031655_f87dcf9_add_perfect_test"
 # run_id = "202109061634_099b37f_modify_test_models_script"
 # run_id = "202109071705_7e3cb4c_update_hparams"
 # run_id = "202109080845_d5d33a2_add_optimal_f1"  # Codebert method-only
 # run_id = "202109080911_d5d33a2_add_optimal_f1"  # Codebert line-only
 
 # Cross project splits
-splits = "crossproject-linux"
-run_id = "202109091312_2003c8f_add_cross-project_splits"  # Cross-project detection
+run_id = "raytune_-1/202109091312_2003c8f_add_cross-project_splits"  # Cross-project detection
+run_id = "raytune_crossproject_-1/202109091651_0e864e4_rename_file"  # Cross-project detection
 
 # Load Raytune Analysis object
-d = svd.processed_dir() / f"raytune_-1/{run_id}/tune_linevd"
+d = svd.processed_dir() / run_id / "tune_linevd"
 analysis = Analysis(d)
 df = analysis.dataframe().sort_values("val_loss")
-gtypes = set(df["config/gtype"])
+if "config/splits" not in df.columns:
+    df["config/splits"] = "default"
+configs = df[["config/gtype", "config/splits"]]
+configs = configs.drop_duplicates().to_dict("records")
 
 
 def get_relevant_metrics(trial_result):
@@ -60,11 +63,14 @@ def get_relevant_metrics(trial_result):
 
 # Get trial results list
 trial_results = []
-for gtype in gtypes:
-    df_gtype = df[df["config/gtype"] == gtype]
+for config in configs:
+    df_gtype = df[df["config/gtype"] == config["config/gtype"]]
     hparam_cols = df_gtype.columns[df_gtype.columns.str.contains("config")].tolist()
     data = lvd.BigVulDatasetLineVDDataModule(
-        batch_size=1024, nsampling_hops=2, gtype=gtype, splits=splits
+        batch_size=1024,
+        nsampling_hops=2,
+        gtype=config["config/gtype"],
+        splits=config["config/splits"],
     )
     for row in df_gtype.itertuples():
         chkpt_list = glob(row.logdir + "/checkpoint_*")
@@ -91,7 +97,7 @@ for gtype in gtypes:
                 hparams = df[df.trial_id == tr[0]][hparam_cols].to_dict("records")[0]
                 res_rows.append({**mets, **hparams})
             res_df = pd.DataFrame.from_records(res_rows)
-            res_df.to_csv(svd.outputs_dir() / f"{run_id}.csv", index=0)
+            res_df.to_csv(svd.outputs_dir() / f"{run_id.split('/')[-1]}.csv", index=0)
 
 # Test components
 results = glob(str(svd.outputs_dir() / "*.csv"))
