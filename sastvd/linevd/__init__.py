@@ -14,6 +14,7 @@ import sastvd.helpers.joern as svdj
 import sastvd.helpers.losses as svdloss
 import sastvd.helpers.ml as ml
 import sastvd.helpers.rank_eval as svdr
+import sastvd.helpers.sast as sast
 import sastvd.ivdetect.evaluate as ivde
 import sastvd.linevd.gnnexplainer as lvdgne
 import torch as th
@@ -138,6 +139,16 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
         g.ndata["_RANDFEAT"] = th.rand(size=(g.number_of_nodes(), 100))
         g.ndata["_LINE"] = th.Tensor(lineno).int()
         g.ndata["_VULN"] = th.Tensor(vuln).float()
+
+        # Get SAST labels
+        s = sast.get_sast_lines(svd.processed_dir() / f"bigvul/before/{_id}.c.sast.pkl")
+        rats = [1 if i in s["rats"] else 0 for i in g.ndata["_LINE"]]
+        cppcheck = [1 if i in s["cppcheck"] else 0 for i in g.ndata["_LINE"]]
+        flawfinder = [1 if i in s["flawfinder"] else 0 for i in g.ndata["_LINE"]]
+        g.ndata["_SASTRATS"] = th.tensor(rats).long()
+        g.ndata["_SASTCPP"] = th.tensor(cppcheck).long()
+        g.ndata["_SASTFF"] = th.tensor(flawfinder).long()
+
         g.ndata["_FVULN"] = g.ndata["_VULN"].max().repeat((g.number_of_nodes()))
         g.edata["_ETYPE"] = th.Tensor(et).long()
         emb_path = svd.cache_dir() / f"codebert_method_level/{_id}.pt"

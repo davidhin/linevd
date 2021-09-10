@@ -1,4 +1,5 @@
 import os
+import pickle as pkl
 import uuid
 from xml.etree import cElementTree
 
@@ -84,3 +85,28 @@ def run_sast(code: str, verbose: int = 0):
             f"FlawFinder: {len(rflaw)} | RATS: {len(rrats)} | CppCheck: {len(rcpp)}"
         )
     return rflaw + rrats + rcpp
+
+
+def get_sast_lines(sast_pkl_path):
+    """Get sast lines from path to sast dump."""
+    ret = dict()
+    ret["cppcheck"] = set()
+    ret["rats"] = set()
+    ret["flawfinder"] = set()
+
+    try:
+        with open(sast_pkl_path, "rb") as f:
+            sast_data = pkl.load(f)
+        for i in sast_data:
+            if i["sast"] == "cppcheck":
+                if i["severity"] == "error" and i["id"] != "syntaxError":
+                    ret["cppcheck"].add(i["line"])
+            elif i["sast"] == "flawfinder":
+                if "CWE" in i["message"]:
+                    ret["flawfinder"].add(i["line"])
+            elif i["sast"] == "rats":
+                ret["rats"].add(i["line"])
+    except Exception as E:
+        print(E)
+        pass
+    return ret
