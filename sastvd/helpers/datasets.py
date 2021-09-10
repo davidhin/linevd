@@ -135,8 +135,7 @@ def bigvul(minimal=True, sample=False, return_raw=False, splits="default"):
             md.groupby("project").count().sort_values("id")
 
             if "crossproject" in splits:
-                project = splits.split("-")[-1]
-                assert project in ["qemu", "Android", "Chrome", "linux"]
+                project = splits.split("_")[-1]
                 md = pd.read_csv(svd.cache_dir() / "bigvul/bigvul_metadata.csv")
                 nonproject = md[md.project != project].id.tolist()
                 trid, vaid = train_test_split(nonproject, test_size=0.1, random_state=1)

@@ -17,10 +17,16 @@ config = {
     "multitask": tune.choice(["linemethod"]),
     "splits": tune.choice(
         [
-            "crossproject-linux",
-            "crossproject-Chrome",
-            "crossproject-Android",
-            "crossproject-qemu",
+            "crossproject_Chrome",
+            "crossproject_linux",
+            "crossproject_Android",
+            "crossproject_ImageMagick",
+            "crossproject_php-src",
+            "crossproject_tcpdump",
+            "crossproject_openssl",
+            "crossproject_krb5",
+            "crossproject_php",
+            "crossproject_qemu",
         ]
     ),
 }
