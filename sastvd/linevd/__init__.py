@@ -283,7 +283,7 @@ class LitGNN(pl.LightningModule):
             self.hparams.embfeat = 200
             self.EMBED = "_GLOVE"
         if embtype == "doc2vec":
-            self.hparams.embfeat = 200
+            self.hparams.embfeat = 300
             self.EMBED = "_DOC2VEC"
 
         # Loss
