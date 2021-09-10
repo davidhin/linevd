@@ -64,7 +64,10 @@ def get_relevant_metrics(trial_result):
 # Get trial results list
 trial_results = []
 for config in configs:
-    df_gtype = df[df["config/gtype"] == config["config/gtype"]]
+    df_gtype = df[
+        (df["config/gtype"] == config["config/gtype"])
+        and (df["config/splits"] == config["config/splits"])
+    ]
     hparam_cols = df_gtype.columns[df_gtype.columns.str.contains("config")].tolist()
     data = lvd.BigVulDatasetLineVDDataModule(
         batch_size=1024,
