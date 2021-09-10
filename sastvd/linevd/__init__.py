@@ -350,6 +350,9 @@ class LitGNN(pl.LightningModule):
         # self.gcn = GraphConv(embfeat, hfeat)
         # self.gcn2 = GraphConv(hfeat, hfeat)
 
+        # Transform codebert embedding
+        self.codebertfc = th.nn.Linear(768, self.hparams.hfeat)
+
         # Hidden Layers
         self.fch = []
         for _ in range(8):
@@ -392,6 +395,10 @@ class LitGNN(pl.LightningModule):
         if "+femb" in self.hparams.model:
             h = th.cat([h, h_func], dim=1)
             h = F.elu(self.fc_femb(h))
+
+        # Transform h_func if wrong size
+        if self.hparams.embfeat != 768:
+            h_func = self.codebertfc(h_func)
 
         # model: gat2layer
         if "gat" in self.hparams.model:
