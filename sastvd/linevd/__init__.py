@@ -98,7 +98,7 @@ def feature_extraction(_id, graph_type="cfgcdg", return_nodes=False):
 class BigVulDatasetLineVD(svddc.BigVulDataset):
     """IVDetect version of BigVul."""
 
-    def __init__(self, gtype="pdg", **kwargs):
+    def __init__(self, gtype="pdg", feat="all", **kwargs):
         """Init."""
         super(BigVulDatasetLineVD, self).__init__(**kwargs)
         lines = ivde.get_dep_add_lines_bigvul()
@@ -108,6 +108,7 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
         glove_path = svd.processed_dir() / "bigvul/glove_False/vectors.txt"
         self.glove_dict, _ = svdg.glove_dict(glove_path)
         self.d2v = svdd2v.D2V(svd.processed_dir() / "bigvul/d2v_False")
+        self.feat = feat
 
     def item(self, _id, codebert=None):
         """Cache item."""
@@ -116,9 +117,16 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
         ) / str(_id)
         if os.path.exists(savedir):
             g = load_graphs(str(savedir))[0][0]
-            if "_FVULN" not in g.ndata:
-                g.ndata["_FVULN"] = g.ndata["_VULN"].max().repeat((g.number_of_nodes()))
-            if "_GLOVE" in g.ndata and "_DOC2VEC" in g.ndata:  # TEMPORARY CHECK
+            if "_CODEBERT" in g.ndata:
+                if self.feat == "codebert":
+                    for i in ["_GLOVE", "_DOC2VEC", "_RANDFEAT"]:
+                        g.ndata.pop(i, None)
+                if self.feat == "glove":
+                    for i in ["_CODEBERT", "_DOC2VEC", "_RANDFEAT"]:
+                        g.ndata.pop(i, None)
+                if self.feat == "doc2vec":
+                    for i in ["_CODEBERT", "_GLOVE", "_RANDFEAT"]:
+                        g.ndata.pop(i, None)
                 return g
         code, lineno, ei, eo, et = feature_extraction(
             svddc.BigVulDataset.itempath(_id), self.graph_type
@@ -202,10 +210,11 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
         nsampling_hops: int = 1,
         gtype: str = "cfgcdg",
         splits: str = "default",
+        feat: str = "all",
     ):
         """Init class from bigvul dataset."""
         super().__init__()
-        dataargs = {"sample": sample, "gtype": gtype, "splits": splits}
+        dataargs = {"sample": sample, "gtype": gtype, "splits": splits, "feat": feat}
         self.train = BigVulDatasetLineVD(partition="train", **dataargs)
         self.val = BigVulDatasetLineVD(partition="val", **dataargs)
         self.test = BigVulDatasetLineVD(partition="test", **dataargs)
