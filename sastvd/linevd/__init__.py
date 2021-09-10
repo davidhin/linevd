@@ -97,7 +97,7 @@ def feature_extraction(_id, graph_type="cfgcdg", return_nodes=False):
 class BigVulDatasetLineVD(svddc.BigVulDataset):
     """IVDetect version of BigVul."""
 
-    def __init__(self, gtype="cfgcdg", **kwargs):
+    def __init__(self, gtype="pdg", **kwargs):
         """Init."""
         super(BigVulDatasetLineVD, self).__init__(**kwargs)
         lines = ivde.get_dep_add_lines_bigvul()
