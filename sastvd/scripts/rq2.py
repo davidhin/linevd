@@ -12,7 +12,7 @@ config = {
     "gnntype": tune.choice(["gat", "gcn"]),
     "loss": tune.choice(["ce"]),
     "scea": tune.choice([0.4, 0.5, 0.6]),
-    "gtype": tune.choice(["pdg"]),
+    "gtype": tune.choice(["pdg", "pdg+raw", "cfgcdg", "cfgcdg+raw"]),
     "batch_size": tune.choice([1024]),
     "multitask": tune.choice(["line"]),
     "splits": tune.choice(["default"]),
