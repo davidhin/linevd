@@ -5,7 +5,7 @@ from ray import tune
 config = {
     "hfeat": tune.choice([512]),
     "embtype": tune.choice(["codebert"]),
-    "stmtweight": tune.choice([1, 2, 5, 8, 10]),
+    "stmtweight": tune.choice([1, 5, 10]),
     "hdropout": tune.choice([0.25, 0.3]),
     "gatdropout": tune.choice([0.15, 0.2]),
     "modeltype": tune.choice(["gat1layer"]),
@@ -18,7 +18,7 @@ config = {
     "splits": tune.choice(
         [
             "crossproject-linux",
-            # "crossproject-Chrome",
+            "crossproject-Chrome",
             "crossproject-Android",
             "crossproject-qemu",
         ]
