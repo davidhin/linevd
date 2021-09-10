@@ -6,7 +6,7 @@ config = {
     "hfeat": tune.choice([512]),
     "embtype": tune.choice(["codebert", "glove", "doc2vec"]),
     "stmtweight": tune.choice([1, 5, 10]),
-    "hdropout": tune.choice([0.1, 0.15, 0.2]),
+    "hdropout": tune.choice([0.1, 0.15, 0.2, 0.25]),
     "gatdropout": tune.choice([0.15, 0.2]),
     "modeltype": tune.choice(["mlponly"]),
     "gnntype": tune.choice(["gat"]),
