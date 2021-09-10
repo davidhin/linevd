@@ -20,10 +20,18 @@ run_id = "raytune_-1/202109031655_f87dcf9_add_perfect_test"
 run_id = "raytune_-1/202109091312_2003c8f_add_cross-project_splits"  # Cross-project detection
 run_id = "raytune_crossproject_-1/202109091651_0e864e4_rename_file"  # Cross-project detection
 
-# Load Raytune Analysis object
+# Load Single Raytune Analysis object
 d = svd.processed_dir() / run_id / "tune_linevd"
 analysis = Analysis(d)
 df = analysis.dataframe().sort_values("val_loss")
+
+# Load Multi Raytune Analysis object
+df_list = []
+for d in glob(str(svd.processed_dir() / "raytune_features_-1/*")):
+    df_list.append(Analysis(d).dataframe())
+df = pd.concat(df_list)
+
+# Get configurations
 if "config/splits" not in df.columns:
     df["config/splits"] = "default"
 configs = df[["config/gtype", "config/splits"]]
