@@ -8,6 +8,7 @@ import pytorch_lightning as pl
 import sastvd as svd
 import sastvd.codebert as cb
 import sastvd.helpers.dclass as svddc
+import sastvd.helpers.doc2vec as svdd2v
 import sastvd.helpers.glove as svdg
 import sastvd.helpers.joern as svdj
 import sastvd.helpers.losses as svdloss
@@ -105,6 +106,7 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
         self.graph_type = gtype
         glove_path = svd.processed_dir() / "bigvul/glove_False/vectors.txt"
         self.glove_dict, _ = svdg.glove_dict(glove_path)
+        self.d2v = svdd2v.D2V(svd.processed_dir() / "bigvul/d2v_False")
 
     def item(self, _id, codebert=None):
         """Cache item."""
@@ -115,7 +117,7 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
             g = load_graphs(str(savedir))[0][0]
             if "_FVULN" not in g.ndata:
                 g.ndata["_FVULN"] = g.ndata["_VULN"].max().repeat((g.number_of_nodes()))
-            if "_GLOVE" in g.ndata:  # TEMPORARY CHECK
+            if "_GLOVE" in g.ndata and "_DOC2VEC" in g.ndata:  # TEMPORARY CHECK
                 return g
         code, lineno, ei, eo, et = feature_extraction(
             svddc.BigVulDataset.itempath(_id), self.graph_type
@@ -127,6 +129,7 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
         g = dgl.graph((eo, ei))
         gembeds = th.Tensor(svdg.get_embeddings_list(code, self.glove_dict, 200))
         g.ndata["_GLOVE"] = gembeds
+        g.ndata["_DOC2VEC"] = th.Tensor([self.d2v.infer(i) for i in code])
         if codebert:
             code = [c.replace("\\t", "").replace("\\n", "") for c in code]
             chunked_batches = svd.chunks(code, 128)
@@ -279,6 +282,9 @@ class LitGNN(pl.LightningModule):
         if embtype == "glove":
             self.hparams.embfeat = 200
             self.EMBED = "_GLOVE"
+        if embtype == "doc2vec":
+            self.hparams.embfeat = 200
+            self.EMBED = "_DOC2VEC"
 
         # Loss
         if self.hparams.loss == "sce":
