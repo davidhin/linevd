@@ -30,6 +30,7 @@ df_list = []
 for d in glob(str(svd.processed_dir() / "raytune_features_-1/*")):
     df_list.append(Analysis(d).dataframe())
 df = pd.concat(df_list)
+run_id = "runid/rq1"
 
 # Get configurations
 if "config/splits" not in df.columns:
