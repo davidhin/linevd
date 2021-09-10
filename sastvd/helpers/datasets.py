@@ -148,7 +148,8 @@ def bigvul(minimal=True, sample=False, return_raw=False, splits="default"):
                 df["label"] = df.id.map(cross_project_splits)
 
             return df
-        except:
+        except Exception as E:
+            print(E)
             pass
     filename = "MSR_data_cleaned_SAMPLE.csv" if sample else "MSR_data_cleaned.csv"
     df = pd.read_csv(svd.external_dir() / filename)
