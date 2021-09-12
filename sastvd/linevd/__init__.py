@@ -296,13 +296,13 @@ class LitGNN(pl.LightningModule):
         self.save_hyperparameters()
 
         # Set params based on embedding type
-        if embtype == "codebert":
+        if self.hparams.embtype == "codebert":
             self.hparams.embfeat = 768
             self.EMBED = "_CODEBERT"
-        if embtype == "glove":
+        if self.hparams.embtype == "glove":
             self.hparams.embfeat = 200
             self.EMBED = "_GLOVE"
-        if embtype == "doc2vec":
+        if self.hparams.embtype == "doc2vec":
             self.hparams.embfeat = 300
             self.EMBED = "_DOC2VEC"
 
