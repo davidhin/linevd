@@ -123,7 +123,6 @@ def get_embeddings(text: str, emb_dict: dict, emb_size: int = 100) -> np.array:
     Returns:
         np.array: Array of embeddings, shape (seq_length, emb_size)
     """
-    text = svdt.tokenise(text)
     return [
         emb_dict[i] if i in emb_dict else np.full(emb_size, 0.001) for i in text.split()
     ]
@@ -150,5 +149,6 @@ def get_embeddings_list(li: list, emb_dict: dict, emb_size: int = 100) -> list:
     emb_dict, _ = glove_dict(glove_path)
     emb_size = 200
     """
+    li = [svdt.tokenise(i) for i in li]
     li = [i if len(i) > 0 else "<EMPTY>" for i in li]
     return [np.mean(get_embeddings(i, emb_dict, emb_size), axis=0) for i in li]
