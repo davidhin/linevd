@@ -6,9 +6,7 @@ from collections import defaultdict
 from pathlib import Path
 
 import dgl
-import dgl.function as fn
 import networkx as nx
-import numpy as np
 import pandas as pd
 import sastvd as svd
 import sastvd.helpers.dclass as svddc
@@ -16,20 +14,20 @@ import sastvd.helpers.dl as dl
 import sastvd.helpers.glove as svdg
 import sastvd.helpers.joern as svdj
 import sastvd.helpers.tokenise as svdt
-import sastvd.ivdetect.pyramidpooling as ivdp
 import sastvd.ivdetect.treelstm as ivdts
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from dgl.nn import GraphConv
 from torch.nn.utils.rnn import pad_sequence
-from torch_scatter import scatter
 
+# def global_mean_pool(x, batch, size=None):
+#     """Global mean pool (copied)."""
+#     import numpy as np
+#     from torch_scatter import scatter
 
-def global_mean_pool(x, batch, size=None):
-    """Global mean pool (copied)."""
-    size = int(batch.max().item() + 1) if size is None else size
-    return scatter(x, batch, dim=0, dim_size=size, reduce="mean")
+#     size = int(batch.max().item() + 1) if size is None else size
+#     return scatter(x, batch, dim=0, dim_size=size, reduce="mean")
 
 
 def feature_extraction(filepath):
@@ -342,15 +340,15 @@ class IVDetect(nn.Module):
 
         g.ndata["h"] = self.gcn(g, feat_vec)
         batch_pooled = torch.empty(size=(0, 2)).to(self.dev)
-        for g_i in dgl.unbatch(g):
-            conv_output = g_i.ndata["h"]
-            pooled = global_mean_pool(
-                conv_output,
-                torch.tensor(
-                    np.zeros(shape=(conv_output.shape[0]), dtype=int), device=self.dev
-                ),
-            )
-            batch_pooled = torch.cat([batch_pooled, pooled])
+        # for g_i in dgl.unbatch(g):
+        #     conv_output = g_i.ndata["h"]
+        #     pooled = global_mean_pool(
+        #         conv_output,
+        #         torch.tensor(
+        #             np.zeros(shape=(conv_output.shape[0]), dtype=int), device=self.dev
+        #         ),
+        #     )
+        #     batch_pooled = torch.cat([batch_pooled, pooled])
         return batch_pooled
 
 
