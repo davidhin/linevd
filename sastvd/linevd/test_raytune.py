@@ -7,39 +7,6 @@ import sastvd as svd
 import sastvd.linevd as lvd
 from ray.tune import Analysis
 
-# Default splits
-# run_id = "202109061248_c5a12e0_keep_2_checkpoints"  # Additional runs
-splits = "default"
-run_id = "raytune_-1/202109031655_f87dcf9_add_perfect_test"
-# run_id = "202109061634_099b37f_modify_test_models_script"
-# run_id = "202109071705_7e3cb4c_update_hparams"
-# run_id = "202109080845_d5d33a2_add_optimal_f1"  # Codebert method-only
-# run_id = "202109080911_d5d33a2_add_optimal_f1"  # Codebert line-only
-
-# Cross project splits
-run_id = "raytune_-1/202109091312_2003c8f_add_cross-project_splits"  # Cross-project detection
-run_id = "raytune_crossproject_-1/202109091651_0e864e4_rename_file"  # Cross-project detection
-
-# Load Single Raytune Analysis object
-d = svd.processed_dir() / run_id / "tune_linevd"
-analysis = Analysis(d)
-df = analysis.dataframe().sort_values("val_loss")
-
-# Load Multi Raytune Analysis object
-df_list = []
-for d in glob(str(svd.processed_dir() / "raytune_features_-1/*")):
-    df_list.append(Analysis(d).dataframe())
-df = pd.concat(df_list)
-run_id = "runid/rq1"
-
-# Get configurations
-if "config/splits" not in df.columns:
-    df["config/splits"] = "default"
-if "config/embtype" not in df.columns:
-    df["config/embtype"] = "codebert"
-configs = df[["config/gtype", "config/splits", "config/embtype"]]
-configs = configs.drop_duplicates().to_dict("records")
-
 
 def get_relevant_metrics(trial_result):
     """Get relevant metrics from results."""
@@ -82,9 +49,9 @@ def get_relevant_metrics(trial_result):
     return ret
 
 
-# Get trial results list
-trial_results = []
-for config in configs:
+def main(config, df):
+    """Get test results."""
+    trial_results = []
     df_gtype = df[
         (df["config/gtype"] == config["config/gtype"])
         & (df["config/splits"] == config["config/splits"])
@@ -116,9 +83,7 @@ for config in configs:
                 model.res2,
             ]
             trial_results.append(res)
-
-            # Save DF
-            res_rows = []
+            res_rows = []  # Save DF
             for tr in trial_results:
                 mets = get_relevant_metrics(tr)
                 hparams = df[df.trial_id == tr[0]][hparam_cols].to_dict("records")[0]
@@ -126,21 +91,59 @@ for config in configs:
             res_df = pd.DataFrame.from_records(res_rows)
             res_df.to_csv(svd.outputs_dir() / f"{run_id.split('/')[-1]}.csv", index=0)
 
+
+if __name__ == "__main__":
+    # Default splits
+    # run_id = "202109061248_c5a12e0_keep_2_checkpoints"  # Additional runs
+    splits = "default"
+    run_id = "raytune_-1/202109031655_f87dcf9_add_perfect_test"
+    # run_id = "202109061634_099b37f_modify_test_models_script"
+    # run_id = "202109071705_7e3cb4c_update_hparams"
+    # run_id = "202109080845_d5d33a2_add_optimal_f1"  # Codebert method-only
+    # run_id = "202109080911_d5d33a2_add_optimal_f1"  # Codebert line-only
+
+    # Cross project splits
+    # run_id = "raytune_-1/202109091312_2003c8f_add_cross-project_splits"  # Cross-project detection
+    # run_id = "raytune_crossproject_-1/202109091651_0e864e4_rename_file"  # Cross-project detection
+
+    # Load Single Raytune Analysis object
+    d = svd.processed_dir() / run_id / "tune_linevd"
+    analysis = Analysis(d)
+    df = analysis.dataframe().sort_values("val_loss")
+
+    # Load Multi Raytune Analysis object
+    # df_list = []
+    # for d in glob(str(svd.processed_dir() / "raytune_features_-1/*")):
+    #     df_list.append(Analysis(d).dataframe())
+    # df = pd.concat(df_list)
+    # run_id = "runid/rq1"
+
+    # Get configurations
+    if "config/splits" not in df.columns:
+        df["config/splits"] = "default"
+    if "config/embtype" not in df.columns:
+        df["config/embtype"] = "codebert"
+    configs = df[["config/gtype", "config/splits", "config/embtype"]]
+    configs = configs.drop_duplicates().to_dict("records")
+
+    for config in configs[2:]:
+        main(config, df)
+
 # Test components
-results = glob(str(svd.outputs_dir() / "*.csv"))
-results = [i for i in results if "add_optimal_f1" not in i]
-results = [i for i in results if "_val.csv" not in i]
-res_df = pd.concat([pd.read_csv(i) for i in results])
-res_df["stmtfunc"] = res_df.stmt_f1 + res_df.func_f1
-res_df = res_df.sort_values("stmtfunc", ascending=0)
-metrics = ["stmt_f1", "stmt_rocauc", "stmt_prauc", "MAP@5", "nDCG@5"]
-print(
-    res_df.groupby(["config/modeltype"])
-    .head(1)[["config/modeltype", "config/gnntype"] + metrics]
-    .to_latex(index=0)
-)
-print(
-    res_df.groupby(["config/gtype"])
-    .head(1)[["config/gtype"] + metrics]
-    .to_latex(index=0)
-)
+# results = glob(str(svd.outputs_dir() / "*.csv"))
+# results = [i for i in results if "add_optimal_f1" not in i]
+# results = [i for i in results if "_val.csv" not in i]
+# res_df = pd.concat([pd.read_csv(i) for i in results])
+# res_df["stmtfunc"] = res_df.stmt_f1 + res_df.func_f1
+# res_df = res_df.sort_values("stmtfunc", ascending=0)
+# metrics = ["stmt_f1", "stmt_rocauc", "stmt_prauc", "MAP@5", "nDCG@5"]
+# print(
+#     res_df.groupby(["config/modeltype"])
+#     .head(1)[["config/modeltype", "config/gnntype"] + metrics]
+#     .to_latex(index=0)
+# )
+# print(
+#     res_df.groupby(["config/gtype"])
+#     .head(1)[["config/gtype"] + metrics]
+#     .to_latex(index=0)
+# )
