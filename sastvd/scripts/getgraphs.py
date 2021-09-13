@@ -56,4 +56,4 @@ def preprocess(row):
 
 
 if __name__ == "__main__":
-    svd.dfmp(splits[JOB_ARRAY_NUMBER], preprocess, ordr=False, workers=16)
+    svd.dfmp(splits[JOB_ARRAY_NUMBER], preprocess, ordr=False, workers=8)
