@@ -35,7 +35,9 @@ run_id = "runid/rq1"
 # Get configurations
 if "config/splits" not in df.columns:
     df["config/splits"] = "default"
-configs = df[["config/gtype", "config/splits"]]
+if "config/embtype" not in df.columns:
+    df["config/embtype"] = "codebert"
+configs = df[["config/gtype", "config/splits", "config/embtype"]]
 configs = configs.drop_duplicates().to_dict("records")
 
 
@@ -66,6 +68,16 @@ def get_relevant_metrics(trial_result):
     ret["nDCG@5"] = trial_result[5]["nDCG@5"]
     ret["MFR"] = trial_result[5]["MFR"]
     ret["MAR"] = trial_result[5]["MAR"]
+    ret["stmtline_f1"] = trial_result[6]["f1"]
+    ret["stmtline_rec"] = trial_result[6]["rec"]
+    ret["stmtline_prec"] = trial_result[6]["prec"]
+    ret["stmtline_mcc"] = trial_result[6]["mcc"]
+    ret["stmtline_fpr"] = trial_result[6]["fpr"]
+    ret["stmtline_fnr"] = trial_result[6]["fnr"]
+    ret["stmtline_rocauc"] = trial_result[6]["roc_auc"]
+    ret["stmtline_prauc"] = trial_result[6]["pr_auc"]
+    ret["stmtline_prauc_pos"] = trial_result[6]["pr_auc_pos"]
+
     ret = {k: round(v, 3) if isinstance(v, float) else v for k, v in ret.items()}
     return ret
 
@@ -76,6 +88,7 @@ for config in configs:
     df_gtype = df[
         (df["config/gtype"] == config["config/gtype"])
         & (df["config/splits"] == config["config/splits"])
+        & (df["config/embtype"] == config["config/embtype"])
     ]
     hparam_cols = df_gtype.columns[df_gtype.columns.str.contains("config")].tolist()
     data = lvd.BigVulDatasetLineVDDataModule(
@@ -83,6 +96,7 @@ for config in configs:
         nsampling_hops=2,
         gtype=config["config/gtype"],
         splits=config["config/splits"],
+        feat=config["config/embtype"],
     )
     for row in df_gtype.itertuples():
         chkpt_list = glob(row.logdir + "/checkpoint_*")
@@ -99,6 +113,7 @@ for config in configs:
                 model.res2mt,
                 model.res2f,
                 model.res3vo,
+                model.res2,
             ]
             trial_results.append(res)
 
