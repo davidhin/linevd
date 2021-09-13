@@ -81,11 +81,11 @@ def run_joern(filepath: str, verbose: int):
     filename = svd.external_dir() / filepath
     params = f"filename={filename}"
     command = f"joern --script {script_file} --params='{params}'"
-    command = svd.external_dir() / "joern-cli" / command
+    command = str(svd.external_dir() / "joern-cli" / command)
     if verbose > 2:
         svd.debug(command)
     svd.subprocess_cmd(command, verbose=verbose)
-    shutil.rmtree(svd.external_dir() / "joern-cli" / "workspace" / filename.name)
+    # shutil.rmtree(svd.external_dir() / "joern-cli" / "workspace" / filename.name)
 
 
 def get_node_edges(filepath: str, verbose=0):
