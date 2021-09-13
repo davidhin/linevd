@@ -19,6 +19,7 @@ class CodeBert:
     def __init__(self):
         """Initiate model."""
         cache_dir = svd.get_dir(svd.cache_dir() / "codebert_model")
+        print("Loading Codebert...")
         self.tokenizer = AutoTokenizer.from_pretrained(
             "microsoft/codebert-base", cache_dir=cache_dir
         )
