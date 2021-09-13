@@ -72,23 +72,27 @@ class BigVulDataset:
             nodes = json.load(f)
         """
         valid = 0
-        with open(str(BigVulDataset.itempath(_id)) + ".nodes.json", "r") as f:
-            nodes = json.load(f)
-            lineNums = set()
-            for n in nodes:
-                if "lineNumber" in n.keys():
-                    lineNums.add(n["lineNumber"])
-                    if len(lineNums) > 1:
-                        valid = 1
-                        break
-            if valid == 0:
-                return False
-        with open(str(BigVulDataset.itempath(_id)) + ".edges.json", "r") as f:
-            edges = json.load(f)
-            edge_set = set([i[2] for i in edges])
-            if "REACHING_DEF" not in edge_set and "CDG" not in edge_set:
-                return False
-            return True
+        try:
+            with open(str(BigVulDataset.itempath(_id)) + ".nodes.json", "r") as f:
+                nodes = json.load(f)
+                lineNums = set()
+                for n in nodes:
+                    if "lineNumber" in n.keys():
+                        lineNums.add(n["lineNumber"])
+                        if len(lineNums) > 1:
+                            valid = 1
+                            break
+                if valid == 0:
+                    return False
+            with open(str(BigVulDataset.itempath(_id)) + ".edges.json", "r") as f:
+                edges = json.load(f)
+                edge_set = set([i[2] for i in edges])
+                if "REACHING_DEF" not in edge_set and "CDG" not in edge_set:
+                    return False
+                return True
+        except Exception as E:
+            print(E, str(BigVulDataset.itempath(_id)))
+            return False
 
     def get_vuln_indices(self, _id):
         """Obtain vulnerable lines from sample ID."""
