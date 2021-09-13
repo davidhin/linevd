@@ -10,6 +10,7 @@ def train_linevd(
     config, savepath, samplesz=-1, max_epochs=130, num_gpus=1, checkpoint_dir=None
 ):
     """Wrap Pytorch Lightning to pass to RayTune."""
+    print("Load model")
     model = lvd.LitGNN(
         hfeat=config["hfeat"],
         embtype=config["embtype"],
@@ -25,8 +26,10 @@ def train_linevd(
         gnntype=config["gnntype"],
         scea=config["scea"],
     )
+    print("Load model DONE")
 
     # Load data
+    print("Load data")
     data = lvd.BigVulDatasetLineVDDataModule(
         batch_size=config["batch_size"],
         sample=samplesz,
@@ -36,6 +39,7 @@ def train_linevd(
         gtype=config["gtype"],
         splits=config["splits"],
     )
+    print("Load data DONE")
 
     # # Train model
     checkpoint_callback = pl.callbacks.ModelCheckpoint(monitor="val_loss")
