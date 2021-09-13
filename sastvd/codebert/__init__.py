@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import sastvd as svd
 import torch
 from transformers import AutoModel, AutoTokenizer
 from tsne_torch import TorchTSNE as TSNE
@@ -17,8 +18,13 @@ class CodeBert:
 
     def __init__(self):
         """Initiate model."""
-        self.tokenizer = AutoTokenizer.from_pretrained("microsoft/codebert-base")
-        self.model = AutoModel.from_pretrained("microsoft/codebert-base")
+        cache_dir = svd.get_dir(svd.cache_dir() / "codebert_model")
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            "microsoft/codebert-base", cache_dir=cache_dir
+        )
+        self.model = AutoModel.from_pretrained(
+            "microsoft/codebert-base", cache_dir=cache_dir
+        )
         self._dev = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.model.to(self._dev)
 
