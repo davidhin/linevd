@@ -14,4 +14,4 @@ module load Singularity
 module load CUDA/10.2.89
 
 # Start singularity instance
-singularity exec -H /g/acvt/a1720858/sastvd --nv main.sif python sastvd/scripts/rq1.py
+singularity exec -H /g/acvt/a1720858/sastvd --nv main.sif python -u sastvd/scripts/rq1.py
