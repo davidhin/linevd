@@ -2,7 +2,7 @@
 #SBATCH -p batch
 #SBATCH -N 1
 #SBATCH -n 6
-#SBATCH --time=72:00:00
+#SBATCH --time=48:00:00
 #SBATCH --mem=16GB
 #SBATCH --gres=gpu:1
 #SBATCH --err="hpc/logs/rq1_%A.info"
