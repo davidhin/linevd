@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH -p batch
 #SBATCH -N 1
-#SBATCH -n 8
-#SBATCH --time=08:00:00
-#SBATCH --mem=32GB
-#SBATCH --array=1-1000
+#SBATCH -n 16
+#SBATCH --time=48:00:00
+#SBATCH --mem=48GB
+#SBATCH --array=1-100
 #SBATCH --err="hpc/logs/prepros_%a.err"
 #SBATCH --output="hpc/logs/prepros_%a.out"
 #SBATCH --job-name="prepros"

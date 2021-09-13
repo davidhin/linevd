@@ -9,7 +9,7 @@ import sastvd.helpers.joern as svdj
 import sastvd.helpers.sast as sast
 
 # SETUP
-NUM_JOBS = 1000
+NUM_JOBS = 100
 JOB_ARRAY_NUMBER = 0 if "ipykernel" in sys.argv[0] else int(sys.argv[1]) - 1
 
 # Read Data
@@ -56,4 +56,4 @@ def preprocess(row):
 
 
 if __name__ == "__main__":
-    svd.dfmp(splits[JOB_ARRAY_NUMBER], preprocess, ordr=False, workers=6)
+    svd.dfmp(splits[JOB_ARRAY_NUMBER], preprocess, ordr=False, workers=16)
