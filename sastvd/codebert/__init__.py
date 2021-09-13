@@ -1,3 +1,5 @@
+import os
+
 import matplotlib.pyplot as plt
 import sastvd as svd
 import torch
@@ -18,14 +20,19 @@ class CodeBert:
 
     def __init__(self):
         """Initiate model."""
-        cache_dir = svd.get_dir(svd.cache_dir() / "codebert_model")
-        print("Loading Codebert...")
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            "microsoft/codebert-base", cache_dir=cache_dir
-        )
-        self.model = AutoModel.from_pretrained(
-            "microsoft/codebert-base", cache_dir=cache_dir
-        )
+        codebert_base_path = svd.external_dir() / "codebert-base"
+        if os.path.exists(codebert_base_path):
+            self.tokenizer = AutoTokenizer.from_pretrained(codebert_base_path)
+            self.model = AutoModel.from_pretrained(codebert_base_path)
+        else:
+            cache_dir = svd.get_dir(svd.cache_dir() / "codebert_model")
+            print("Loading Codebert...")
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                "microsoft/codebert-base", cache_dir=cache_dir
+            )
+            self.model = AutoModel.from_pretrained(
+                "microsoft/codebert-base", cache_dir=cache_dir
+            )
         self._dev = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.model.to(self._dev)
 
