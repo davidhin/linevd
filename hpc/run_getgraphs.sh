@@ -3,7 +3,7 @@
 #SBATCH -N 1
 #SBATCH -n 6
 #SBATCH --time=08:00:00
-#SBATCH --mem=16GB
+#SBATCH --mem=24GB
 #SBATCH --array=1-1000
 #SBATCH --err="hpc/logs/prepros_%a.err"
 #SBATCH --output="hpc/logs/prepros_%a.out"
