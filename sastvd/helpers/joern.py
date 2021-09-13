@@ -85,7 +85,12 @@ def run_joern(filepath: str, verbose: int):
     if verbose > 2:
         svd.debug(command)
     svd.subprocess_cmd(command, verbose=verbose)
-    # shutil.rmtree(svd.external_dir() / "joern-cli" / "workspace" / filename.name)
+    try:
+        shutil.rmtree(svd.external_dir() / "joern-cli" / "workspace" / filename.name)
+    except Exception as E:
+        if verbose > 4:
+            print(E)
+        pass
 
 
 def get_node_edges(filepath: str, verbose=0):
