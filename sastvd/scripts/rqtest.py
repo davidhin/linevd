@@ -58,6 +58,20 @@ def main(config, df):
         & (df["config/splits"] == config["config/splits"])
         & (df["config/embtype"] == config["config/embtype"])
     ]
+
+    skipall = True
+    for row in df_gtype.itertuples():
+        chkpt_list = glob(row.logdir + "/checkpoint_*")
+        chkpt_list = [i + "/checkpoint" for i in chkpt_list]
+        for chkpt in chkpt_list:
+            chkpt_info = Path(chkpt).parent.name
+            chkpt_res_path = main_savedir / f"{row.trial_id}_{chkpt_info}.csv"
+            if not os.path.exists(chkpt_res_path):
+                skipall = False
+                break
+    if skipall:
+        return
+
     hparam_cols = df_gtype.columns[df_gtype.columns.str.contains("config")].tolist()
     hparam_cols += ["experiment_id", "logdir"]
     data = lvd.BigVulDatasetLineVDDataModule(
