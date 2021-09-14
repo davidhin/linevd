@@ -134,6 +134,12 @@ def bigvul(minimal=True, sample=False, return_raw=False, splits="default"):
             md = pd.read_csv(svd.cache_dir() / "bigvul/bigvul_metadata.csv")
             md.groupby("project").count().sort_values("id")
 
+            default_splits = svd.external_dir() / "bigvul_rand_splits.csv"
+            if os.path.exists(default_splits):
+                splits = pd.read_csv(default_splits)
+                splits = splits.set_index("id").to_dict()["label"]
+                df["label"] = df.id.map(splits)
+
             if "crossproject" in splits:
                 project = splits.split("_")[-1]
                 md = pd.read_csv(svd.cache_dir() / "bigvul/bigvul_metadata.csv")
