@@ -5,9 +5,9 @@
 #SBATCH --time=48:00:00
 #SBATCH --mem=32GB
 #SBATCH --gres=gpu:1
-#SBATCH --err="hpc/logs/rq1_%A.info"
-#SBATCH --output="hpc/logs/rq1_%A.info"
-#SBATCH --job-name="rq1"
+#SBATCH --err="hpc/logs/rq5_%A.info"
+#SBATCH --output="hpc/logs/rq5_%A.info"
+#SBATCH --job-name="rq5"
 
 # Setup Python Environment
 module load Singularity
