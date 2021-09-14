@@ -167,7 +167,7 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
 
     def cache_items(self, codebert):
         """Cache all items."""
-        for i in tqdm(self.df.id.tolist()):
+        for i in tqdm(self.df.sample(len(self.df)).id.tolist()):
             try:
                 self.item(i, codebert)
             except Exception as E:
