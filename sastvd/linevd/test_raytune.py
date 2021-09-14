@@ -126,24 +126,5 @@ if __name__ == "__main__":
     configs = df[["config/gtype", "config/splits", "config/embtype"]]
     configs = configs.drop_duplicates().to_dict("records")
 
-    for config in configs[2:]:
-        main(config, df)
-
-# Test components
-# results = glob(str(svd.outputs_dir() / "*.csv"))
-# results = [i for i in results if "add_optimal_f1" not in i]
-# results = [i for i in results if "_val.csv" not in i]
-# res_df = pd.concat([pd.read_csv(i) for i in results])
-# res_df["stmtfunc"] = res_df.stmt_f1 + res_df.func_f1
-# res_df = res_df.sort_values("stmtfunc", ascending=0)
-# metrics = ["stmt_f1", "stmt_rocauc", "stmt_prauc", "MAP@5", "nDCG@5"]
-# print(
-#     res_df.groupby(["config/modeltype"])
-#     .head(1)[["config/modeltype", "config/gnntype"] + metrics]
-#     .to_latex(index=0)
-# )
-# print(
-#     res_df.groupby(["config/gtype"])
-#     .head(1)[["config/gtype"] + metrics]
-#     .to_latex(index=0)
-# )
+    # for config in configs[2]:
+    main(configs[2], df)
