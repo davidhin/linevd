@@ -1,6 +1,10 @@
+import os
+
 import sastvd as svd
 import sastvd.linevd.run as lvdrun
 from ray import tune
+
+os.environ["SLURM_JOB_NAME"] = "bash"
 
 config = {
     "hfeat": tune.choice([512]),
