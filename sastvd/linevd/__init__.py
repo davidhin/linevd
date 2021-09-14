@@ -89,6 +89,8 @@ def feature_extraction(_id, graph_type="cfgcdg", return_nodes=False):
             print(_id)
             func_name = ""
         n.code = func_name + " " + n.name + " " + "</s>" + " " + n.code
+    else:
+        n.code = "</s>" + " " + n.code
 
     # Return plain-text code, line number list, innodes, outnodes
     return n.code.tolist(), n.id.tolist(), e.innode.tolist(), e.outnode.tolist(), etypes
