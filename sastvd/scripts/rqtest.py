@@ -24,6 +24,7 @@ def get_relevant_metrics(trial_result):
     ret["stmt_rocauc"] = trial_result[3]["roc_auc"]
     ret["stmt_prauc"] = trial_result[3]["pr_auc"]
     ret["stmt_prauc_pos"] = trial_result[3]["pr_auc_pos"]
+    ret["stmt_loss"] = trial_result[3]["loss"]
     ret["func_f1"] = trial_result[4]["f1"]
     ret["func_rec"] = trial_result[4]["rec"]
     ret["func_prec"] = trial_result[4]["prec"]
@@ -32,6 +33,7 @@ def get_relevant_metrics(trial_result):
     ret["func_fnr"] = trial_result[4]["fnr"]
     ret["func_rocauc"] = trial_result[4]["roc_auc"]
     ret["func_prauc"] = trial_result[4]["pr_auc"]
+    ret["func_loss"] = trial_result[4]["loss"]
     ret["MAP@5"] = trial_result[5]["MAP@5"]
     ret["nDCG@5"] = trial_result[5]["nDCG@5"]
     ret["MFR"] = trial_result[5]["MFR"]
@@ -45,6 +47,7 @@ def get_relevant_metrics(trial_result):
     ret["stmtline_rocauc"] = trial_result[6]["roc_auc"]
     ret["stmtline_prauc"] = trial_result[6]["pr_auc"]
     ret["stmtline_prauc_pos"] = trial_result[6]["pr_auc_pos"]
+    ret["stmtline_loss"] = trial_result[6]["loss"]
 
     ret = {k: round(v, 3) if isinstance(v, float) else v for k, v in ret.items()}
     return ret
