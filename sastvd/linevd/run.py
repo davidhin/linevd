@@ -24,6 +24,7 @@ def train_linevd(
         stmtweight=config["stmtweight"],
         gnntype=config["gnntype"],
         scea=config["scea"],
+        lr=config["lr"],
     )
 
     # Load data
@@ -43,12 +44,11 @@ def train_linevd(
     raytune_callback = TuneReportCallback(metrics, on="validation_end")
     rtckpt_callback = TuneReportCheckpointCallback(metrics, on="validation_end")
     trainer = pl.Trainer(
-        gpus=num_gpus,
-        auto_lr_find=True,
+        gpus=0.5,
+        auto_lr_find=False,
         default_root_dir=savepath,
         num_sanity_val_steps=0,
         callbacks=[checkpoint_callback, raytune_callback, rtckpt_callback],
         max_epochs=max_epochs,
     )
-    trainer.tune(model, data)
     trainer.fit(model, data)

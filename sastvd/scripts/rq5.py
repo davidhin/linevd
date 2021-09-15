@@ -33,6 +33,7 @@ config = {
             "crossproject_qemu",
         ]
     ),
+    "lr": tune.choice([1e-3, 1e-4, 3e-4, 5e-4]),
 }
 
 samplesz = -1
