@@ -56,7 +56,7 @@ def get_relevant_metrics(trial_result):
 
 def main(config, df):
     """Get test results."""
-    main_savedir = svd.get_dir(svd.outputs_dir() / "rq_results")
+    main_savedir = svd.get_dir(svd.outputs_dir() / "rq_results_new")
     df_gtype = df[
         (df["config/gtype"] == config["config/gtype"])
         & (df["config/splits"] == config["config/splits"])
