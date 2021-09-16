@@ -1,3 +1,5 @@
+from glob import glob
+
 import pandas as pd
 import pytorch_lightning as pl
 import sastvd as svd
@@ -7,6 +9,7 @@ import sastvd.helpers.hljs as hljs
 import sastvd.helpers.rank_eval as svdhr
 import sastvd.linevd as lvd
 import torch as th
+from ray.tune import Analysis
 from tqdm import tqdm
 
 
@@ -37,55 +40,76 @@ def save_html_preds(vid, model, data):
     hljs.linevd_to_html(svddc.BigVulDataset.itempath(vid), line_preds, vulns)
 
 
-# LineVD (pdg+raw)
-checkpoint = "raytune_-1/202109031655_f87dcf9_add_perfect_test/tune_linevd/train_linevd_2a3f5_00013_13_gatdropout=0.2,gnntype=gat,gtype=pdg+raw,hdropout=0.3,modeltype=gat2layer,stmtweight=10_2021-09-04_07-55-21/checkpoint_epoch=129-step=63310/checkpoint"
+if __name__ == "__main__":
 
-# Codebert Line-level (cfgcdg)
-checkpoint = "minibatch_tests_-1/202108271123_8dd6708_update_joern_test_ids/lightning_logs/version_0/checkpoints/epoch=202-step=77952.ckpt"
+    # Get analysis directories in storage/processed
+    raytune_dirs = glob(str(svd.processed_dir() / "raytune_*_-1"))
+    tune_dirs = [i for j in [glob(f"{rd}/*") for rd in raytune_dirs] for i in j]
 
-# Load modules
-model = lvd.LitGNN(random=True)
-datamodule_args = {"batch_size": 1024, "nsampling_hops": 2, "gtype": "cfgcdg"}
-data = lvd.BigVulDatasetLineVDDataModule(**datamodule_args)
-trainer = pl.Trainer(gpus=1, default_root_dir="/tmp/")
+    # Load full dataframe
+    df_list = []
+    for d in tune_dirs:
+        df_list.append(Analysis(d).dataframe())
+    df = pd.concat(df_list)
+    df = df[df["config/splits"] == "default"]
 
-# %% Load best model
-best_model = svd.processed_dir() / checkpoint
-model = lvd.LitGNN.load_from_checkpoint(best_model, strict=False)
-trainer.test(model, data)
-print(model.res2mt)
+    # Load results df
+    results = glob(str(svd.outputs_dir() / "rq_results/*.csv"))
+    res_df = pd.concat([pd.read_csv(i) for i in results])
 
+    # Merge DFs and load best model
+    mdf = df.merge(res_df[["trial_id", "checkpoint", "stmt_f1"]], on="trial_id")
+    best = mdf.sort_values("stmt_f1", ascending=0).iloc[0]
+    best_path = f"{best['logdir']}/{best['checkpoint']}/checkpoint"
 
-# %% Finding suitable examples
-datapartition = data.train
-cve_dict = svdd.bigvul_cve()
-stats = []
-for datapartition in [data.train, data.val, data.test]:
+    # Load modules
+    model = lvd.LitGNN()
+    datamodule_args = {
+        "batch_size": 1024,
+        "nsampling_hops": 2,
+        "gtype": best["config/gtype"],
+        "splits": best["config/splits"],
+    }
+    data = lvd.BigVulDatasetLineVDDataModule(**datamodule_args)
+    trainer = pl.Trainer(gpus=1, default_root_dir="/tmp/")
+    model = lvd.LitGNN.load_from_checkpoint(best_path, strict=False)
+    trainer.test(model, data)
 
-    temp_df = datapartition.df[datapartition.df.vul == 1]
-    temp_df = temp_df[
-        (temp_df.before.str.len() > 300) & (temp_df.before.str.len() < 1000)
-    ]
-    model.eval()
-    for i in tqdm(range(len(temp_df))):
-        sample = temp_df.iloc[i]
-        p = preds(model, datapartition, sample.id)
-        sorted_pred = [i[2] for i in p]
-        try:
-            prec5 = svdhr.precision_at_k(sorted_pred, 5)
-            if prec5 > 0.5:
-                save_html_preds(sample.id, model, datapartition)
-                stats.append(
-                    {
-                        "vid": sample.id,
-                        "cve": cve_dict[sample.id],
-                        "p@5": prec5,
-                        "gt_vul": sum(sorted_pred),
-                        "len": len(sorted_pred),
-                        "vul_ratio": sum(sorted_pred) / len(sorted_pred),
-                    }
-                )
-        except Exception as E:
-            print(E)
-            continue
-pd.DataFrame.from_records(stats).to_csv(svd.outputs_dir() / "visualise.csv", index=0)
+    # Check statement metrics
+    print(model.res2mt)
+
+    # %% Finding suitable examples
+    datapartition = data.train
+    cve_dict = svdd.bigvul_cve()
+    stats = []
+    for datapartition in [data.train, data.val, data.test]:
+
+        temp_df = datapartition.df[datapartition.df.vul == 1]
+        temp_df = temp_df[
+            (temp_df.before.str.len() > 300) & (temp_df.before.str.len() < 1000)
+        ]
+        model.eval()
+        for i in tqdm(range(len(temp_df))):
+            sample = temp_df.iloc[i]
+            p = preds(model, datapartition, sample.id)
+            sorted_pred = [i[2] for i in p]
+            try:
+                prec5 = svdhr.precision_at_k(sorted_pred, 5)
+                if prec5 > 0.5:
+                    save_html_preds(sample.id, model, datapartition)
+                    stats.append(
+                        {
+                            "vid": sample.id,
+                            "cve": cve_dict[sample.id],
+                            "p@5": prec5,
+                            "gt_vul": sum(sorted_pred),
+                            "len": len(sorted_pred),
+                            "vul_ratio": sum(sorted_pred) / len(sorted_pred),
+                        }
+                    )
+            except Exception as E:
+                print(E)
+                continue
+    pd.DataFrame.from_records(stats).to_csv(
+        svd.outputs_dir() / "visualise.csv", index=0
+    )
