@@ -2,7 +2,8 @@ from pathlib import Path
 
 import sastvd as svd
 
-html = """<link
+html = """<!DOCTYPE html>
+<link
   rel="stylesheet"
   href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.2.0/styles/{}.min.css"
 />
@@ -19,7 +20,29 @@ html = """<link
   ]);
 </script>
 
-<style>{}</style>
+<style>
+  td.hljs-ln-numbers {
+    text-align: center;
+    color: #777;
+    border-right: 1px solid #999;
+    vertical-align: top;
+    padding-right: 5px;
+
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+  td.hljs-ln-code {
+    padding-left: 10px;
+  }
+  code {
+    white-space: pre-wrap;
+    overflow: auto;
+  }
+{}</style>
 
 <pre><code class="language-cpp">{}
 </code></pre>"""
@@ -42,7 +65,7 @@ def hljs(code, preds, vulns=[], style="idea"):
 
     vul_lines = []
     for v in vulns:
-        vstyle = f'.hljs-ln-numbers[data-line-number="{v}"] {{  font-weight: bold; color: red; }}'
+        vstyle = f'.hljs-ln-numbers[data-line-number="{v}"] {{  font-weight: bold; color: darkred; }}'
         vul_lines.append(vstyle)
 
     vul_lines.append(".hljs-ln-numbers { background-color: white; }")
