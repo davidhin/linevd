@@ -235,3 +235,10 @@ def bigvul(minimal=True, sample=False, return_raw=False, splits="default"):
     metadata_cols = df.columns[:17].tolist() + ["project"]
     df[metadata_cols].to_csv(svd.cache_dir() / "bigvul/bigvul_metadata.csv", index=0)
     return df
+
+
+def bigvul_cve():
+    """Return id to cve map."""
+    md = pd.read_csv(svd.cache_dir() / "bigvul/bigvul_metadata.csv")
+    ret = md[["id", "CVE ID"]]
+    return ret.set_index("id").to_dict()["CVE ID"]
