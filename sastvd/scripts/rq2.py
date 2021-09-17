@@ -8,7 +8,7 @@ os.environ["SLURM_JOB_NAME"] = "bash"
 
 config = {
     "hfeat": tune.choice([512]),
-    "embtype": tune.choice(["codebert", "glove", "doc2vec"]),
+    "embtype": tune.choice(["codebert"]),
     "stmtweight": tune.choice([1, 5, 10]),
     "hdropout": tune.choice([0.25, 0.3]),
     "gatdropout": tune.choice([0.15, 0.2]),
