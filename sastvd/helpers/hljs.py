@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import sastvd as svd
+import sastvd.ivdetect.evaluate as svde
 
 html = """<!DOCTYPE html>
 <link
@@ -21,7 +22,7 @@ html = """<!DOCTYPE html>
 </script>
 
 <style>
-  td.hljs-ln-numbers {
+  td.hljs-ln-numbers {{
     text-align: center;
     color: #777;
     border-right: 1px solid #999;
@@ -34,21 +35,24 @@ html = """<!DOCTYPE html>
     -moz-user-select: none;
     -ms-user-select: none;
     user-select: none;
-  }
-  td.hljs-ln-code {
+  }}
+  td.hljs-ln-code {{
     padding-left: 10px;
-  }
-  code {
+  }}
+  code {{
     white-space: pre-wrap;
     overflow: auto;
-  }
-{}</style>
+  }}
+{}
+</style>
 
 <pre><code class="language-cpp">{}
 </code></pre>"""
 
+lines = svde.get_dep_add_lines_bigvul()
 
-def hljs(code, preds, vulns=[], style="idea"):
+
+def hljs(code, preds, vulns=[], style="idea", vid=None):
     """Return highlight JS with predicted lines.
 
     Example
@@ -63,9 +67,15 @@ def hljs(code, preds, vulns=[], style="idea"):
     for k, v in preds.items():
         hl_lines.append(f'{{ start: {k}, end: {k}, color: "rgba(255, 0, 0, {v})" }}')
 
+    removed = set(lines[vid]["removed"])
+
     vul_lines = []
     for v in vulns:
-        vstyle = f'.hljs-ln-numbers[data-line-number="{v}"] {{  font-weight: bold; color: darkred; }}'
+        color = "darkred"
+        if int(v) in removed:
+            color = "red"
+            print(color)
+        vstyle = f'.hljs-ln-numbers[data-line-number="{v}"] {{  font-weight: bold; color: {color}; }}'
         vul_lines.append(vstyle)
 
     vul_lines.append(".hljs-ln-numbers { background-color: white; }")
@@ -81,7 +91,7 @@ def linevd_to_html(cfile, preds, vulns=[], style="idea"):
     """
     with open(cfile, "r") as f:
         code = f.read()
-    ret = hljs(code, preds, vulns)
+    ret = hljs(code, preds, vulns, style, int(Path(cfile).stem))
     savedir = svd.get_dir(svd.outputs_dir() / "visualise_preds")
     with open(f"{savedir / Path(cfile).name}.html", "w") as f:
         f.write(ret)
