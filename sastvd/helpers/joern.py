@@ -34,7 +34,7 @@ def randcolor():
     return "#%02X%02X%02X" % (r(), r(), r())
 
 
-def get_digraph(nodes, edges):
+def get_digraph(nodes, edges, edge_label=True):
     """Plote digraph given nodes and edges list."""
     dot = Digraph(comment="Combined PDG")
 
@@ -71,7 +71,10 @@ def get_digraph(nodes, edges):
             style["style"] = "solid"
             style["color"] = "black"
         style["penwidth"] = "1"
-        dot.edge(str(e[0]), str(e[1]), e[2], **style)
+        if edge_label:
+            dot.edge(str(e[0]), str(e[1]), e[2], **style)
+        else:
+            dot.edge(str(e[0]), str(e[1]), **style)
     return dot
 
 
@@ -350,7 +353,9 @@ def drop_lone_nodes(nodes, edges):
     return nodes
 
 
-def plot_graph_node_edge_df(nodes, edges, nodeids=[], hop=1, drop_lone_nodes=True):
+def plot_graph_node_edge_df(
+    nodes, edges, nodeids=[], hop=1, drop_lone_nodes=True, edge_label=True
+):
     """Plot graph from node and edge dataframes.
 
     Args:
@@ -376,5 +381,6 @@ def plot_graph_node_edge_df(nodes, edges, nodeids=[], hop=1, drop_lone_nodes=Tru
     dot = get_digraph(
         nodes[["id", "node_label"]].to_numpy().tolist(),
         edges[["outnode", "innode", "etype"]].to_numpy().tolist(),
+        edge_label=edge_label,
     )
     dot.render("/tmp/tmp.gv", view=True)
