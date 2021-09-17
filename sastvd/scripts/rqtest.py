@@ -1,4 +1,5 @@
 import os
+import time
 from glob import glob
 from pathlib import Path
 
@@ -120,24 +121,28 @@ def main(config, df):
 
 if __name__ == "__main__":
 
-    # Get analysis directories in storage/processed
-    raytune_dirs = glob(str(svd.processed_dir() / "raytune_*_-1"))
-    tune_dirs = [i for j in [glob(f"{rd}/*") for rd in raytune_dirs] for i in j]
+    while True:
+        # Get analysis directories in storage/processed
+        raytune_dirs = glob(str(svd.processed_dir() / "raytune_*_-1"))
+        tune_dirs = [i for j in [glob(f"{rd}/*") for rd in raytune_dirs] for i in j]
 
-    # Load full dataframe
-    df_list = []
-    for d in tune_dirs:
-        df_list.append(Analysis(d).dataframe())
-    df = pd.concat(df_list)
+        # Load full dataframe
+        df_list = []
+        for d in tune_dirs:
+            df_list.append(Analysis(d).dataframe())
+        df = pd.concat(df_list)
 
-    # Get configurations
-    if "config/splits" not in df.columns:
-        df["config/splits"] = "default"
-    if "config/embtype" not in df.columns:
-        df["config/embtype"] = "codebert"
-    configs = df[["config/gtype", "config/splits", "config/embtype"]]
-    configs = configs.drop_duplicates().to_dict("records")
+        # Get configurations
+        if "config/splits" not in df.columns:
+            df["config/splits"] = "default"
+        if "config/embtype" not in df.columns:
+            df["config/embtype"] = "codebert"
+        configs = df[["config/gtype", "config/splits", "config/embtype"]]
+        configs = configs.drop_duplicates().to_dict("records")
 
-    # Start testing
-    for config in configs:
-        main(config, df)
+        # Start testing
+        for config in configs:
+            main(config, df)
+
+        # Sleep
+        time.sleep(60)
