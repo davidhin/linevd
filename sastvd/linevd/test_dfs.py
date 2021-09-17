@@ -37,9 +37,9 @@ rq1 = rq1.groupby(rq1_cg).head(5).groupby(rq1_cg).mean()[metricsline]
 # RQ2
 rq2_cg = ["config/gnntype", "config/gtype"]
 rq2 = res_df[res_df["config/splits"] == "default"]
-rq2 = rq2[rq2["config/multitask"] == "linemethod"]
 rq2a = rq2.sort_values("stmtline_f1", ascending=0).groupby("trial_id").head(1)
 rq2b = rq2.sort_values("stmt_f1", ascending=0).groupby("trial_id").head(1)
+rq2b = rq2b[rq2b["config/multitask"] == "linemethod"]
 rq2a = rq2a.groupby(rq2_cg).head(5).groupby(rq2_cg).mean()[metricsline]
 rq2a.columns = [i.replace("line", "") for i in rq2a.columns]
 rq2b = rq2b.groupby(rq2_cg).head(5).groupby(rq2_cg).mean()[metrics]
