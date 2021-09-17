@@ -34,9 +34,15 @@ rq1 = rq1.groupby(rq1_cg).head(5).groupby(rq1_cg).mean()[metricsline]
 
 # RQ2
 rq2_cg = ["config/gnntype", "config/gtype"]
-rq2 = res_df.sort_values("stmtline_f1", ascending=0).groupby("trial_id").head(1)
-rq2 = rq2[rq2["config/splits"] == "default"]
-rq2 = rq2.groupby(rq2_cg).head(5).groupby(rq2_cg).mean()[metricsline]
+rq2 = res_df[res_df["config/splits"] == "default"]
+rq2a = rq2.sort_values("stmtline_f1", ascending=0).groupby("trial_id").head(1)
+rq2b = rq2.sort_values("stmt_f1", ascending=0).groupby("trial_id").head(1)
+
+rq2a = rq2a.groupby(rq2_cg).head(5).groupby(rq2_cg).mean()[metricsline]
+rq2b = rq2b.groupby(rq2_cg).head(5).groupby(rq2_cg).mean()[metrics]
+
+rq2[rq2["config/gtype"] == "cfgcdg"]
+
 
 # RQ3
 rq3_cg = "config/multitask"
@@ -65,3 +71,6 @@ print(
         ["stmt_f1", "stmt_rec", "stmt_prec", "stmt_rocauc", "stmt_prauc"]
     ].to_latex()
 )
+
+# TEMP
+df = pd.read_csv("svd/")
