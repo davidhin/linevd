@@ -8,7 +8,7 @@ os.environ["SLURM_JOB_NAME"] = "bash"
 
 config = {
     "hfeat": tune.choice([512]),
-    "embtype": tune.choice(["codebert"]),
+    "embtype": tune.choice(["codebert", "glove", "doc2vec"]),
     "stmtweight": tune.choice([1, 5, 10]),
     "hdropout": tune.choice([0.25, 0.3]),
     "gatdropout": tune.choice([0.15, 0.2]),
@@ -18,7 +18,7 @@ config = {
     "scea": tune.choice([0.4, 0.5, 0.6]),
     "gtype": tune.choice(["pdg", "pdg+raw", "cfgcdg", "cfgcdg+raw"]),
     "batch_size": tune.choice([1024]),
-    "multitask": tune.choice(["line"]),
+    "multitask": tune.choice(["linemethod"]),
     "splits": tune.choice(["default"]),
     "lr": tune.choice([1e-3, 1e-4, 3e-4, 5e-4]),
 }
@@ -30,7 +30,7 @@ trainable = tune.with_parameters(lvdrun.train_linevd, samplesz=samplesz, savepat
 
 analysis = tune.run(
     trainable,
-    resources_per_trial={"cpu": 1, "gpu": 1},
+    resources_per_trial={"cpu": 2, "gpu": 0.5},
     metric="val_loss",
     mode="min",
     config=config,
