@@ -30,7 +30,7 @@ trainable = tune.with_parameters(lvdrun.train_linevd, samplesz=samplesz, savepat
 
 analysis = tune.run(
     trainable,
-    resources_per_trial={"cpu": 2, "gpu": 1},
+    resources_per_trial={"cpu": 2, "gpu": 0.5},
     metric="val_loss",
     mode="min",
     config=config,

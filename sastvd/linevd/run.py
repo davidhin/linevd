@@ -44,7 +44,7 @@ def train_linevd(
     raytune_callback = TuneReportCallback(metrics, on="validation_end")
     rtckpt_callback = TuneReportCheckpointCallback(metrics, on="validation_end")
     trainer = pl.Trainer(
-        gpus=0.5,
+        gpus=1,
         auto_lr_find=False,
         default_root_dir=savepath,
         num_sanity_val_steps=0,
