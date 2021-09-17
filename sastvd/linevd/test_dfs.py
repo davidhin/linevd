@@ -3,9 +3,11 @@ from glob import glob
 import pandas as pd
 import sastvd as svd
 
+pd.set_option("display.max_columns", None)
+
 # %% Phoenix
 results = glob(str(svd.outputs_dir() / "phoenix/rq_results/*.csv"))
-results2 = glob(str(svd.outputs_dir() / "phoenix/rq_results_new/*.csv"))
+results2 = glob(str(svd.outputs_dir() / "phoenix_new/rq_results_new/*.csv"))
 results += results2
 res_df = pd.concat([pd.read_csv(i) for i in results])
 res_df = res_df.drop_duplicates(["trial_id", "checkpoint"])
@@ -35,13 +37,15 @@ rq1 = rq1.groupby(rq1_cg).head(5).groupby(rq1_cg).mean()[metricsline]
 # RQ2
 rq2_cg = ["config/gnntype", "config/gtype"]
 rq2 = res_df[res_df["config/splits"] == "default"]
+rq2 = rq2[rq2["config/multitask"] == "linemethod"]
 rq2a = rq2.sort_values("stmtline_f1", ascending=0).groupby("trial_id").head(1)
 rq2b = rq2.sort_values("stmt_f1", ascending=0).groupby("trial_id").head(1)
-
 rq2a = rq2a.groupby(rq2_cg).head(5).groupby(rq2_cg).mean()[metricsline]
+rq2a.columns = [i.replace("line", "") for i in rq2a.columns]
 rq2b = rq2b.groupby(rq2_cg).head(5).groupby(rq2_cg).mean()[metrics]
-
-rq2[rq2["config/gtype"] == "cfgcdg"]
+rq2a["multitask"] = "line"
+rq2b["multitask"] = "line+method"
+rq2final = pd.concat([rq2a, rq2b]).reset_index().groupby(rq2_cg + ["multitask"]).sum()
 
 
 # RQ3
@@ -62,7 +66,7 @@ rq5 = rq5.groupby(rq5_cg).head(5).groupby(rq5_cg).mean()[metrics + ["MFR"]]
 
 # Latex
 rq1.round(3)[metricsline]
-rq2.round(3)[metricsline]
+rq2final.round(3)[metrics]
 rq3.round(3)[metrics]
 rq3b.round(3)[rankedcols]
 rq3b.round(3)[metricsf]
@@ -71,6 +75,3 @@ print(
         ["stmt_f1", "stmt_rec", "stmt_prec", "stmt_rocauc", "stmt_prauc"]
     ].to_latex()
 )
-
-# TEMP
-df = pd.read_csv("svd/")
