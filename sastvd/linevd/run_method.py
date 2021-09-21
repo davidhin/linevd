@@ -1,6 +1,10 @@
+import os
+
 import pytorch_lightning as pl
 import sastvd as svd
 import sastvd.linevd as lvd
+
+os.environ["SLURM_JOB_NAME"] = "bash"
 
 run_id = svd.get_run_id()
 samplesz = -1
@@ -11,14 +15,16 @@ model = lvd.LitGNN(
     methodlevel=True,
     nsampling=False,
     model="gat2layer",
+    embtype="codebert",
     loss="ce",
-    hdropout=0.2,
-    gatdropout=0.15,
-    mlpdropout=0.1,
+    hdropout=0.3,
+    gatdropout=0.2,
+    mlpdropout=0.2,
     num_heads=4,
     multitask="line",
     stmtweight=1,
     gnntype="gat",
+    lr=1e-4,
 )
 
 # Load data
@@ -28,6 +34,8 @@ data = lvd.BigVulDatasetLineVDDataModule(
     methodlevel=True,
     nsampling=False,
     nsampling_hops=2,
+    gtype="pdg+raw",
+    splits="default",
 )
 
 # Train model
