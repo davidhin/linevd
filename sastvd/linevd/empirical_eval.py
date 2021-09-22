@@ -1,3 +1,4 @@
+import os
 from collections import Counter, defaultdict
 from glob import glob
 from math import sqrt
@@ -110,8 +111,16 @@ if __name__ == "__main__":
 
     # Merge DFs and load best model
     mdf = df.merge(res_df[["trial_id", "checkpoint", "stmt_f1"]], on="trial_id")
-    best = mdf.sort_values("stmt_f1", ascending=0).iloc[0]
-    best_path = f"{best['logdir']}/{best['checkpoint']}/checkpoint"
+    bestiloc = 0
+    while True:
+        best = mdf.sort_values("stmt_f1", ascending=0).iloc[bestiloc]
+        best_path = f"{best['logdir']}/{best['checkpoint']}/checkpoint"
+        if os.path.exists(best_path):
+            break
+        else:
+            print("Doesn't exist: " + str(best_path))
+            bestiloc += 1
+            continue
 
     # Load modules
     model = lvd.LitGNN()
