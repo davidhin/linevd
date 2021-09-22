@@ -146,13 +146,13 @@ if __name__ == "__main__":
     stmt_fn = []
     for func in eebv.stmt_results:
         for stmt in func.values():
-            if stmt["pred"][1] > 0.50 and stmt["vul"] == 1:
+            if stmt["pred"][1] > model.f1thresh and stmt["vul"] == 1:
                 stmt_tp.append(stmt)
-            if stmt["pred"][1] < 0.50 and stmt["vul"] == 0:
+            if stmt["pred"][1] < model.f1thresh and stmt["vul"] == 0:
                 stmt_tn.append(stmt)
-            if stmt["pred"][1] > 0.50 and stmt["vul"] == 0:
+            if stmt["pred"][1] > model.f1thresh and stmt["vul"] == 0:
                 stmt_fp.append(stmt)
-            if stmt["pred"][1] < 0.50 and stmt["vul"] == 1:
+            if stmt["pred"][1] < model.f1thresh and stmt["vul"] == 1:
                 stmt_fn.append(stmt)
 
     # Main Analysis - Statement-level
@@ -161,8 +161,52 @@ if __name__ == "__main__":
         label_info = []
         for info in stmts:
             if info["_label"] == "CALL":
+                if "assignment" in info["name"]:
+                    label_info.append("Assignment Operator")
+                    continue
+                if (
+                    "addition" in info["name"]
+                    or "subtraction" in info["name"]
+                    or "division" in info["name"]
+                    or "Plus" in info["name"]
+                    or "Minus" in info["name"]
+                    or "minus" in info["name"]
+                    or "plus" in info["name"]
+                    or "modulo" in info["name"]
+                    or "multiplication" in info["name"]
+                ):
+                    label_info.append("Arithmetic Operator")
+                    continue
+                if (
+                    "lessThan" in info["name"]
+                    or "greaterThan" in info["name"]
+                    or "EqualsThan" in info["name"]
+                    or "equals" in info["name"]
+                ):
+                    label_info.append("Comparison Operator")
+                    continue
+                if (
+                    "FieldAccess" in info["name"]
+                    or "IndexAccess" in info["name"]
+                    or "fieldAccess" in info["name"]
+                    or "indexAccess" in info["name"]
+                ):
+                    label_info.append("Access Operator")
+                    continue
+                if (
+                    "logical" in info["name"]
+                    or "<operator>.not" in info["name"]
+                    or "<operator>.or" in info["name"]
+                    or "<operator>.and" in info["name"]
+                    or "conditional" in info["name"]
+                ):
+                    label_info.append("Logical Operator")
+                    continue
+                if "<operator>.cast" in info["name"]:
+                    label_info.append("Cast Operator")
+                    continue
                 if "<operator>" in info["name"]:
-                    label_info.append("Operation Call")
+                    label_info.append("Other Operator")
                     continue
                 elif info["name"] in cbuiltin.l_funcs:
                     label_info.append("Builtin Function Call")
@@ -181,6 +225,12 @@ if __name__ == "__main__":
         x = (tp + fp) * (tp + fn) * (tn + fp) * (tn + fn)
         return ((tp * tn) - (fp * fn)) / sqrt(x)
 
+    def calc_f1(tp, fp, tn, fn):
+        """Generalised F1."""
+        prec = tp / (tp + fp)
+        rec = tp / (tp + fn)
+        return 2 * ((prec * rec) / (prec + rec))
+
     counts = [
         count_labels(stmt_fp),
         count_labels(stmt_fn),
@@ -198,6 +248,10 @@ if __name__ == "__main__":
             mcc = calc_mcc(tp, fp, tn, fn)
         except:
             mcc = None
+        try:
+            f1 = calc_f1(tp, fp, tn, fn)
+        except:
+            f1 = None
         if node_type == "METHOD_PARAMETER_IN":
             node_type = "Parameter In"
         if node_type == "METHOD_PARAMETER_OUT":
@@ -218,11 +272,12 @@ if __name__ == "__main__":
                 "TN": tn,
                 "FN": fn,
                 "MCC": abs(round(mcc, 2)) if mcc else None,
+                "F1": abs(round(f1, 2)) if f1 else None,
             }
         )
 
     # Get final dataframe
-    stmt_analysis = pd.DataFrame.from_records(ntmat).sort_values("MCC", ascending=0)
+    stmt_analysis = pd.DataFrame.from_records(ntmat).sort_values("F1", ascending=0)
     print(stmt_analysis.to_latex(index=0))
 
     # Func analysis: length of function, number of interprocedural calls, other software metrics.
