@@ -10,51 +10,6 @@ import sastvd.linevd as lvd
 from ray.tune import Analysis
 
 
-def get_relevant_metrics(trial_result):
-    """Get relevant metrics from results."""
-    ret = {}
-    ret["trial_id"] = trial_result[0]
-    ret["checkpoint"] = trial_result[1]
-    ret["acc@5"] = trial_result[2][5]
-    ret["stmt_f1"] = trial_result[3]["f1"]
-    ret["stmt_rec"] = trial_result[3]["rec"]
-    ret["stmt_prec"] = trial_result[3]["prec"]
-    ret["stmt_mcc"] = trial_result[3]["mcc"]
-    ret["stmt_fpr"] = trial_result[3]["fpr"]
-    ret["stmt_fnr"] = trial_result[3]["fnr"]
-    ret["stmt_rocauc"] = trial_result[3]["roc_auc"]
-    ret["stmt_prauc"] = trial_result[3]["pr_auc"]
-    ret["stmt_prauc_pos"] = trial_result[3]["pr_auc_pos"]
-    ret["func_f1"] = trial_result[4]["f1"]
-    ret["func_rec"] = trial_result[4]["rec"]
-    ret["func_prec"] = trial_result[4]["prec"]
-    ret["func_mcc"] = trial_result[4]["mcc"]
-    ret["func_fpr"] = trial_result[4]["fpr"]
-    ret["func_fnr"] = trial_result[4]["fnr"]
-    ret["func_rocauc"] = trial_result[4]["roc_auc"]
-    ret["func_prauc"] = trial_result[4]["pr_auc"]
-    ret["MAP@5"] = trial_result[5]["MAP@5"]
-    ret["nDCG@5"] = trial_result[5]["nDCG@5"]
-    ret["MFR"] = trial_result[5]["MFR"]
-    ret["MAR"] = trial_result[5]["MAR"]
-    ret["stmtline_f1"] = trial_result[6]["f1"]
-    ret["stmtline_rec"] = trial_result[6]["rec"]
-    ret["stmtline_prec"] = trial_result[6]["prec"]
-    ret["stmtline_mcc"] = trial_result[6]["mcc"]
-    ret["stmtline_fpr"] = trial_result[6]["fpr"]
-    ret["stmtline_fnr"] = trial_result[6]["fnr"]
-    ret["stmtline_rocauc"] = trial_result[6]["roc_auc"]
-    ret["stmtline_prauc"] = trial_result[6]["pr_auc"]
-    ret["stmtline_prauc_pos"] = trial_result[6]["pr_auc_pos"]
-
-    ret = {k: round(v, 3) if isinstance(v, float) else v for k, v in ret.items()}
-    ret["learning_rate"] = trial_result[7]
-    ret["stmt_loss"] = trial_result[3]["loss"]
-    ret["func_loss"] = trial_result[4]["loss"]
-    ret["stmtline_loss"] = trial_result[6]["loss"]
-    return ret
-
-
 def main(config, df):
     """Get test results."""
     main_savedir = svd.get_dir(svd.outputs_dir() / "rq_results_new")
@@ -111,7 +66,7 @@ def main(config, df):
                     model.lr,
                 ]
                 # Save DF
-                mets = get_relevant_metrics(res)
+                mets = lvd.get_relevant_metrics(res)
                 hparams = df[df.trial_id == res[0]][hparam_cols].to_dict("records")[0]
                 res_df = pd.DataFrame.from_records([{**mets, **hparams}])
                 res_df.to_csv(chkpt_res_path, index=0)
