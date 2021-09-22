@@ -1,5 +1,6 @@
 import os
 
+import pandas as pd
 import pytorch_lightning as pl
 import sastvd as svd
 import sastvd.linevd as lvd
@@ -41,6 +42,7 @@ def train_ml(
         nsampling_hops=2,
         gtype="pdg+raw",
         splits="default",
+        feat="codebert",
     )
 
     # # Train model
@@ -57,6 +59,39 @@ def train_ml(
         max_epochs=max_epochs,
     )
     trainer.fit(model, data)
+
+    # Save test results
+    main_savedir = svd.get_dir(svd.outputs_dir() / "rq_results_methodonly")
+    trainer.test(model, data)
+    res = [
+        "methodonly",
+        "methodonly",
+        model.res1vo,
+        model.res2mt,
+        model.res2f,
+        model.res3vo,
+        model.res2,
+        model.lr,
+    ]
+    mets = lvd.get_relevant_metrics(res)
+    res_df = pd.DataFrame.from_records([mets])
+    res_df.to_csv(str(main_savedir / svd.get_run_id()) + ".csv", index=0)
+
+    # Save best
+    trainer.test(model, data, ckpt_path="best")
+    res = [
+        "methodonly",
+        "methodonly",
+        model.res1vo,
+        model.res2mt,
+        model.res2f,
+        model.res3vo,
+        model.res2,
+        model.lr,
+    ]
+    mets = lvd.get_relevant_metrics(res)
+    res_df = pd.DataFrame.from_records([mets])
+    res_df.to_csv(str(main_savedir / svd.get_run_id()) + ".best.csv", index=0)
 
 
 config = {
