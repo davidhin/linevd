@@ -119,6 +119,13 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
         ) / str(_id)
         if os.path.exists(savedir):
             g = load_graphs(str(savedir))[0][0]
+            g.ndata["_FVULN"] = g.ndata["_VULN"].max().repeat((g.number_of_nodes()))
+            if "_SASTRATS" in g.ndata:
+                g.ndata.pop("_SASTRATS")
+                g.ndata.pop("_SASTCPP")
+                g.ndata.pop("_SASTFF")
+                g.ndata.pop("_GLOVE")
+                g.ndata.pop("_DOC2VEC")
             if "_CODEBERT" in g.ndata:
                 if self.feat == "codebert":
                     for i in ["_GLOVE", "_DOC2VEC", "_RANDFEAT"]:

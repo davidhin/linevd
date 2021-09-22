@@ -20,12 +20,11 @@ def train_ml(
     model = lvd.LitGNN(
         methodlevel=True,
         nsampling=False,
-        model="gat1layer",
+        model=config["modeltype"],
         embtype="codebert",
         loss="ce",
-        hdropout=0.3,
-        gatdropout=0.2,
-        mlpdropout=0.2,
+        hdropout=config["hdropout"],
+        gatdropout=config["gatdropout"],
         num_heads=4,
         multitask="line",
         stmtweight=1,
@@ -96,6 +95,9 @@ def train_ml(
 
 config = {
     "gnntype": tune.choice(["gat", "gcn"]),
+    "hdropout": tune.choice([0.1, 0.15, 0.2, 0.25]),
+    "gatdropout": tune.choice([0.15, 0.2]),
+    "modeltype": tune.choice(["gat1layer", "gat2layer"]),
 }
 samplesz = -1
 run_id = svd.get_run_id()
