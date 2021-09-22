@@ -24,7 +24,7 @@ if __name__ == "__main__":
     df = df[df["config/splits"] == "default"]
 
     # Load results df
-    results = glob(str(svd.outputs_dir() / "rq_results/*.csv"))
+    results = glob(str(svd.outputs_dir() / "rq_results_new/*.csv"))
     res_df = pd.concat([pd.read_csv(i) for i in results])
 
     # Merge DFs and load best model
