@@ -281,7 +281,7 @@ if __name__ == "__main__":
                 "FP": fp,
                 "TN": tn,
                 "FN": fn,
-                "MCC": abs(round(mcc, 2)) if mcc else None,
+                # "MCC": abs(round(mcc, 2)) if mcc else None,
                 "F1": abs(round(f1, 2)) if f1 else None,
             }
         )
