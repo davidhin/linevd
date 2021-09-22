@@ -1,6 +1,7 @@
 import pickle as pkl
 from glob import glob
 
+import matplotlib
 import matplotlib.pyplot as plt
 import pandas as pd
 import pytorch_lightning as pl
@@ -8,36 +9,9 @@ import sastvd as svd
 import sastvd.helpers.dclass as svddc
 import sastvd.helpers.hljs as hljs
 import sastvd.linevd as lvd
+import seaborn as sns
 import torch as th
 from ray.tune import Analysis
-
-
-def preds(model, datapartition, vid):
-    """Get predictions given model and ID and data."""
-    id2idx = {v: k for k, v in datapartition.idx2id.items()}
-    idx = id2idx[vid]
-    g = datapartition[idx]
-    ret_logits = model(g, test=True)
-    line_ranks = th.nn.functional.softmax(ret_logits[0], dim=1)[:, 1]
-    line_ranks = [i ** 3 for i in line_ranks]
-    ret = list(zip(line_ranks, g.ndata["_LINE"], g.ndata["_VULN"]))
-    ret = [[i[0].item(), i[1].item(), i[2].item()] for i in ret]
-    ret = sorted(ret, key=lambda x: x[0], reverse=True)
-    return ret
-
-
-def save_html_preds(vid, model, data):
-    """Save HTML visualised preds."""
-    line_preds = preds(model, data, vid)
-    vulns = [i[1] for i in line_preds if i[2] == 1]
-
-    norm_vulns = []
-    for idx, i in enumerate(line_preds[:5]):
-        norm_vulns.append([0.7 - (0.15 * (idx)), i[1], i[2]])
-
-    line_preds = {i[1] - 1: i[0] for i in norm_vulns}
-    hljs.linevd_to_html(svddc.BigVulDataset.itempath(vid), line_preds, vulns)
-
 
 if __name__ == "__main__":
 
@@ -101,9 +75,22 @@ if __name__ == "__main__":
     histogram_data = [get_fr(v) for v in vulns]
     num_bins = 90
     fig, axs = plt.subplots(1, 1, sharey=True, tight_layout=True)
-    plt.hist(histogram_data, bins=num_bins)
+    sns.histplot(histogram_data, bins=30)
     savedir = svd.get_dir(svd.outputs_dir() / "mfrplots")
     plt.savefig(savedir / "mfrhist.pdf", bbox_inches="tight")
     with open(savedir / "histdata.pkl", "wb") as f:
         pkl.dump(histogram_data, f)
+
+    # Plotting
+    font = {"family": "normal", "weight": "normal", "size": 15}
+    matplotlib.rc("font", **font)
     hist_data = pkl.load(open(savedir / "histdata.pkl", "rb"))
+    fig, axs = plt.subplots(1, 2, sharey=False, tight_layout=True, figsize=(8, 4))
+    sns.histplot([i for i in hist_data if i <= 5], ax=axs[0], bins=5)
+    sns.histplot([i for i in hist_data if i > 5], ax=axs[1], bins=10)
+    axs[1].set_ylabel("")
+    fig.text(0.54, -0.02, "First Ranking", ha="center")
+    plt.savefig(savedir / "mfrhist.pdf", bbox_inches="tight")
+
+    len([i for i in hist_data if i <= 5])
+    len([i for i in hist_data if i > 5])
