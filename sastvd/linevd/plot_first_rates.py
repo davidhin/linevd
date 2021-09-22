@@ -58,7 +58,7 @@ if __name__ == "__main__":
 
     # Merge DFs and load best model
     mdf = df.merge(res_df[["trial_id", "checkpoint", "stmt_f1"]], on="trial_id")
-    best = mdf.sort_values("stmt_f1", ascending=1).iloc[0]
+    best = mdf.sort_values("stmt_f1", ascending=0).iloc[0]
     best_path = f"{best['logdir']}/{best['checkpoint']}/checkpoint"
 
     # Load modules
