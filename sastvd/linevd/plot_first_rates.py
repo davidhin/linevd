@@ -106,4 +106,4 @@ if __name__ == "__main__":
     plt.savefig(savedir / "mfrhist.pdf", bbox_inches="tight")
     with open(savedir / "histdata.pkl", "wb") as f:
         pkl.dump(histogram_data, f)
-    pkl.load(open(savedir / "histdata.pkl", "rb"))
+    hist_data = pkl.load(open(savedir / "histdata.pkl", "rb"))
