@@ -161,53 +161,54 @@ if __name__ == "__main__":
         label_info = []
         for info in stmts:
             if info["_label"] == "CALL":
-                if "assignment" in info["name"]:
-                    label_info.append("Assignment Operator")
-                    continue
-                if (
-                    "addition" in info["name"]
-                    or "subtraction" in info["name"]
-                    or "division" in info["name"]
-                    or "Plus" in info["name"]
-                    or "Minus" in info["name"]
-                    or "minus" in info["name"]
-                    or "plus" in info["name"]
-                    or "modulo" in info["name"]
-                    or "multiplication" in info["name"]
-                ):
-                    label_info.append("Arithmetic Operator")
-                    continue
-                if (
-                    "lessThan" in info["name"]
-                    or "greaterThan" in info["name"]
-                    or "EqualsThan" in info["name"]
-                    or "equals" in info["name"]
-                ):
-                    label_info.append("Comparison Operator")
-                    continue
-                if (
-                    "FieldAccess" in info["name"]
-                    or "IndexAccess" in info["name"]
-                    or "fieldAccess" in info["name"]
-                    or "indexAccess" in info["name"]
-                ):
-                    label_info.append("Access Operator")
-                    continue
-                if (
-                    "logical" in info["name"]
-                    or "<operator>.not" in info["name"]
-                    or "<operator>.or" in info["name"]
-                    or "<operator>.and" in info["name"]
-                    or "conditional" in info["name"]
-                ):
-                    label_info.append("Logical Operator")
-                    continue
-                if "<operator>.cast" in info["name"]:
-                    label_info.append("Cast Operator")
-                    continue
                 if "<operator>" in info["name"]:
-                    label_info.append("Other Operator")
-                    continue
+                    if "assignment" in info["name"]:
+                        label_info.append("Assignment Operator")
+                        continue
+                    if (
+                        "addition" in info["name"]
+                        or "subtraction" in info["name"]
+                        or "division" in info["name"]
+                        or "Plus" in info["name"]
+                        or "Minus" in info["name"]
+                        or "minus" in info["name"]
+                        or "plus" in info["name"]
+                        or "modulo" in info["name"]
+                        or "multiplication" in info["name"]
+                    ):
+                        label_info.append("Arithmetic Operator")
+                        continue
+                    if (
+                        "lessThan" in info["name"]
+                        or "greaterThan" in info["name"]
+                        or "EqualsThan" in info["name"]
+                        or "equals" in info["name"]
+                    ):
+                        label_info.append("Comparison Operator")
+                        continue
+                    if (
+                        "FieldAccess" in info["name"]
+                        or "IndexAccess" in info["name"]
+                        or "fieldAccess" in info["name"]
+                        or "indexAccess" in info["name"]
+                    ):
+                        label_info.append("Access Operator")
+                        continue
+                    if (
+                        "logical" in info["name"]
+                        or "<operator>.not" in info["name"]
+                        or "<operator>.or" in info["name"]
+                        or "<operator>.and" in info["name"]
+                        or "conditional" in info["name"]
+                    ):
+                        label_info.append("Logical Operator")
+                        continue
+                    if "<operator>.cast" in info["name"]:
+                        label_info.append("Cast Operator")
+                        continue
+                    if "<operator>" in info["name"]:
+                        label_info.append("Other Operator")
+                        continue
                 elif info["name"] in cbuiltin.l_funcs:
                     label_info.append("Builtin Function Call")
                     continue
