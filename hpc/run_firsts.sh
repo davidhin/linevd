@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH -p batch
 #SBATCH -N 1
-#SBATCH -n 6
-#SBATCH --time=12:00:00
+#SBATCH -n 2
+#SBATCH --time=00:20:00
 #SBATCH --mem=16GB
 #SBATCH --gres=gpu:1
 #SBATCH --err="hpc/logs/first_%A.info"
