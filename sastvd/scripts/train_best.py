@@ -27,7 +27,7 @@ samplesz = -1
 run_id = svd.get_run_id()
 sp = svd.get_dir(svd.processed_dir() / f"raytune_best_{samplesz}" / run_id)
 trainable = tune.with_parameters(
-    lvdrun.train_linevd, max_epochs=1000, samplesz=samplesz, savepath=sp
+    lvdrun.train_linevd, max_epochs=130, samplesz=samplesz, savepath=sp
 )
 
 analysis = tune.run(
