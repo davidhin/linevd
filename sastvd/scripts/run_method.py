@@ -21,7 +21,7 @@ def train_ml(
         methodlevel=True,
         nsampling=False,
         model=config["modeltype"],
-        embtype="codebert",
+        embtype="glove",
         loss="ce",
         hdropout=config["hdropout"],
         gatdropout=config["gatdropout"],
@@ -41,7 +41,7 @@ def train_ml(
         nsampling_hops=2,
         gtype="pdg+raw",
         splits="default",
-        feat="codebert",
+        feat="glove",
     )
 
     # # Train model
@@ -61,7 +61,7 @@ def train_ml(
 
     # Save test results
     main_savedir = svd.get_dir(svd.outputs_dir() / "rq_results_methodonly")
-    trainer.test(model, data)
+    trainer.test(model, data, ckpt_path="best")
     res = [
         "methodonly",
         "methodonly",
@@ -77,20 +77,20 @@ def train_ml(
     res_df.to_csv(str(main_savedir / svd.get_run_id()) + ".csv", index=0)
 
     # Save best
-    trainer.test(model, data, ckpt_path="best")
-    res = [
-        "methodonly",
-        "methodonly",
-        model.res1vo,
-        model.res2mt,
-        model.res2f,
-        model.res3vo,
-        model.res2,
-        model.lr,
-    ]
-    mets = lvd.get_relevant_metrics(res)
-    res_df = pd.DataFrame.from_records([mets])
-    res_df.to_csv(str(main_savedir / svd.get_run_id()) + ".best.csv", index=0)
+    # trainer.test(model, data, ckpt_path="best")
+    # res = [
+    #     "methodonly",
+    #     "methodonly",
+    #     model.res1vo,
+    #     model.res2mt,
+    #     model.res2f,
+    #     model.res3vo,
+    #     model.res2,
+    #     model.lr,
+    # ]
+    # mets = lvd.get_relevant_metrics(res)
+    # res_df = pd.DataFrame.from_records([mets])
+    # res_df.to_csv(str(main_savedir / svd.get_run_id()) + ".best.csv", index=0)
 
 
 config = {
