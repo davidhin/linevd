@@ -3,7 +3,7 @@
 #SBATCH -N 1
 #SBATCH -n 6
 #SBATCH --time=48:00:00
-#SBATCH --mem=32GB
+#SBATCH --mem=128GB
 #SBATCH --gres=gpu:1
 #SBATCH --err="hpc/logs/mo_%A.info"
 #SBATCH --output="hpc/logs/mo_%A.info"

@@ -583,7 +583,7 @@ class LitGNN(pl.LightningModule):
                     all_true = th.cat([all_true, g.ndata["_VULN"]])
                     gnnelogits = th.zeros((g.number_of_nodes(), 2), device="cuda")
                     gnnelogits[:, 0] = 1
-                    if out[0][idx].argmax() > 0:
+                    if out[1][idx] == 1:
                         zeros = th.zeros(g.number_of_nodes(), device="cuda")
                         importance = th.ones(g.number_of_nodes(), device="cuda")
                         try:
