@@ -39,6 +39,6 @@ analysis = tune.run(
     num_samples=1000,
     name="tune_linevd",
     local_dir=sp,
-    keep_checkpoints_num=5,
+    keep_checkpoints_num=1,
     checkpoint_score_attr="min-val_loss",
 )
