@@ -22,7 +22,6 @@
     "**/storage/**": true,
     "**/workspace/": true
   },
-  "python.pythonPath": "/home/david/miniconda3/bin/python",
   "python.linting.flake8Enabled": true,
   "python.linting.enabled": true,
   "editor.rulers": [88],
