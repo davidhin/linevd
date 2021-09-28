@@ -1,8 +1,42 @@
-# SETUP NOTES
+# LineVD
 
-## Debugging
+This repository provides the code for `<PAPER TITLE HERE>`. The environment can be built using [Singularity](https://sylabs.io/singularity/), or by following / following the commands in the Singularity file. To start, clone the repository and navigate to the root directory.
 
-If CodeBERT does not load (e.g. on HPC filesystem):
+## Directory Structure
 
-- Install Git-LFS
-- Clone `microsoft/codebert-base` into `storage/external` using `git clone https://huggingface.co/microsoft/codebert-base`
+```dir
+(main module) ├── sastvd
+              │   ├── codebert
+              │   ├── helpers
+              │   ├── ivdetect
+              │   ├── linevd
+              │   └── scripts
+              ├── storage
+(memoization) │   ├── cache
+(raw data)    │   ├── external
+(csvs)        │   ├── outputs
+(models)      │   └── processed
+(tests)       └── tests
+```
+
+## Training LineVD from scratch
+
+Build and initialise environment and download dataset
+
+```sh
+sudo singularity build main.sif Singularity
+singularity run main.sif -p initialise
+```
+
+Feature extraction (Increase NUM_JOBS if running on HPC for speed up)
+
+```sh
+singularity exec main.sif python sastvd/scripts/prepare.py
+singularity exec main.sif python sastvd/scripts/getgraphs.py
+```
+
+Train model (Training takes around 1-2 hours using GTX 3060)
+
+```sh
+singularity exec --nv main.sif python sastvd/scripts/train_best.py
+```
