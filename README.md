@@ -1,6 +1,6 @@
 # LineVD
 
-This repository provides the code for `<PAPER TITLE HERE>`. The environment can be built using [Singularity](https://sylabs.io/singularity/), or by following / following the commands in the Singularity file. To start, clone the repository and navigate to the root directory.
+This repository provides the code for [LineVD: Statement-level Vulnerability Detection using Graph Neural Networks](https://arxiv.org/pdf/2203.05181.pdf). The environment can be built using [Singularity](https://sylabs.io/singularity/), or by following / following the commands in the Singularity file. To start, clone the repository and navigate to the root directory.
 
 ## Directory Structure
 
