@@ -13,7 +13,7 @@ NUM_JOBS = 100
 JOB_ARRAY_NUMBER = 0 if "ipykernel" in sys.argv[0] else int(sys.argv[1]) - 1
 
 # Read Data
-df = svdd.bigvul()
+df = svdd.bigvul(sample=True)
 df = df.iloc[::-1]
 splits = np.array_split(df, NUM_JOBS)
 
@@ -48,11 +48,11 @@ def preprocess(row):
         svdj.full_run_joern(fpath2, verbose=3)
 
     # Run SAST extraction
-    fpath3 = savedir_before / f"{row['id']}.c.sast.pkl"
-    if not os.path.exists(fpath3):
-        sast_before = sast.run_sast(row["before"])
-        with open(fpath3, "wb") as f:
-            pkl.dump(sast_before, f)
+    # fpath3 = savedir_before / f"{row['id']}.c.sast.pkl"
+    # if not os.path.exists(fpath3):
+    #     sast_before = sast.run_sast(row["before"])
+    #     with open(fpath3, "wb") as f:
+    #         pkl.dump(sast_before, f)
 
 
 if __name__ == "__main__":

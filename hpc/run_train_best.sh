@@ -1,17 +1,18 @@
 #!/bin/bash
-#SBATCH -p batch
 #SBATCH -N 1
-#SBATCH -n 6
-#SBATCH --time=48:00:00
-#SBATCH --mem=64GB
+#SBATCH -n 4
+#SBATCH --time=2-00:00:00
 #SBATCH --gres=gpu:1
+#SBATCH --partition=gpu
+#SBATCH --exclude=amp-1,amp-2,amp-3,amp-4
 #SBATCH --err="hpc/logs/lvd_%A.info"
 #SBATCH --output="hpc/logs/lvd_%A.info"
 #SBATCH --job-name="lvd"
+#SBATCH --mail-user=benjis@iastate.edu
+#SBATCH --mail-type=FAIL,END
 
 # Setup Python Environment
-module load Singularity
-module load CUDA/10.2.89
+module load singularity gcc/7.3.0-xegsmw4 cuda/10.2.89-jveb27i
 
 # Start singularity instance
-singularity exec -H /g/acvt/a1720858/sastvd --nv main.sif python -u sastvd/scripts/train_best.py
+singularity exec --nv main.sif python -u sastvd/scripts/train_best.py

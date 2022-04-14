@@ -6,6 +6,7 @@ from multiprocessing import Pool
 import sastvd as svd
 from tqdm import tqdm
 from unidiff import PatchSet
+import traceback
 
 
 def gitdiff(old: str, new: str):
@@ -86,15 +87,18 @@ def code2diff(old: str, new: str):
 
 def _c2dhelper(item):
     """Given item with func_before, func_after, id, and dataset, save gitdiff."""
-    savedir = svd.get_dir(svd.cache_dir() / item["dataset"] / "gitdiff")
-    savepath = savedir / f"{item['id']}.git.pkl"
-    if os.path.exists(savepath):
-        return
-    if item["func_before"] == item["func_after"]:
-        return
-    ret = code2diff(item["func_before"], item["func_after"])
-    with open(savepath, "wb") as f:
-        pkl.dump(ret, f)
+    try:
+        savedir = svd.get_dir(svd.cache_dir() / item["dataset"] / "gitdiff")
+        savepath = savedir / f"{item['id']}.git.pkl"
+        if os.path.exists(savepath):
+            return
+        if item["func_before"] == item["func_after"]:
+            return
+        ret = code2diff(item["func_before"], item["func_after"])
+        with open(savepath, "wb") as f:
+            pkl.dump(ret, f)
+    except Exception as e:
+        print("exception", item, traceback.format_exc())
 
 
 def mp_code2diff(df):
