@@ -29,41 +29,41 @@ def storage_dir() -> Path:
 def external_dir() -> Path:
     """Get storage external path."""
     path = storage_dir() / "external"
-    Path(path).mkdir(exist_ok=True, parents=True)
+    path.mkdir(exist_ok=True, parents=True)
     return path
 
 
 def interim_dir() -> Path:
     """Get storage interim path."""
     path = storage_dir() / "interim"
-    Path(path).mkdir(exist_ok=True, parents=True)
+    path.mkdir(exist_ok=True, parents=True)
     return path
 
 
 def processed_dir() -> Path:
     """Get storage processed path."""
     path = storage_dir() / "processed"
-    Path(path).mkdir(exist_ok=True, parents=True)
+    path.mkdir(exist_ok=True, parents=True)
     return path
 
 
 def outputs_dir() -> Path:
     """Get output path."""
     path = storage_dir() / "outputs"
-    Path(path).mkdir(exist_ok=True, parents=True)
+    path.mkdir(exist_ok=True, parents=True)
     return path
 
 
 def cache_dir() -> Path:
     """Get storage cache path."""
     path = storage_dir() / "cache"
-    Path(path).mkdir(exist_ok=True, parents=True)
+    path.mkdir(exist_ok=True, parents=True)
     return path
 
 
 def get_dir(path) -> Path:
     """Get path, if exists. If not, create it."""
-    Path(path).mkdir(exist_ok=True, parents=True)
+    path.mkdir(exist_ok=True, parents=True)
     return path
 
 
