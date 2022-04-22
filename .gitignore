@@ -12,3 +12,4 @@ hpc/logs/*
 **/*.pyc
 **/*.gzip
 **/workspace
+hpc/logs*
