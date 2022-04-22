@@ -38,6 +38,7 @@ class ReachingDefinitions:
         self.cpg = cpg
         self.cfg = get_edge_subgraph(cpg, 'CFG')
         self.ast = get_edge_subgraph(cpg, 'AST')
+        self.argument = get_edge_subgraph(cpg, 'ARGUMENT')
 
         # TODO: Collect domain in constructor and index into it
         # instead of creating VariableDefinition during analysis
@@ -53,8 +54,73 @@ class ReachingDefinitions:
         """Get the name of the variable assigned in the node, if any"""
         # breakpoint()
         if node in self.ast.nodes:
-            if self.ast.nodes[node]["name"] == '<operator>.assignment':
-                children = sorted(self.ast.successors(node), key=lambda n: self.ast.nodes[node]["order"])
+            """
+            https://github.com/joernio/joern/blob/master/joern-cli/src/main/resources/default.semantics
+            # "<operator>.sizeOf" reduces the FPs
+            # 1->-1 first parameter mapped to return value (-1)
+            # "<operator>.addition" 1->-1 2->-1
+            # "<operator>.addressOf" 1->-1
+            "<operator>.assignment" 2->1
+            "<operator>.assignmentAnd" 2->1 1->1
+            "<operator>.assignmentArithmeticShiftRight" 2->1 1->1
+            "<operator>.assignmentDivision" 2->1 1->1
+            "<operator>.assignmentExponentiation" 2->1 1->1
+            "<operator>.assignmentLogicalShiftRight" 2->1 1->1
+            "<operator>.assignmentMinus" 2->1 1->1
+            "<operator>.assignmentModulo" 2->1 1->1
+            "<operator>.assignmentMultiplication" 2->1 1->1
+            "<operator>.assignmentOr" 2->1 1->1
+            "<operator>.assignmentPlus" 2->1 1->1
+            "<operator>.assignmentShiftLeft" 2->1 1->1
+            "<operator>.assignmentXor" 2->1 1->1
+            # "<operator>.computedMemberAccess" 1->-1
+            # "<operator>.conditional" 2->-1 3->-1
+            # "<operator>.fieldAccess" 1->-1
+            # "<operator>.getElementPtr" 1->-1
+            "<operator>.incBy" 1->1 2->1 3->1 4->1
+            # "<operator>.indexAccess" 1->-1
+            # "<operator>.indirectComputedMemberAccess" 1->-1
+            # "<operator>.indirectFieldAccess" 1->-1
+            # "<operator>.indirectIndexAccess" 1->-1 2->-1
+            # "<operator>.indirectMemberAccess" 1->-1
+            # "<operator>.indirection" 1->-1
+            # "<operator>.memberAccess" 1->-1
+            # "<operator>.pointerShift" 1->-1
+            "<operator>.postDecrement" 1->1
+            "<operator>.postIncrement" 1->1
+            "<operator>.preDecrement" 1->1
+            "<operator>.preIncrement" 1->1
+            # "<operator>.sizeOf"
+            # "free" 1->1
+            # "scanf" 2->2
+            # "strcmp" 1->-1 2->-1
+            """
+            
+            assignment_ops = [
+                "<operator>.assignment",
+                "<operator>.assignmentAnd",
+                "<operator>.assignmentArithmeticShiftRight",
+                "<operator>.assignmentDivision",
+                "<operator>.assignmentExponentiation",
+                "<operator>.assignmentLogicalShiftRight",
+                "<operator>.assignmentMinus",
+                "<operator>.assignmentModulo",
+                "<operator>.assignmentMultiplication",
+                "<operator>.assignmentOr",
+                "<operator>.assignmentPlus",
+                "<operator>.assignmentShiftLeft",
+                "<operator>.assignmentXor",
+            ]
+            inc_dec_ops = [
+                "<operator>.incBy",
+                "<operator>.postDecrement",
+                "<operator>.postIncrement",
+                "<operator>.preDecrement",
+                "<operator>.preIncrement",
+            ]
+            mod_ops = assignment_ops + inc_dec_ops
+            if self.cpg.nodes[node]["name"] in mod_ops:
+                children = sorted(self.argument.successors(node), key=lambda n: self.cpg.nodes[node]["order"])
                 if len(children) > 0:
                     return self.ast.nodes[children[0]]["code"]
         return None
