@@ -22,7 +22,7 @@ class BigVulDataset:
         self.partition = partition
         self.df = self.df[self.df.label == partition]
         self.df = self.df[self.df.id.isin(self.finished)]
-        print(self.df.head())
+        print("df head=", self.df.head())
 
         # Balance training set
         if partition == "train" or partition == "val":
@@ -46,10 +46,18 @@ class BigVulDataset:
             self.df = self.df[self.df.vul == 1]
 
         # Filter out samples with no lineNumber from Joern output
-        self.df["valid"] = svd.dfmp(
-            self.df, BigVulDataset.check_validity, "id", desc="Validate Samples: "
-        )
-        self.df = self.df[self.df.valid]
+        valid_cache = svd.cache_dir() / f"bigvul_valid_{partition}.csv"
+        if valid_cache.exists():
+            valid_cache_df = pd.read_csv(valid_cache, index_col=0)
+            # print(valid_cache_df.head(), self.df.head())
+        else:
+            valid = svd.dfmp(
+                self.df, BigVulDataset.check_validity, "id", desc="Validate Samples: "
+            )
+            df_id = self.df.id
+            valid_cache_df = pd.DataFrame({"id": df_id, "valid": valid}, index=self.df.index)
+            valid_cache_df.to_csv(valid_cache)
+        self.df = self.df[valid_cache_df["valid"]]
 
         # Get mapping from index to sample ID.
         self.df = self.df.reset_index(drop=True).reset_index()
