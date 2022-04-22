@@ -120,7 +120,7 @@ class ReachingDefinitions:
             ]
             mod_ops = assignment_ops + inc_dec_ops
             if self.cpg.nodes[node]["name"] in mod_ops:
-                children = sorted(self.argument.successors(node), key=lambda n: self.cpg.nodes[node]["order"])
+                children = sorted(self.argument.successors(node), key=lambda n: self.cpg.nodes[n]["order"])
                 if len(children) > 0:
                     return self.ast.nodes[children[0]]["code"]
         return None
