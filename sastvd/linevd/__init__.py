@@ -40,6 +40,7 @@ def ne_groupnodes(n, e):
     el = e.copy()
     el.innode = el.line_in
     el.outnode = el.line_out
+    nl["nodeId"] = nl.id
     nl.id = nl.lineNumber
     nl = svdj.drop_lone_nodes(nl, el)
     el = el.drop_duplicates(subset=["innode", "outnode", "etype"])
@@ -50,22 +51,25 @@ def ne_groupnodes(n, e):
     return nl, el
 
 
-def dataflow_feature_extraction(_id, max_dataflow_dim=None):
+def dataflow_feature_extraction(_id, node_ids=None, max_dataflow_dim=None):
     cpg = df.get_cpg(_id)
 
     # run beginning of dataflow and return input features
     problem = df.ReachingDefinitions(cpg)
-    graph = problem.cfg
-    variables = list(sorted(problem.variables))
-    print(len(variables), "variables", variables)
-    dataflow_embeddings = th.zeros((len(graph.nodes), len(variables)), dtype=th.int)
-    for i, node in enumerate(graph.nodes):
+    if node_ids is None:
+        # Get all nodes
+        node_ids = list(cpg.nodes)
+    # graph = problem.cfg
+    defs = list(sorted(problem.domain))
+    print(_id, len(defs), "defs", defs)
+    dataflow_embeddings = th.zeros((len(node_ids), len(defs)), dtype=th.int)
+    for i, node in enumerate(node_ids):
         gen = problem.gen(node)
-        print("gen", i, gen)  # TODO: fix... and test the dataflow implementation tbh
+        # print("gen", i, gen)  # TODO: fix... and test the dataflow implementation tbh
         if len(gen) > 0:
-            for variable, _ in gen:
-                print("assign var", variable)
-                dataflow_embeddings[i][variables.index(variable)] = 1
+            for rd in gen:
+                # print("reaching definition", rd)
+                dataflow_embeddings[i][defs.index(rd)] = 1
     
     # pad to max dim
     if max_dataflow_dim is not None:
@@ -76,7 +80,7 @@ def dataflow_feature_extraction(_id, max_dataflow_dim=None):
     return dataflow_embeddings
 
 
-def feature_extraction(_id, graph_type="cfgcdg", return_nodes=False):
+def feature_extraction(_id, graph_type="cfgcdg", return_nodes=False, return_node_ids=False):
     """Extract graph feature (basic).
 
     _id = svddc.BigVulDataset.itempath(177775)
@@ -122,8 +126,11 @@ def feature_extraction(_id, graph_type="cfgcdg", return_nodes=False):
     else:
         n.code = "</s>" + " " + n.code
 
-    # Return plain-text code, line number list, innodes, outnodes
-    return n.code.tolist(), n.id.tolist(), e.innode.tolist(), e.outnode.tolist(), etypes
+    if return_node_ids:
+        return n.code.tolist(), n.id.tolist(), e.innode.tolist(), e.outnode.tolist(), etypes, n.nodeId.tolist()
+    else:
+        # Return plain-text code, line number list, innodes, outnodes
+        return n.code.tolist(), n.id.tolist(), e.innode.tolist(), e.outnode.tolist(), etypes
 
 
 # %%
@@ -172,13 +179,14 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
                     for i in ["_CODEBERT", "_GLOVE", "_RANDFEAT"]:
                         g.ndata.pop(i, None)
                 return g
-        code, lineno, ei, eo, et = feature_extraction(
-            svddc.BigVulDataset.itempath(_id), self.graph_type
+        code, lineno, ei, eo, et, nids = feature_extraction(
+            svddc.BigVulDataset.itempath(_id), self.graph_type, return_node_ids=True,
         )
 
         # TODO: get dataflow features
+        # breakpoint()
         if enable_dataflow:
-            dataflow_features = dataflow_feature_extraction(svddc.BigVulDataset.itempath(_id), max_dataflow_dim)
+            dataflow_features = dataflow_feature_extraction(svddc.BigVulDataset.itempath(_id), nids, max_dataflow_dim)
 
         if _id in self.lines:
             vuln = [1 if i in self.lines[_id] else 0 for i in lineno]
@@ -199,7 +207,7 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
 
         # Get dataflow features
         if enable_dataflow:
-            print("Adding dataflow to graph", dataflow_features)
+            # print("Adding dataflow to graph", dataflow_features)
             g.ndata["_DATAFLOW"] = dataflow_features
 
         # Get SAST labels

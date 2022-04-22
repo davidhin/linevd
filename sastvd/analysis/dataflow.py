@@ -26,6 +26,9 @@ class VariableDefinition:
     def __hash__(self):
         return self.node
 
+    def __eq__(self, other):
+        return self.node == other.node
+
     def __lt__(self, other):
         return self.node < other.node
 
@@ -36,12 +39,15 @@ class ReachingDefinitions:
         self.cfg = get_edge_subgraph(cpg, 'CFG')
         self.ast = get_edge_subgraph(cpg, 'AST')
 
+        # TODO: Collect domain in constructor and index into it
+        # instead of creating VariableDefinition during analysis
+
     @property
     def domain(self):
         """
         all definition nodes in program
         """
-        return set(node for node, attr in self.cpg.nodes(data=True) if attr['name'] == '<operator>.assignment')
+        return set(VariableDefinition(self.get_assigned_variable(node), node, self.cpg.nodes[node]["code"]) for node, attr in self.cpg.nodes(data=True) if attr['name'] == '<operator>.assignment')
 
     def get_assigned_variable(self, node):
         """Get the name of the variable assigned in the node, if any"""
@@ -111,7 +117,7 @@ def get_cpg(id_itempath):
     n = svdj.drop_lone_nodes(n, e)
     e = e.drop_duplicates(subset=["innode", "outnode", "etype"])
     
-    e = svdj.rdg(e, "dataflow")
+    # e = svdj.rdg(e, "dataflow")
     n = svdj.drop_lone_nodes(n, e)
 
     # TODO: This is a stopgap. Find out why there are extra edges!
@@ -120,14 +126,14 @@ def get_cpg(id_itempath):
     nodes = n
     edges = e
 
-    print('nodes', nodes.columns, nodes.head())
-    print('edges', edges.columns, edges.head())
+    # print('nodes', nodes.columns, nodes.head())
+    # print('edges', edges.columns, edges.head())
 
     # Extract CFG with code
     cpg = nx.MultiDiGraph()
     cpg.add_nodes_from(nodes.apply(lambda n: (n.id, {'lineNumber': int(n.lineNumber), 'code': n.code, 'name': n["name"], '_label': n._label, 'order': int(n.order)}), axis=1))
     cpg.add_edges_from(edges.apply(lambda e: (e.outnode, e.innode, {'type': e.etype}), axis=1))
-    print_program(cpg)
+    # print_program(cpg)
 
     return cpg
 
