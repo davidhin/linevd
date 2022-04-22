@@ -81,6 +81,8 @@ inc_dec_ops = [
     "<operator>.preIncrement",
 ]
 mod_ops = assignment_ops + inc_dec_ops
+mod_ops += [op.replace("<operator>", "<operators>") for op in assignment_ops]
+mod_ops += [op.replace("<operator>", "<operators>") for op in inc_dec_ops]
 
 @dataclasses.dataclass
 class VariableDefinition:
@@ -109,8 +111,6 @@ class ReachingDefinitions:
         # instead of creating VariableDefinition during analysis
         self.gen_set = {}
         for node, attr in self.cpg.nodes(data=True):
-            # if node in (1000200, 1000244):
-            #     breakpoint()
             if attr['name'] in mod_ops:
                 self.gen_set[node] = {VariableDefinition(self.get_assigned_variable(node), node, self.cpg.nodes[node]["code"])}
             else:
@@ -164,7 +164,8 @@ class ReachingDefinitions:
         return in_reachingdefs
     
     def __str__(self):
-        return str([d.code for d in self.domain])
+        domain = self.domain
+        return f"{len(domain)} defs: {str([d.code for d in domain])}"
 
 def print_program(cpg):
     for p in sorted(cpg.nodes(data=True), key=lambda p: p[1].get("id", -1)):
@@ -202,6 +203,17 @@ def get_cpg(id_itempath):
     # print_program(cpg)
 
     return cpg
+
+def test_weird_assignment_operators():
+    """
+    For some reason the operators in this program show up as <operators> instead of <operator>.
+    Make sure these are still detected.
+    """
+    cpg = get_cpg(svddc.BigVulDataset.itempath(18983))
+    print(cpg)
+    problem = ReachingDefinitions(cpg)
+    print(problem)
+    assert len(problem.domain) == 12
 
 def test_get_cpg():
     cpg = get_cpg(svddc.BigVulDataset.itempath(0))
