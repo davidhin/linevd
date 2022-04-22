@@ -22,6 +22,7 @@ class BigVulDataset:
         self.partition = partition
         self.df = self.df[self.df.label == partition]
         self.df = self.df[self.df.id.isin(self.finished)]
+        print("len(df)=", len(self.df))
         print("df head=", self.df.head())
 
         # Balance training set
