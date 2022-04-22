@@ -17,6 +17,7 @@ import sastvd.helpers.rank_eval as svdr
 import sastvd.helpers.sast as sast
 import sastvd.ivdetect.evaluate as ivde
 import sastvd.linevd.gnnexplainer as lvdgne
+import sastvd.analysis.dataflow as df
 import torch as th
 import torch.nn.functional as F
 import torchmetrics
@@ -25,6 +26,9 @@ from dgl.dataloading import GraphDataLoader
 from dgl.nn.pytorch import GATConv, GraphConv
 from sklearn.metrics import PrecisionRecallDisplay, precision_recall_curve
 from tqdm import tqdm
+import networkx as nx
+
+enable_dataflow = True
 
 
 def ne_groupnodes(n, e):
@@ -44,6 +48,32 @@ def ne_groupnodes(n, e):
     el.innode = el.innode.astype(int)
     el.outnode = el.outnode.astype(int)
     return nl, el
+
+
+def dataflow_feature_extraction(_id, max_dataflow_dim=None):
+    cpg = df.get_cpg(_id)
+
+    # run beginning of dataflow and return input features
+    problem = df.ReachingDefinitions(cpg)
+    graph = problem.cfg
+    variables = list(sorted(problem.variables))
+    print(len(variables), "variables", variables)
+    dataflow_embeddings = th.zeros((len(graph.nodes), len(variables)), dtype=th.int)
+    for i, node in enumerate(graph.nodes):
+        gen = problem.gen(node)
+        print("gen", i, gen)  # TODO: fix... and test the dataflow implementation tbh
+        if len(gen) > 0:
+            for variable, _ in gen:
+                print("assign var", variable)
+                dataflow_embeddings[i][variables.index(variable)] = 1
+    
+    # pad to max dim
+    if max_dataflow_dim is not None:
+        print("pad to", max_dataflow_dim)
+        pad = th.zeros((dataflow_embeddings.shape[0], max_dataflow_dim))  # Assume 2d
+        pad[:, :dataflow_embeddings.size(1)] = dataflow_embeddings
+        dataflow_embeddings = pad
+    return dataflow_embeddings
 
 
 def feature_extraction(_id, graph_type="cfgcdg", return_nodes=False):
@@ -112,18 +142,23 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
         self.d2v = svdd2v.D2V(svd.processed_dir() / "bigvul/d2v_False")
         self.feat = feat
 
-    def item(self, _id, codebert=None):
+    def item(self, _id, codebert=None, max_dataflow_dim=-1):
         """Cache item."""
-        savedir = svd.get_dir(
-            svd.cache_dir() / f"bigvul_linevd_codebert_{self.graph_type}"
-        ) / str(_id)
+        if enable_dataflow:
+            savedir = svd.get_dir(
+                svd.cache_dir() / f"bigvul_linevd_codebert_dataflow_{self.graph_type}"
+            ) / str(_id)
+        else:
+            savedir = svd.get_dir(
+                svd.cache_dir() / f"bigvul_linevd_codebert_{self.graph_type}"
+            ) / str(_id)
         if os.path.exists(savedir):
             g = load_graphs(str(savedir))[0][0]
             # g.ndata["_FVULN"] = g.ndata["_VULN"].max().repeat((g.number_of_nodes()))
-            # if "_SASTRATS" in g.ndata:
-            #     g.ndata.pop("_SASTRATS")
-            #     g.ndata.pop("_SASTCPP")
-            #     g.ndata.pop("_SASTFF")
+            if "_SASTRATS" in g.ndata:
+                g.ndata.pop("_SASTRATS")
+                g.ndata.pop("_SASTCPP")
+                g.ndata.pop("_SASTFF")
             #     g.ndata.pop("_GLOVE")
             #     g.ndata.pop("_DOC2VEC")
             if "_CODEBERT" in g.ndata:
@@ -140,6 +175,11 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
         code, lineno, ei, eo, et = feature_extraction(
             svddc.BigVulDataset.itempath(_id), self.graph_type
         )
+
+        # TODO: get dataflow features
+        if enable_dataflow:
+            dataflow_features = dataflow_feature_extraction(svddc.BigVulDataset.itempath(_id), max_dataflow_dim)
+
         if _id in self.lines:
             vuln = [1 if i in self.lines[_id] else 0 for i in lineno]
         else:
@@ -157,14 +197,19 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
         g.ndata["_LINE"] = th.Tensor(lineno).int()
         g.ndata["_VULN"] = th.Tensor(vuln).float()
 
+        # Get dataflow features
+        if enable_dataflow:
+            print("Adding dataflow to graph", dataflow_features)
+            g.ndata["_DATAFLOW"] = dataflow_features
+
         # Get SAST labels
-        s = sast.get_sast_lines(svd.processed_dir() / f"bigvul/before/{_id}.c.sast.pkl")
-        rats = [1 if i in s["rats"] else 0 for i in g.ndata["_LINE"]]
-        cppcheck = [1 if i in s["cppcheck"] else 0 for i in g.ndata["_LINE"]]
-        flawfinder = [1 if i in s["flawfinder"] else 0 for i in g.ndata["_LINE"]]
-        g.ndata["_SASTRATS"] = th.tensor(rats).long()
-        g.ndata["_SASTCPP"] = th.tensor(cppcheck).long()
-        g.ndata["_SASTFF"] = th.tensor(flawfinder).long()
+        # s = sast.get_sast_lines(svd.processed_dir() / f"bigvul/before/{_id}.c.sast.pkl")
+        # rats = [1 if i in s["rats"] else 0 for i in g.ndata["_LINE"]]
+        # cppcheck = [1 if i in s["cppcheck"] else 0 for i in g.ndata["_LINE"]]
+        # flawfinder = [1 if i in s["flawfinder"] else 0 for i in g.ndata["_LINE"]]
+        # g.ndata["_SASTRATS"] = th.tensor(rats).long()
+        # g.ndata["_SASTCPP"] = th.tensor(cppcheck).long()
+        # g.ndata["_SASTFF"] = th.tensor(flawfinder).long()
 
         g.ndata["_FVULN"] = g.ndata["_VULN"].max().repeat((g.number_of_nodes()))
         g.edata["_ETYPE"] = th.Tensor(et).long()
@@ -173,12 +218,19 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
         g = dgl.add_self_loop(g)
         save_graphs(str(savedir), [g])
         return g
+        
+    def get_max_dataflow_dim(self, max_dim=0):
+        # Load each graph from file and get the dimension of the dataflow features
+        for i in tqdm(self.df.sample(len(self.df)).id.tolist(), desc="get_max_dataflow_dim"):
+            dataflow_features = dataflow_feature_extraction(svddc.BigVulDataset.itempath(i))
+            max_dim = max(max_dim, dataflow_features.shape[0])
+        return max_dim
 
-    def cache_items(self, codebert):
+    def cache_items(self, codebert, max_df_dim):
         """Cache all items."""
-        for i in tqdm(self.df.sample(len(self.df)).id.tolist()):
+        for i in tqdm(self.df.sample(len(self.df)).id.tolist(), desc="cache_items"):
             try:
-                self.item(i, codebert)
+                self.item(i, codebert, max_dataflow_dim=max_df_dim)
             except Exception as E:
                 print(E)
 
@@ -191,7 +243,7 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
         done = [int(i.split("/")[-1].split(".")[0]) for i in glob(str(savedir / "*"))]
         done = set(done)
         batches = svd.chunks((range(len(self.df))), 128)
-        for idx_batch in tqdm(batches):
+        for idx_batch in tqdm(batches, desc="cache_codebert_method_level"):
             batch_texts = self.df.iloc[idx_batch[0] : idx_batch[-1] + 1].before.tolist()
             batch_ids = self.df.iloc[idx_batch[0] : idx_batch[-1] + 1].id.tolist()
             if set(batch_ids).issubset(done):
@@ -228,12 +280,20 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
         self.val = BigVulDatasetLineVD(partition="val", **dataargs)
         self.test = BigVulDatasetLineVD(partition="test", **dataargs)
         codebert = cb.CodeBert()
-        self.train.cache_codebert_method_level(codebert)
-        self.val.cache_codebert_method_level(codebert)
-        self.test.cache_codebert_method_level(codebert)
-        self.train.cache_items(codebert)
-        self.val.cache_items(codebert)
-        self.test.cache_items(codebert)
+        if enable_dataflow:
+            max_df_dim = self.train.get_max_dataflow_dim()
+            print("max_df_dim", max_df_dim)
+            max_df_dim = self.val.get_max_dataflow_dim(max_df_dim)
+            print("max_df_dim", max_df_dim)
+            max_df_dim = self.test.get_max_dataflow_dim(max_df_dim)
+            print("max_df_dim", max_df_dim)
+        max_df_dim = None
+        # self.train.cache_codebert_method_level(codebert)
+        # self.val.cache_codebert_method_level(codebert)
+        # self.test.cache_codebert_method_level(codebert)
+        self.train.cache_items(codebert, max_df_dim)
+        self.val.cache_items(codebert, max_df_dim)
+        self.test.cache_items(codebert, max_df_dim)
         self.batch_size = batch_size
         self.nsampling = nsampling
         self.nsampling_hops = nsampling_hops
@@ -248,7 +308,7 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
             batch_size=self.batch_size,
             shuffle=shuffle,
             drop_last=False,
-            num_workers=1,
+            num_workers=10,
         )
 
     def train_dataloader(self):

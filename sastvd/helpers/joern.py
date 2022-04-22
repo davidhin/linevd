@@ -117,7 +117,7 @@ def get_node_edges(filepath: str, verbose=0):
         nodes = nodes.fillna("")
         try:
             nodes = nodes[
-                ["id", "_label", "name", "code", "lineNumber", "controlStructureType"]
+                ["id", "_label", "name", "code", "lineNumber", "controlStructureType", "order"]
             ]
         except Exception as E:
             if verbose > 1:
@@ -299,6 +299,9 @@ def rdg(edges, gtype):
             | (edges.etype == "EVAL_TYPE")
             | (edges.etype == "REF")
         ]
+    if gtype == "dataflow":
+        # return edges[(edges.etype == "CFG") | (edges.etype == "AST") | (edges.etype == "ARGUMENT")]
+        return edges[(edges.etype == "CFG") | (edges.etype == "AST")]
 
 
 def assign_line_num_to_local(nodes, edges, code):
