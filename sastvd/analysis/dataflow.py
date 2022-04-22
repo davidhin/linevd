@@ -16,6 +16,71 @@ def get_edge_subgraph(cpg, graph_etype):
         ]
     return cpg.edge_subgraph(edges=filtered_edges)
 
+"""
+# Operators from https://github.com/joernio/joern/blob/master/joern-cli/src/main/resources/default.semantics
+# "<operator>.sizeOf" reduces the FPs
+# 1->-1 first parameter mapped to return value (-1)
+# "<operator>.addition" 1->-1 2->-1
+# "<operator>.addressOf" 1->-1
+"<operator>.assignment" 2->1
+"<operator>.assignmentAnd" 2->1 1->1
+"<operator>.assignmentArithmeticShiftRight" 2->1 1->1
+"<operator>.assignmentDivision" 2->1 1->1
+"<operator>.assignmentExponentiation" 2->1 1->1
+"<operator>.assignmentLogicalShiftRight" 2->1 1->1
+"<operator>.assignmentMinus" 2->1 1->1
+"<operator>.assignmentModulo" 2->1 1->1
+"<operator>.assignmentMultiplication" 2->1 1->1
+"<operator>.assignmentOr" 2->1 1->1
+"<operator>.assignmentPlus" 2->1 1->1
+"<operator>.assignmentShiftLeft" 2->1 1->1
+"<operator>.assignmentXor" 2->1 1->1
+# "<operator>.computedMemberAccess" 1->-1
+# "<operator>.conditional" 2->-1 3->-1
+# "<operator>.fieldAccess" 1->-1
+# "<operator>.getElementPtr" 1->-1
+"<operator>.incBy" 1->1 2->1 3->1 4->1
+# "<operator>.indexAccess" 1->-1
+# "<operator>.indirectComputedMemberAccess" 1->-1
+# "<operator>.indirectFieldAccess" 1->-1
+# "<operator>.indirectIndexAccess" 1->-1 2->-1
+# "<operator>.indirectMemberAccess" 1->-1
+# "<operator>.indirection" 1->-1
+# "<operator>.memberAccess" 1->-1
+# "<operator>.pointerShift" 1->-1
+"<operator>.postDecrement" 1->1
+"<operator>.postIncrement" 1->1
+"<operator>.preDecrement" 1->1
+"<operator>.preIncrement" 1->1
+# "<operator>.sizeOf"
+# "free" 1->1
+# "scanf" 2->2
+# "strcmp" 1->-1 2->-1
+"""
+
+assignment_ops = [
+    "<operator>.assignment",
+    "<operator>.assignmentAnd",
+    "<operator>.assignmentArithmeticShiftRight",
+    "<operator>.assignmentDivision",
+    "<operator>.assignmentExponentiation",
+    "<operator>.assignmentLogicalShiftRight",
+    "<operator>.assignmentMinus",
+    "<operator>.assignmentModulo",
+    "<operator>.assignmentMultiplication",
+    "<operator>.assignmentOr",
+    "<operator>.assignmentPlus",
+    "<operator>.assignmentShiftLeft",
+    "<operator>.assignmentXor",
+]
+inc_dec_ops = [
+    "<operator>.incBy",
+    "<operator>.postDecrement",
+    "<operator>.postIncrement",
+    "<operator>.preDecrement",
+    "<operator>.preIncrement",
+]
+mod_ops = assignment_ops + inc_dec_ops
 
 @dataclasses.dataclass
 class VariableDefinition:
@@ -42,83 +107,22 @@ class ReachingDefinitions:
 
         # TODO: Collect domain in constructor and index into it
         # instead of creating VariableDefinition during analysis
-
+        self.gen_set = {}
+        for node, attr in self.cpg.nodes(data=True):
+            # if node in (1000200, 1000244):
+            #     breakpoint()
+            if attr['name'] in mod_ops:
+                self.gen_set[node] = {VariableDefinition(self.get_assigned_variable(node), node, self.cpg.nodes[node]["code"])}
+            else:
+                self.gen_set[node] = set()
+    
     @property
     def domain(self):
-        """
-        all definition nodes in program
-        """
-        return set(VariableDefinition(self.get_assigned_variable(node), node, self.cpg.nodes[node]["code"]) for node, attr in self.cpg.nodes(data=True) if attr['name'] == '<operator>.assignment')
+        return set().union(*self.gen_set.values())
 
     def get_assigned_variable(self, node):
         """Get the name of the variable assigned in the node, if any"""
-        # breakpoint()
         if node in self.ast.nodes:
-            """
-            https://github.com/joernio/joern/blob/master/joern-cli/src/main/resources/default.semantics
-            # "<operator>.sizeOf" reduces the FPs
-            # 1->-1 first parameter mapped to return value (-1)
-            # "<operator>.addition" 1->-1 2->-1
-            # "<operator>.addressOf" 1->-1
-            "<operator>.assignment" 2->1
-            "<operator>.assignmentAnd" 2->1 1->1
-            "<operator>.assignmentArithmeticShiftRight" 2->1 1->1
-            "<operator>.assignmentDivision" 2->1 1->1
-            "<operator>.assignmentExponentiation" 2->1 1->1
-            "<operator>.assignmentLogicalShiftRight" 2->1 1->1
-            "<operator>.assignmentMinus" 2->1 1->1
-            "<operator>.assignmentModulo" 2->1 1->1
-            "<operator>.assignmentMultiplication" 2->1 1->1
-            "<operator>.assignmentOr" 2->1 1->1
-            "<operator>.assignmentPlus" 2->1 1->1
-            "<operator>.assignmentShiftLeft" 2->1 1->1
-            "<operator>.assignmentXor" 2->1 1->1
-            # "<operator>.computedMemberAccess" 1->-1
-            # "<operator>.conditional" 2->-1 3->-1
-            # "<operator>.fieldAccess" 1->-1
-            # "<operator>.getElementPtr" 1->-1
-            "<operator>.incBy" 1->1 2->1 3->1 4->1
-            # "<operator>.indexAccess" 1->-1
-            # "<operator>.indirectComputedMemberAccess" 1->-1
-            # "<operator>.indirectFieldAccess" 1->-1
-            # "<operator>.indirectIndexAccess" 1->-1 2->-1
-            # "<operator>.indirectMemberAccess" 1->-1
-            # "<operator>.indirection" 1->-1
-            # "<operator>.memberAccess" 1->-1
-            # "<operator>.pointerShift" 1->-1
-            "<operator>.postDecrement" 1->1
-            "<operator>.postIncrement" 1->1
-            "<operator>.preDecrement" 1->1
-            "<operator>.preIncrement" 1->1
-            # "<operator>.sizeOf"
-            # "free" 1->1
-            # "scanf" 2->2
-            # "strcmp" 1->-1 2->-1
-            """
-            
-            assignment_ops = [
-                "<operator>.assignment",
-                "<operator>.assignmentAnd",
-                "<operator>.assignmentArithmeticShiftRight",
-                "<operator>.assignmentDivision",
-                "<operator>.assignmentExponentiation",
-                "<operator>.assignmentLogicalShiftRight",
-                "<operator>.assignmentMinus",
-                "<operator>.assignmentModulo",
-                "<operator>.assignmentMultiplication",
-                "<operator>.assignmentOr",
-                "<operator>.assignmentPlus",
-                "<operator>.assignmentShiftLeft",
-                "<operator>.assignmentXor",
-            ]
-            inc_dec_ops = [
-                "<operator>.incBy",
-                "<operator>.postDecrement",
-                "<operator>.postIncrement",
-                "<operator>.preDecrement",
-                "<operator>.preIncrement",
-            ]
-            mod_ops = assignment_ops + inc_dec_ops
             if self.cpg.nodes[node]["name"] in mod_ops:
                 children = sorted(self.argument.successors(node), key=lambda n: self.cpg.nodes[n]["order"])
                 if len(children) > 0:
@@ -127,11 +131,7 @@ class ReachingDefinitions:
 
     def gen(self, node):
         """if v is defined in node, gen {node}"""
-        v = self.get_assigned_variable(node)
-        if v is None:
-            return set()
-        else:
-            return {VariableDefinition(v, node, self.cpg.nodes[node]["code"])}
+        return self.gen_set[node]
 
     def kill(self, node, definitions):
         """if v is defined in node, kill {all other definitions of v}"""
@@ -164,7 +164,7 @@ class ReachingDefinitions:
         return in_reachingdefs
     
     def __str__(self):
-        return str(self.domain)
+        return str([d.code for d in self.domain])
 
 def print_program(cpg):
     for p in sorted(cpg.nodes(data=True), key=lambda p: p[1].get("id", -1)):
@@ -207,6 +207,7 @@ def test_get_cpg():
     cpg = get_cpg(svddc.BigVulDataset.itempath(0))
     print(cpg)
     problem = ReachingDefinitions(cpg)
+    print(problem)
 
     gas = problem.get_assigned_variable(1000107)
     print("should get variable", gas)
@@ -234,7 +235,7 @@ def test_get_cpg():
     assert len(kill2) == 2
 
     rd = problem.get_reaching_definitions()
-    print("should have reaching definitions", json.dumps({cpg.nodes[n]["lineNumber"]: [dataclasses.asdict(x) for x in sorted(d)] for n, d in rd.items()}, indent=2))
+    # print("should have reaching definitions", json.dumps({cpg.nodes[n]["lineNumber"]: [dataclasses.asdict(x) for x in sorted(d)] for n, d in rd.items()}, indent=2))
     assert len(rd) == len(problem.cfg.nodes)
     assert any(len(d) > 0 for d in rd.values())
     # This is only a simple test case which doesn't reassign any variables,
