@@ -4,61 +4,70 @@ import networkx as nx
 import sastvd.linevd as svd
 import sastvd.helpers.joern as svdj
 import sastvd.helpers.dclass as svddc
+import dataclasses
+import json
 
 
 def get_edge_subgraph(cpg, graph_etype):
-    # graph_etype = edge_type_map[graph_etype]
-    filtered_edges = [(u, v, k) for u, v, k, etype in cpg.edges(keys=True, data='type')
-                      if etype == graph_etype]
+    filtered_edges = [
+        (u, v, k)
+        for u, v, k, etype in cpg.edges(keys=True, data='type')
+        if etype == graph_etype
+        ]
     return cpg.edge_subgraph(edges=filtered_edges)
+
+
+@dataclasses.dataclass
+class VariableDefinition:
+    v: str
+    node: int
+    code: str
+
+    def __hash__(self):
+        return self.node
+
+    def __lt__(self, other):
+        return self.node < other.node
 
 
 class ReachingDefinitions:
     def __init__(self, cpg):
         self.cpg = cpg
-        # cfg_node_subgraph = cpg.subgraph(nodes=[n for n, is_cfg_node in cpg.nodes(data="isCFGNode") if is_cfg_node])
-        # cfg_edge_subgraph = get_subgraph(cpg, edge_type_map['FLOWS_TO'])
-        # self.cfg = nx.algorithms.operators.union(cfg_node_subgraph, cfg_edge_subgraph)
         self.cfg = get_edge_subgraph(cpg, 'CFG')
         self.ast = get_edge_subgraph(cpg, 'AST')
-        # self.args = get_edge_subgraph(cpg, 'ARGUMENT')
 
     @property
-    def variables(self):
+    def domain(self):
         """
-        TODO: Rename to "domain"
+        all definition nodes in program
         """
-        return set(self.cpg.nodes[n]['code'] for n in self.cpg.nodes if
-                   self.cpg.nodes[n]['label'] == ["IDENTIFIER"])
+        return set(node for node, attr in self.cpg.nodes(data=True) if attr['name'] == '<operator>.assignment')
 
     def get_assigned_variable(self, node):
         """Get the name of the variable assigned in the node, if any"""
+        # breakpoint()
         if node in self.ast.nodes:
-            # assign_descendants = [desc for desc in nx.descendants(self.ast, node)
-            #                       if self.cpg.nodes[desc]['name'] == node_type_map['<operator>.assignment']]
-            assign_descendants = [desc for desc in nx.descendants(self.ast, node)
-                                  if self.cpg.nodes[desc]['name'] == '<operator>.assignment']
-            for ass in assign_descendants:
-                desc = sorted(nx.descendants(self.args, node), key=lambda n: self.cpg[n]["order"])
-                if len(desc) > 0:
-                    return desc[0]["code"]
+            if self.ast.nodes[node]["name"] == '<operator>.assignment':
+                children = sorted(self.ast.successors(node), key=lambda n: self.ast.nodes[node]["order"])
+                if len(children) > 0:
+                    return self.ast.nodes[children[0]]["code"]
         return None
 
     def gen(self, node):
-        """Generate reaching defs for this node"""
-        assigned_variable = self.get_assigned_variable(node)
-        if assigned_variable is None:
+        """if v is defined in node, gen {node}"""
+        v = self.get_assigned_variable(node)
+        if v is None:
             return set()
         else:
-            return {(assigned_variable, node)}
+            return {VariableDefinition(v, node, self.cpg.nodes[node]["code"])}
 
-    def kill(self, node, reaching_defs):
-        """Kill reaching defs for this node"""
-        assigned_variable = self.get_assigned_variable(node)
-        if assigned_variable is None:
+    def kill(self, node, definitions):
+        """if v is defined in node, kill {all other definitions of v}"""
+        v = self.get_assigned_variable(node)
+        if v is None:
             return set()
         else:
-            return {rd for rd in reaching_defs if rd[0] == assigned_variable}
+            return {d for d in definitions if d.v == v}
 
     def get_reaching_definitions(self):
         """https://www.cs.cmu.edu/afs/cs/academic/class/15745-s16/www/lectures/L6-Foundations-of-Dataflow.pdf"""
@@ -83,34 +92,83 @@ class ReachingDefinitions:
         return in_reachingdefs
     
     def __str__(self):
-        return f'{self.variables} {self.get_reaching_definitions()}'
+        return str(self.domain)
 
-
+def print_program(cpg):
+    for p in sorted(cpg.nodes(data=True), key=lambda p: p[1].get("id", -1)):
+        if "code" in p[1]:
+            print(str(p[1]["lineNumber"]) + ": " + p[1]["code"])
 
 def get_cpg(id_itempath):
     n, e = svdj.get_node_edges(id_itempath)
-    n, e = svd.ne_groupnodes(n, e)
+
+    # inline parts of this function to clean up nodes without grouping by lineno
+    # n, e = svd.ne_groupnodes(n, e)
+    n = n[n.lineNumber != ""].copy()
+    n.lineNumber = n.lineNumber.astype(int)
+    e.innode = e.innode.astype(int)
+    e.outnode = e.outnode.astype(int)
+    n = svdj.drop_lone_nodes(n, e)
+    e = e.drop_duplicates(subset=["innode", "outnode", "etype"])
     
     e = svdj.rdg(e, "dataflow")
     n = svdj.drop_lone_nodes(n, e)
+
+    # TODO: This is a stopgap. Find out why there are extra edges!
+    e = e[e.innode.isin(n.id) & e.outnode.isin(n.id)]
 
     nodes = n
     edges = e
 
     print('nodes', nodes.columns, nodes.head())
     print('edges', edges.columns, edges.head())
-    
-    # Run dataflow problem extractor (modify to process new-joern structure)
-    cpg = nx.MultiDiGraph()
-    cpg.add_nodes_from(nodes.apply(lambda n: (n.id, {'code': n.code, 'name': n.name, 'label': n._label, 'order': n.order}), axis=1))
-    cpg.add_edges_from(edges.apply(lambda e: (e.outnode, e.innode, {'type': e.etype}), axis=1))
+
     # Extract CFG with code
-    # cpg.add_nodes_from(dict(zip(nodes.id, [{'code': c, 'name': n, 'label': l, 'order': l} for c, n, l, o in zip(nodes.code, nodes.name, nodes._label, nodes.order)])))
-    # cpg.add_edges_from(dict(zip(edges.outnode.tolist(), edges.innode.tolist(), [{'type': c} for c in edges.etype])))
+    cpg = nx.MultiDiGraph()
+    cpg.add_nodes_from(nodes.apply(lambda n: (n.id, {'lineNumber': int(n.lineNumber), 'code': n.code, 'name': n["name"], '_label': n._label, 'order': int(n.order)}), axis=1))
+    cpg.add_edges_from(edges.apply(lambda e: (e.outnode, e.innode, {'type': e.etype}), axis=1))
+    print_program(cpg)
 
     return cpg
 
 def test_get_cpg():
-    cpg = get_cpg(svddc.BigVulDataset.itempath(10))
+    cpg = get_cpg(svddc.BigVulDataset.itempath(0))
     print(cpg)
-    print(ReachingDefinitions(cpg))
+    problem = ReachingDefinitions(cpg)
+
+    gas = problem.get_assigned_variable(1000107)
+    print("should get variable", gas)
+    assert gas is not None
+    
+    gas2 = problem.get_assigned_variable(1000129)
+    print("should not get variable", gas2)
+    assert gas2 is None
+    
+    gen = problem.gen(1000107)
+    print("should gen", gen)
+    assert len(gen) == 1
+    assert list(gen)[0].v == 'schemaFlagsEx'
+    
+    gen = problem.gen(1000129)
+    print("should not gen", gen)
+    assert len(gen) == 0
+
+    kill = problem.kill(1000107, problem.gen(1000107))
+    print("should kill itself", kill)
+    assert len(kill) == 1
+
+    kill2 = problem.kill(1000107, problem.gen(1000107).union({VariableDefinition('schemaFlagsEx', -1, 'schemaFlagsEx = foo()')}))
+    print("should kill itself and any others", kill2)
+    assert len(kill2) == 2
+
+    rd = problem.get_reaching_definitions()
+    print("should have reaching definitions", json.dumps({cpg.nodes[n]["lineNumber"]: [dataclasses.asdict(x) for x in sorted(d)] for n, d in rd.items()}, indent=2))
+    assert len(rd) == len(problem.cfg.nodes)
+    assert any(len(d) > 0 for d in rd.values())
+    # This is only a simple test case which doesn't reassign any variables,
+    # so we expect that every node has RD only from the nodes on previous lines.
+    # Does not hold for all programs.
+    nodes_and_counts = [(cpg.nodes[n], len(d)) for n, d in rd.items() if cpg.nodes[n]["_label"] != "METHOD_RETURN"]
+    nodes_and_counts_by_lineno = sorted(nodes_and_counts, key=lambda p: p[0]["lineNumber"])
+    counts = [c for n, c in nodes_and_counts_by_lineno]
+    assert counts == sorted(counts)
