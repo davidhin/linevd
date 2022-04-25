@@ -204,6 +204,28 @@ def get_cpg(id_itempath):
 
     return cpg
 
+def get_domain(id_itempath):
+    n, e = svdj.get_node_edges(id_itempath)
+    n = n[n.lineNumber != ""].copy()
+    n.lineNumber = n.lineNumber.astype(int)
+    e.innode = e.innode.astype(int)
+    e.outnode = e.outnode.astype(int)
+    n = svdj.drop_lone_nodes(n, e)
+    e = e.drop_duplicates(subset=["innode", "outnode", "etype"])
+    n = svdj.drop_lone_nodes(n, e)
+    e = e[e.innode.isin(n.id) & e.outnode.isin(n.id)]
+
+    mod_nodes = n[n["name"].isin(mod_ops)]
+    # mod_var_node_ids = e[e.outnode.isin(mod_nodes) & (e.etype == "AST")].groupby("order").head(1)
+    # mov_var_nodes = n.join(mod_var_node_ids, left_on='id', right_on='innode')
+    # print(mod_nodes)
+    return mod_nodes.id.tolist(), n.id.tolist()
+
+def test_get_domain():
+    print(get_domain(svddc.BigVulDataset.itempath(0)))
+    print(get_domain(svddc.BigVulDataset.itempath(18983)))
+
+
 def test_weird_assignment_operators():
     """
     For some reason the operators in this program show up as <operators> instead of <operator>.

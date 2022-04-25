@@ -52,28 +52,21 @@ def ne_groupnodes(n, e):
 
 
 def dataflow_feature_extraction(_id, node_ids=None, max_dataflow_dim=None):
-    cpg = df.get_cpg(_id)
-
-    # run beginning of dataflow and return input features
-    problem = df.ReachingDefinitions(cpg)
+    # # run beginning of dataflow and return input features
+    defs, all_node_ids = df.get_domain(_id)
     if node_ids is None:
         # Get all nodes
-        node_ids = list(cpg.nodes)
-    # graph = problem.cfg
-    defs = list(sorted(problem.domain))
-    print(_id, len(defs), "defs", defs)
+        node_ids = all_node_ids
     dataflow_embeddings = th.zeros((len(node_ids), len(defs)), dtype=th.int)
     for i, node in enumerate(node_ids):
-        gen = problem.gen(node)
-        # print("gen", i, gen)  # TODO: fix... and test the dataflow implementation tbh
-        if len(gen) > 0:
-            for rd in gen:
-                # print("reaching definition", rd)
-                dataflow_embeddings[i][defs.index(rd)] = 1
+        try:
+            def_idx = defs.index(node)
+            dataflow_embeddings[i][def_idx] = 1
+        except ValueError:
+            pass
     
     # pad to max dim
     if max_dataflow_dim is not None:
-        print("pad to", max_dataflow_dim)
         pad = th.zeros((dataflow_embeddings.shape[0], max_dataflow_dim))  # Assume 2d
         pad[:, :dataflow_embeddings.size(1)] = dataflow_embeddings
         dataflow_embeddings = pad
@@ -186,7 +179,7 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
         # TODO: get dataflow features
         # breakpoint()
         if enable_dataflow:
-            dataflow_features = dataflow_feature_extraction(svddc.BigVulDataset.itempath(_id), nids, max_dataflow_dim)
+            dataflow_features = dataflow_feature_extraction(svddc.BigVulDataset.itempath(_id), node_ids=nids, max_dataflow_dim=max_dataflow_dim)
 
         if _id in self.lines:
             vuln = [1 if i in self.lines[_id] else 0 for i in lineno]
@@ -231,7 +224,7 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
         # Load each graph from file and get the dimension of the dataflow features
         for i in tqdm(self.df.sample(len(self.df)).id.tolist(), desc="get_max_dataflow_dim"):
             dataflow_features = dataflow_feature_extraction(svddc.BigVulDataset.itempath(i))
-            max_dim = max(max_dim, dataflow_features.shape[0])
+            max_dim = max(max_dim, dataflow_features.shape[1])
         return max_dim
 
     def cache_items(self, codebert, max_df_dim):
@@ -295,7 +288,6 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
             print("max_df_dim", max_df_dim)
             max_df_dim = self.test.get_max_dataflow_dim(max_df_dim)
             print("max_df_dim", max_df_dim)
-        max_df_dim = None
         # self.train.cache_codebert_method_level(codebert)
         # self.val.cache_codebert_method_level(codebert)
         # self.test.cache_codebert_method_level(codebert)
