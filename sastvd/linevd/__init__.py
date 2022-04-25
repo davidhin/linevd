@@ -141,9 +141,14 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
         self.glove_dict, _ = svdg.glove_dict(glove_path)
         self.d2v = svdd2v.D2V(svd.processed_dir() / "bigvul/d2v_False")
         self.feat = feat
+        self.max_df_dim = kwargs.get('max_df_dim', None)
 
-    def item(self, _id, codebert=None, max_dataflow_dim=-1):
+    def item(self, _id, codebert=None, max_dataflow_dim=None):
         """Cache item."""
+        
+        if max_dataflow_dim is None:
+            max_dataflow_dim = self.max_df_dim
+
         if enable_dataflow:
             savedir = svd.get_dir(
                 svd.cache_dir() / f"bigvul_linevd_codebert_dataflow_{self.graph_type}"
@@ -152,6 +157,7 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
             savedir = svd.get_dir(
                 svd.cache_dir() / f"bigvul_linevd_codebert_{self.graph_type}"
             ) / str(_id)
+        # breakpoint()
         if os.path.exists(savedir):
             g = load_graphs(str(savedir))[0][0]
             # g.ndata["_FVULN"] = g.ndata["_VULN"].max().repeat((g.number_of_nodes()))
@@ -161,17 +167,23 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
                 g.ndata.pop("_SASTFF")
             #     g.ndata.pop("_GLOVE")
             #     g.ndata.pop("_DOC2VEC")
-            if "_CODEBERT" in g.ndata:
-                if self.feat == "codebert":
-                    for i in ["_GLOVE", "_DOC2VEC", "_RANDFEAT"]:
-                        g.ndata.pop(i, None)
-                if self.feat == "glove":
-                    for i in ["_CODEBERT", "_DOC2VEC", "_RANDFEAT"]:
-                        g.ndata.pop(i, None)
-                if self.feat == "doc2vec":
-                    for i in ["_CODEBERT", "_GLOVE", "_RANDFEAT"]:
-                        g.ndata.pop(i, None)
-                return g
+            # print(g)
+            # breakpoint()
+            if g.node_attr_schemes()["_DATAFLOW"].shape[0] != max_dataflow_dim:
+                print("wrong shape!", _id, g.node_attr_schemes()["_DATAFLOW"].shape[0], max_dataflow_dim)
+            else:
+                if "_CODEBERT" in g.ndata:
+                    if self.feat == "codebert":
+                        for i in ["_GLOVE", "_DOC2VEC", "_RANDFEAT"]:
+                            g.ndata.pop(i, None)
+                    if self.feat == "glove":
+                        for i in ["_CODEBERT", "_DOC2VEC", "_RANDFEAT"]:
+                            g.ndata.pop(i, None)
+                    if self.feat == "doc2vec":
+                        for i in ["_CODEBERT", "_GLOVE", "_RANDFEAT"]:
+                            g.ndata.pop(i, None)
+                    return g
+        # breakpoint()
         code, lineno, ei, eo, et, nids = feature_extraction(
             svddc.BigVulDataset.itempath(_id), self.graph_type, return_node_ids=True,
         )
@@ -276,18 +288,24 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
     ):
         """Init class from bigvul dataset."""
         super().__init__()
+        codebert = cb.CodeBert()
+        # codebert = None
         dataargs = {"sample": sample, "gtype": gtype, "splits": splits, "feat": feat}
         self.train = BigVulDatasetLineVD(partition="train", **dataargs)
         self.val = BigVulDatasetLineVD(partition="val", **dataargs)
         self.test = BigVulDatasetLineVD(partition="test", **dataargs)
-        codebert = cb.CodeBert()
-        if enable_dataflow:
-            max_df_dim = self.train.get_max_dataflow_dim()
-            print("max_df_dim", max_df_dim)
-            max_df_dim = self.val.get_max_dataflow_dim(max_df_dim)
-            print("max_df_dim", max_df_dim)
-            max_df_dim = self.test.get_max_dataflow_dim(max_df_dim)
-            print("max_df_dim", max_df_dim)
+        # if enable_dataflow:
+        #     max_df_dim = self.train.get_max_dataflow_dim()
+        #     print("max_df_dim", max_df_dim)
+        #     max_df_dim = self.val.get_max_dataflow_dim(max_df_dim)
+        #     print("max_df_dim", max_df_dim)
+        #     max_df_dim = self.test.get_max_dataflow_dim(max_df_dim)
+        #     print("max_df_dim", max_df_dim)
+        max_df_dim = 1058
+        self.max_df_dim = max_df_dim
+        self.train.max_df_dim = max_df_dim
+        self.val.max_df_dim = max_df_dim
+        self.test.max_df_dim = max_df_dim
         # self.train.cache_codebert_method_level(codebert)
         # self.val.cache_codebert_method_level(codebert)
         # self.test.cache_codebert_method_level(codebert)
@@ -308,7 +326,7 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
             batch_size=self.batch_size,
             shuffle=shuffle,
             drop_last=False,
-            num_workers=10,
+            num_workers=4,
         )
 
     def train_dataloader(self):
@@ -316,22 +334,22 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
         if self.nsampling:
             g = next(iter(GraphDataLoader(self.train, batch_size=len(self.train))))
             return self.node_dl(g, shuffle=True)
-        return GraphDataLoader(self.train, shuffle=True, batch_size=self.batch_size)
+        return GraphDataLoader(self.train, shuffle=True, batch_size=self.batch_size, num_workers=4)
 
     def val_dataloader(self):
         """Return val dataloader."""
         if self.nsampling:
             g = next(iter(GraphDataLoader(self.val, batch_size=len(self.val))))
             return self.node_dl(g)
-        return GraphDataLoader(self.val, batch_size=self.batch_size)
+        return GraphDataLoader(self.val, batch_size=self.batch_size, num_workers=4)
 
     def val_graph_dataloader(self):
         """Return test dataloader."""
-        return GraphDataLoader(self.val, batch_size=32)
+        return GraphDataLoader(self.val, batch_size=32, num_workers=4)
 
     def test_dataloader(self):
         """Return test dataloader."""
-        return GraphDataLoader(self.test, batch_size=32)
+        return GraphDataLoader(self.test, batch_size=32, num_workers=4)
 
 
 # %%

@@ -13,3 +13,4 @@ hpc/logs/*
 **/*.gzip
 **/workspace
 hpc/logs*
+logs*
