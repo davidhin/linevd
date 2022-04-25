@@ -123,7 +123,11 @@ def train_single_model(config):
     )
     config["input_dim"] = data.max_df_dim
     model = config["model_class"](**config)
-    trainer.fit(model, datamodule=data)
+    if config["evaluate"]:
+        test_performance = trainer.test(model=model, datamodule=data, ckpt_path=config["resume_from_checkpoint"])
+        logger.info(test_performance)
+    else:
+        trainer.fit(model, datamodule=data)
 
 
 def get_trainer(config):
@@ -151,6 +155,14 @@ def get_trainer(config):
                 / (config["unique_id"] + config["log_suffix"])
                 / 'overfit_batch'
         )
+    elif config["evaluation"]:
+        base_dir = (
+                project_root_dir
+                / "logs"
+                / (config["unique_id"] + config["log_suffix"])
+                / 'evaluation'
+        )
+        assert config["resume_from_checkpoint"] is not None
     else:
         base_dir = (
                 project_root_dir
@@ -202,7 +214,7 @@ def get_trainer(config):
         callbacks.append(PyTorchLightningPruningCallback(config["tune_trial"], monitor=config["target_metric"]))
 
     trainer = pl.Trainer(
-        gpus=1,
+        gpus=1 if config["cuda"] else 0,
         num_sanity_val_steps=0 if config["tune"] else 2,
         overfit_batches=1 if config["debug_overfit"] else 0,
         limit_train_batches=config["debug_train_batches"] if config["debug_train_batches"] else 1.0,
@@ -224,6 +236,7 @@ def main(config):
     logger.info(f'config={config}')
     seed_all(config["seed"])
 
+    config["cuda"] = torch.cuda.is_available()
     logger.info(f'gpus={torch.cuda.is_available()}, {torch.cuda.device_count()}')
 
     # dataset = MyDGLDataset(config, verbose=True)
@@ -336,6 +349,7 @@ if __name__ == '__main__':
     parser.add_argument("--n_trials", type=int, default=50, help='how many trials to tune')
     parser.add_argument("--tune_timeout", type=int, default=60 * 60 * 24, help='time limit for tuning')
     # training options
+    parser.add_argument("--evaluation", action='store_true', help='only do evaluation on test set')
     parser.add_argument("--debug_overfit", action='store_true', help='debug mode - overfit one batch')
     parser.add_argument("--clean", action='store_true', help='clean old outputs')
     parser.add_argument("--batch_size", type=int, default=64, help='number of items to load in a batch')
