@@ -291,6 +291,8 @@ def rdg(edges, gtype):
         return edges[(edges.etype == "REACHING_DEF") | (edges.etype == "CDG")]
     if gtype == "cfgcdg":
         return edges[(edges.etype == "CFG") | (edges.etype == "CDG")]
+    if gtype == "cfg":
+        return edges[(edges.etype == "CFG")]
     if gtype == "all":
         return edges[
             (edges.etype == "REACHING_DEF")

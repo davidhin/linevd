@@ -11,7 +11,7 @@ import sastvd.helpers.glove as svdglove
 class BigVulDataset:
     """Represent BigVul as graph dataset."""
 
-    def __init__(self, partition="train", vulonly=False, sample=-1, splits="default"):
+    def __init__(self, partition="train", vulonly=False, sample=-1, splits="default", load_code=False):
         """Init class."""
         # Get finished samples
         self.finished = [
@@ -22,6 +22,9 @@ class BigVulDataset:
         self.partition = partition
         self.df = self.df[self.df.label == partition]
         self.df = self.df[self.df.id.isin(self.finished)]
+        # NOTE: drop several columns to save memory
+        if not load_code:
+            self.df = self.df.drop(columns=["before", "after", "removed", "added", "diff"])
         print("len(df)=", len(self.df))
         print("df head=", self.df.head())
 
@@ -58,7 +61,8 @@ class BigVulDataset:
             df_id = self.df.id
             valid_cache_df = pd.DataFrame({"id": df_id, "valid": valid}, index=self.df.index)
             valid_cache_df.to_csv(valid_cache)
-        self.df = self.df[valid_cache_df["valid"]]
+        print(valid_cache_df["valid"].value_counts())
+        self.df = self.df[self.df.id.isin(valid_cache_df[valid_cache_df["valid"]].id)]
 
         # Get mapping from index to sample ID.
         self.df = self.df.reset_index(drop=True).reset_index()
@@ -66,8 +70,8 @@ class BigVulDataset:
         self.idx2id = pd.Series(self.df.id.values, index=self.df.idx).to_dict()
 
         # Load Glove vectors.
-        glove_path = svd.processed_dir() / "bigvul/glove_False/vectors.txt"
-        self.emb_dict, _ = svdglove.glove_dict(glove_path)
+        # glove_path = svd.processed_dir() / "bigvul/glove_False/vectors.txt"
+        # self.emb_dict, _ = svdglove.glove_dict(glove_path)
 
     def itempath(_id):
         """Get itempath path from item id."""

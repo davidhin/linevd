@@ -26,9 +26,16 @@ from dgl.dataloading import GraphDataLoader
 from dgl.nn.pytorch import GATConv, GraphConv
 from sklearn.metrics import PrecisionRecallDisplay, precision_recall_curve
 from tqdm import tqdm
+from multiprocessing import Pool
 import networkx as nx
 
 enable_dataflow = True
+
+def get_dataflow_dim(i):
+    cpg = df.get_cpg(svddc.BigVulDataset.itempath(i))
+    problem = df.ReachingDefinitions(cpg)
+    domain_len = len(problem.domain)*2
+    return domain_len
 
 
 def ne_groupnodes(n, e):
@@ -52,39 +59,62 @@ def ne_groupnodes(n, e):
 
 
 def dataflow_feature_extraction(_id, node_ids=None, max_dataflow_dim=None):
-    # # run beginning of dataflow and return input features
-    defs, all_node_ids = df.get_domain(_id)
+    cpg = df.get_cpg(_id)
+
+    # run beginning of dataflow and return input features
+    problem = df.ReachingDefinitions(cpg)
     if node_ids is None:
         # Get all nodes
-        node_ids = all_node_ids
-    dataflow_embeddings = th.zeros((len(node_ids), len(defs)), dtype=th.int)
+        node_ids = list(cpg.nodes)
+
+    defs = list(sorted(problem.domain))
+    # print(_id, len(defs), "defs", defs)
+    gen_embeddings = th.zeros((len(node_ids), len(defs)), dtype=th.int)
+    kill_embeddings = th.zeros((len(node_ids), len(defs)), dtype=th.int)
     for i, node in enumerate(node_ids):
-        try:
-            def_idx = defs.index(node)
-            dataflow_embeddings[i][def_idx] = 1
-        except ValueError:
-            pass
+        gen = problem.gen(node)
+        if len(gen) > 0:
+            for rd in gen:
+                gen_embeddings[i][defs.index(rd)] = 1
+        kill = problem.kill(node)
+        if len(kill) > 0:
+            for rd in kill:
+                kill_embeddings[i][defs.index(rd)] = 1
+    dataflow_embeddings = th.cat((gen_embeddings, kill_embeddings), axis=1)
+    
+    # print(_id, dataflow_embeddings.shape, gen_embeddings.sum().item(), kill_embeddings.sum().item())
     
     # pad to max dim
     if max_dataflow_dim is not None:
+        # print("pad", dataflow_embeddings.shape[1], "to", max_dataflow_dim)
         pad = th.zeros((dataflow_embeddings.shape[0], max_dataflow_dim))  # Assume 2d
         pad[:, :dataflow_embeddings.size(1)] = dataflow_embeddings
         dataflow_embeddings = pad
     return dataflow_embeddings
 
 
-def feature_extraction(_id, graph_type="cfgcdg", return_nodes=False, return_node_ids=False):
+def feature_extraction(_id, graph_type="cfgcdg", return_nodes=False, return_node_ids=False, group=True):
     """Extract graph feature (basic).
 
     _id = svddc.BigVulDataset.itempath(177775)
     _id = svddc.BigVulDataset.itempath(180189)
     _id = svddc.BigVulDataset.itempath(178958)
 
-    return_nodes arg is used to get the node information (for empirical evaluation).
+    return_nodes arg is used to get the node information (for empirical evalu
+    ation).
     """
     # Get CPG
     n, e = svdj.get_node_edges(_id)
-    n, e = ne_groupnodes(n, e)
+    if group:
+        n, e = svd.ne_groupnodes(n, e)
+    else:
+        n = n[n.lineNumber != ""].copy()
+        n.lineNumber = n.lineNumber.astype(int)
+        n["nodeId"] = n.id
+        e.innode = e.innode.astype(int)
+        e.outnode = e.outnode.astype(int)
+        n = svdj.drop_lone_nodes(n, e)
+        e = e.drop_duplicates(subset=["innode", "outnode", "etype"])
 
     # Return node metadata
     if return_nodes:
@@ -120,28 +150,28 @@ def feature_extraction(_id, graph_type="cfgcdg", return_nodes=False, return_node
         n.code = "</s>" + " " + n.code
 
     if return_node_ids:
-        return n.code.tolist(), n.id.tolist(), e.innode.tolist(), e.outnode.tolist(), etypes, n.nodeId.tolist()
+        return n.code.tolist(), n.lineNumber.tolist(), e.innode.tolist(), e.outnode.tolist(), etypes, n.nodeId.tolist()
     else:
         # Return plain-text code, line number list, innodes, outnodes
-        return n.code.tolist(), n.id.tolist(), e.innode.tolist(), e.outnode.tolist(), etypes
+        return n.code.tolist(), n.lineNumber.tolist(), e.innode.tolist(), e.outnode.tolist(), etypes
 
 
 # %%
 class BigVulDatasetLineVD(svddc.BigVulDataset):
     """IVDetect version of BigVul."""
 
-    def __init__(self, gtype="pdg", feat="all", **kwargs):
+    def __init__(self, gtype="pdg", feat="all", max_df_dim=None, **kwargs):
         """Init."""
         super(BigVulDatasetLineVD, self).__init__(**kwargs)
         lines = ivde.get_dep_add_lines_bigvul()
         lines = {k: set(list(v["removed"]) + v["depadd"]) for k, v in lines.items()}
         self.lines = lines
         self.graph_type = gtype
-        glove_path = svd.processed_dir() / "bigvul/glove_False/vectors.txt"
-        self.glove_dict, _ = svdg.glove_dict(glove_path)
-        self.d2v = svdd2v.D2V(svd.processed_dir() / "bigvul/d2v_False")
+        # glove_path = svd.processed_dir() / "bigvul/glove_False/vectors.txt"
+        # self.glove_dict, _ = svdg.glove_dict(glove_path)
+        # self.d2v = svdd2v.D2V(svd.processed_dir() / "bigvul/d2v_False")
         self.feat = feat
-        self.max_df_dim = kwargs.get('max_df_dim', None)
+        self.max_df_dim = max_df_dim
 
     def item(self, _id, codebert=None, max_dataflow_dim=None):
         """Cache item."""
@@ -182,13 +212,13 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
                     if self.feat == "doc2vec":
                         for i in ["_CODEBERT", "_GLOVE", "_RANDFEAT"]:
                             g.ndata.pop(i, None)
-                    return g
+                return g
         # breakpoint()
         code, lineno, ei, eo, et, nids = feature_extraction(
-            svddc.BigVulDataset.itempath(_id), self.graph_type, return_node_ids=True,
+            svddc.BigVulDataset.itempath(_id), self.graph_type, return_node_ids=True, group=False,
         )
 
-        # TODO: get dataflow features
+        # get dataflow features
         # breakpoint()
         if enable_dataflow:
             dataflow_features = dataflow_feature_extraction(svddc.BigVulDataset.itempath(_id), node_ids=nids, max_dataflow_dim=max_dataflow_dim)
@@ -198,15 +228,15 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
         else:
             vuln = [0 for _ in lineno]
         g = dgl.graph((eo, ei))
-        gembeds = th.Tensor(svdg.get_embeddings_list(code, self.glove_dict, 200))
-        g.ndata["_GLOVE"] = gembeds
-        g.ndata["_DOC2VEC"] = th.Tensor([self.d2v.infer(i) for i in code])
-        if codebert:
-            code = [c.replace("\\t", "").replace("\\n", "") for c in code]
-            chunked_batches = svd.chunks(code, 128)
-            features = [codebert.encode(c).detach().cpu() for c in chunked_batches]
-            g.ndata["_CODEBERT"] = th.cat(features)
-        g.ndata["_RANDFEAT"] = th.rand(size=(g.number_of_nodes(), 100))
+        #gembeds = th.Tensor(svdg.get_embeddings_list(code, self.glove_dict, 200))
+        #g.ndata["_GLOVE"] = gembeds
+        #g.ndata["_DOC2VEC"] = th.Tensor([self.d2v.infer(i) for i in code])
+        #if codebert:
+        #    code = [c.replace("\\t", "").replace("\\n", "") for c in code]
+        #    chunked_batches = svd.chunks(code, 128)
+        #    features = [codebert.encode(c).detach().cpu() for c in chunked_batches]
+        #    g.ndata["_CODEBERT"] = th.cat(features)
+        #g.ndata["_RANDFEAT"] = th.rand(size=(g.number_of_nodes(), 100))
         g.ndata["_LINE"] = th.Tensor(lineno).int()
         g.ndata["_VULN"] = th.Tensor(vuln).float()
 
@@ -226,17 +256,19 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
 
         g.ndata["_FVULN"] = g.ndata["_VULN"].max().repeat((g.number_of_nodes()))
         g.edata["_ETYPE"] = th.Tensor(et).long()
-        emb_path = svd.cache_dir() / f"codebert_method_level/{_id}.pt"
-        g.ndata["_FUNC_EMB"] = th.load(emb_path).repeat((g.number_of_nodes(), 1))
+        #emb_path = svd.cache_dir() / f"codebert_method_level/{_id}.pt"
+        #g.ndata["_FUNC_EMB"] = th.load(emb_path).repeat((g.number_of_nodes(), 1))
         g = dgl.add_self_loop(g)
         save_graphs(str(savedir), [g])
         return g
         
     def get_max_dataflow_dim(self, max_dim=0):
         # Load each graph from file and get the dimension of the dataflow features
-        for i in tqdm(self.df.sample(len(self.df)).id.tolist(), desc="get_max_dataflow_dim"):
-            dataflow_features = dataflow_feature_extraction(svddc.BigVulDataset.itempath(i))
-            max_dim = max(max_dim, dataflow_features.shape[1])
+        with Pool(12) as pool:
+            for domain_len in tqdm(pool.imap_unordered(get_dataflow_dim, self.df.sample(len(self.df)).id.tolist()), total=len(self.df), desc="get_max_dataflow_dim"):
+                if domain_len > max_dim:
+                    print("new max", domain_len)
+                    max_dim = domain_len
         return max_dim
 
     def cache_items(self, codebert, max_df_dim):
@@ -285,12 +317,13 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
         gtype: str = "cfgcdg",
         splits: str = "default",
         feat: str = "all",
+        load_code=False,
     ):
         """Init class from bigvul dataset."""
         super().__init__()
         codebert = cb.CodeBert()
         # codebert = None
-        dataargs = {"sample": sample, "gtype": gtype, "splits": splits, "feat": feat}
+        dataargs = {"sample": sample, "gtype": gtype, "splits": splits, "feat": feat, "load_code": load_code}
         self.train = BigVulDatasetLineVD(partition="train", **dataargs)
         self.val = BigVulDatasetLineVD(partition="val", **dataargs)
         self.test = BigVulDatasetLineVD(partition="test", **dataargs)
@@ -309,9 +342,9 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
         # self.train.cache_codebert_method_level(codebert)
         # self.val.cache_codebert_method_level(codebert)
         # self.test.cache_codebert_method_level(codebert)
-        self.train.cache_items(codebert, max_df_dim)
-        self.val.cache_items(codebert, max_df_dim)
-        self.test.cache_items(codebert, max_df_dim)
+        # self.train.cache_items(codebert, max_df_dim)
+        # self.val.cache_items(codebert, max_df_dim)
+        # self.test.cache_items(codebert, max_df_dim)
         self.batch_size = batch_size
         self.nsampling = nsampling
         self.nsampling_hops = nsampling_hops
@@ -405,6 +438,9 @@ class LitGNN(pl.LightningModule):
 
         # Metrics
         self.accuracy = torchmetrics.Accuracy()
+        self.f1 = torchmetrics.F1()
+        self.prec = torchmetrics.Precision()
+        self.rec = torchmetrics.Recall()
         self.auroc = torchmetrics.AUROC(compute_on_step=False)
         self.mcc = torchmetrics.MatthewsCorrcoef(2)
 
@@ -605,6 +641,9 @@ class LitGNN(pl.LightningModule):
         logits = logits[1] if self.hparams.multitask == "method" else logits[0]
         pred = F.softmax(logits, dim=1)
         acc = self.accuracy(pred.argmax(1), labels)
+        f1 = self.f1(pred.argmax(1), labels)
+        prec = self.prec(pred.argmax(1), labels)
+        rec = self.rec(pred.argmax(1), labels)
         mcc = self.mcc(pred.argmax(1), labels)
 
         self.log("val_loss", loss, on_step=True, prog_bar=True, logger=True)
@@ -612,6 +651,9 @@ class LitGNN(pl.LightningModule):
         self.log("val_auroc", self.auroc, prog_bar=True, logger=True)
         self.log("val_acc", acc, prog_bar=True, logger=True)
         self.log("val_mcc", mcc, prog_bar=True, logger=True)
+        self.log("val_prec", prec, prog_bar=True, logger=True)
+        self.log("val_rec", rec, prog_bar=True, logger=True)
+        self.log("val_f1", f1, prog_bar=True, logger=True)
         return loss
 
     def test_step(self, batch, batch_idx):

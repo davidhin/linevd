@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -N 1
-#SBATCH -n 2
+#SBATCH -n 12
 #SBATCH --mem 48G
 #SBATCH --time=2-00:00:00
 #SBATCH --err="hpc/logs/cache_dataset_%j.info"

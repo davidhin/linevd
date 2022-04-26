@@ -107,7 +107,7 @@ class ReachingDefinitions:
         self.ast = get_edge_subgraph(cpg, 'AST')
         self.argument = get_edge_subgraph(cpg, 'ARGUMENT')
 
-        # TODO: Collect domain in constructor and index into it
+        # Collect domain in constructor and index into it
         # instead of creating VariableDefinition during analysis
         self.gen_set = {}
         for node, attr in self.cpg.nodes(data=True):
@@ -133,13 +133,15 @@ class ReachingDefinitions:
         """if v is defined in node, gen {node}"""
         return self.gen_set[node]
 
-    def kill(self, node, definitions):
+    def kill(self, node, definitions=None):
         """if v is defined in node, kill {all other definitions of v}"""
+        if definitions is None:
+            definitions = self.domain
         v = self.get_assigned_variable(node)
         if v is None:
             return set()
         else:
-            return {d for d in definitions if d.v == v}
+            return {d for d in definitions if d.v == v and d.node != node}
 
     def get_reaching_definitions(self):
         """https://www.cs.cmu.edu/afs/cs/academic/class/15745-s16/www/lectures/L6-Foundations-of-Dataflow.pdf"""
@@ -215,10 +217,11 @@ def get_domain(id_itempath):
     n = svdj.drop_lone_nodes(n, e)
     e = e[e.innode.isin(n.id) & e.outnode.isin(n.id)]
 
-    mod_nodes = n[n["name"].isin(mod_ops)]
-    # mod_var_node_ids = e[e.outnode.isin(mod_nodes) & (e.etype == "AST")].groupby("order").head(1)
-    # mov_var_nodes = n.join(mod_var_node_ids, left_on='id', right_on='innode')
-    # print(mod_nodes)
+    # Too hard!
+    # mod_nodes = n[n["name"].isin(mod_ops)]
+    # mod_var_node_ids = mod_nodes.id.apply(lambda n: e[e.outnode == n & (e.etype == "AST")]["order"].idxmax()).innode
+    # mod_var_nodes = n.merge(mod_nodes[mod_nodes.id.isin(mod_var_node_ids)], on='id')
+
     return mod_nodes.id.tolist(), n.id.tolist()
 
 def test_get_domain():
