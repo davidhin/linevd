@@ -16,8 +16,35 @@ module load singularity gcc/7.3.0-xegsmw4 cuda/10.2.89-jveb27i
 
 nvidia-smi
 
+# 670720
+# singularity exec --nv main.sif python code_gnn/main.py --model flow_gnn --dataset SARD \
+#     --clean --batch_size 1024 --max_epochs 1000 \
+#     --label_style node
+
+# 670724
+# singularity exec --nv main.sif python code_gnn/main.py --model flow_gnn --dataset SARD \
+#     --clean --batch_size 1024 --max_epochs 1000 \
+#     --label_style node --undersample_factor 1.0
+
+# 671130
+# singularity exec --nv main.sif python code_gnn/main.py --model flow_gnn --dataset SARD \
+#     --clean --batch_size 1024 --max_epochs 1000 \
+#     --label_style node --undersample_factor 1.0 --weight_decay 1e-2
+
+# 671131
+# singularity exec --nv main.sif python code_gnn/main.py --model flow_gnn --dataset SARD \
+#     --clean --batch_size 1024 --max_epochs 1000 \
+#     --label_style node --undersample_factor 1.0 --learning_rate 1e-4 --weight_decay 1e-2
+
+
+# Now need to retrain with the good dataset
+if $1 == "first"
+then
 singularity exec --nv main.sif python code_gnn/main.py --model flow_gnn --dataset SARD \
-    --clean --batch_size 1024 --max_epochs 1000 \
-    --label_style node --undersample_factor 1.0
-    #--node_type_separate
-    #--undersample_factor 1.0
+    --clean --batch_size 1024 --max_epochs 2500 \
+    --label_style node --learning_rate 1e-3 --weight_decay 1e-2
+else
+singularity exec --nv main.sif python code_gnn/main.py --model flow_gnn --dataset SARD \
+    --clean --batch_size 1024 --max_epochs 2500 \
+    --label_style node --learning_rate 1e-3 --weight_decay 1e-2 --undersample_factor 1.0
+fi

@@ -25,7 +25,46 @@ from code_gnn.periodic_checkpoint import PeriodicModelCheckpoint
 
 from sastvd.linevd import BigVulDatasetLineVDDataModule
 
+import dgl
+import gensim
+import matplotlib.pyplot as plt
+import networkx as nx
+import torch
+
 logger = logging.getLogger()
+
+
+def visualize_example(g, b=None, a=None, _id=None):
+    for cn, c in (("before", b), ("after", a)):
+        c = c.splitlines()
+        # visualize
+        plt.figure(figsize=(15, 12))
+        # color_map = [("white" if h.sum().item() == 0 else "red") for (n, attr), h in zip(graph.nodes(data=True), node_embeddings)]
+        color_map = None
+        int2label = {}
+        dataflow_embeddings = g.ndata["_DATAFLOW"]
+        node_label = g.ndata["_VULN"]
+        line = g.ndata["_LINE"]
+        for i in enumerate(g.nodes()):
+            s = str(node_label[i].item())
+            if c is not None:
+                s += ": " + c[line[i]]
+            if any(dataflow_embeddings[i]):
+                for j, j_feat in enumerate(dataflow_embeddings[i]):
+                    if j < len(dataflow_embeddings.shape[1]) / 2:
+                        s += "\ngen "
+                    else:
+                        s += "\nkill "
+                    if j_feat != 0:
+                        # breakpoint()
+                        s += j
+            int2label[i] = s
+        graph = dgl.to_networkx(g)
+        graph_rl = nx.relabel_nodes(graph, int2label)
+        # pos = nx.spring_layout(graph)
+        pos = None
+        nx.draw(graph_rl, pos=pos, node_color=color_map, with_labels=True)
+        plt.savefig("images/" + _id + "_" + cn + ".png")
 
 
 def train_optuna(trial, config):
@@ -111,19 +150,27 @@ def train_single_model(config):
     #     logger.info(f'Average {metric} of {len(agg_performance[metric])} runs: {np.average(agg_performance[metric])}')
     
     print("config =", config)
-    trainer = get_trainer(config)
     data = BigVulDatasetLineVDDataModule(
         batch_size=config["batch_size"],
         # sample=100,
         methodlevel=False,
         # nsampling=True,
         # nsampling_hops=2,
-        gtype="pdg+raw",
+        # gtype="pdg+raw",
+        gtype="cfg",
         splits="default",
+        load_code=config["dataset_only"],
     )
+    if config["dataset_only"]:
+        for i in range(10):
+            visualize_example(data.train[i], data.train.df.loc[data.train.idx2id[i]]["before"], data.train.df.loc[data.train.idx2id[i]]["after"])
+        return
+    trainer = get_trainer(config)
+    print("graph", data.train[0])
+    print("graph data", data.train[0].ndata)
     config["input_dim"] = data.max_df_dim
     model = config["model_class"](**config)
-    if config["evaluate"]:
+    if config["evaluation"]:
         test_performance = trainer.test(model=model, datamodule=data, ckpt_path=config["resume_from_checkpoint"])
         logger.info(test_performance)
     else:
@@ -353,7 +400,7 @@ if __name__ == '__main__':
     parser.add_argument("--debug_overfit", action='store_true', help='debug mode - overfit one batch')
     parser.add_argument("--clean", action='store_true', help='clean old outputs')
     parser.add_argument("--batch_size", type=int, default=64, help='number of items to load in a batch')
-    parser.add_argument("--target_metric", type=str, default='valid/f1', help='metric to optimize for')
+    parser.add_argument("--target_metric", type=str, default='valid/loss', help='metric to optimize for')
     parser.add_argument("--take_checkpoint", type=str, default='best', help='how to select checkpoint for evaluation')
     parser.add_argument("--resume_from_checkpoint", type=str, help='checkpoint file to resume from')
     parser.add_argument("--n_folds", type=int, default=1, help='number of cross-validation folds to run.')

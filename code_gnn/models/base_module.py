@@ -178,11 +178,14 @@ class BaseModule(pl.LightningModule):
         # logger.info(f'val label {label.sum().item()}')
         out = self.forward(batch)
         pred = torch.gt(out, 0.5)
+        loss = self.loss_fn(out, label)
+        self.log('valid/loss', loss, logger=False, batch_size=batch.batch_size)
         self.log('valid/f1', torch.tensor(f1_score(pred.int().cpu(), label.int().cpu(), zero_division=0)), logger=False,
                  batch_size=batch.batch_size)
         self.log('valid/acc', torch.tensor(accuracy_score(pred.int().cpu(), label.int().cpu())), logger=False,
                  batch_size=batch.batch_size)
         return {
+            "loss": loss, "loss_dim": len(out),
             "out": out.detach(),
             "batch_num_nodes": batch.batch_num_nodes().detach(),
             "label": label
