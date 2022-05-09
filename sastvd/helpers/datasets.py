@@ -154,7 +154,8 @@ def bigvul(minimal=True, sample=False, return_raw=False, splits="default"):
 
             return df
         except Exception as E:
-            print(E)
+            print("bigvul exception", E)
+
             pass
     filename = "MSR_data_cleaned_SAMPLE.csv" if sample else "MSR_data_cleaned.csv"
     df = pd.read_csv(svd.external_dir() / filename)

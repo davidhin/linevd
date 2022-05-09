@@ -1,11 +1,13 @@
-import sastvd.linevd as lvd
 import functools
 import multiprocessing
-import tqdm
-import numpy as np
-from code_gnn.main import visualize_example
-from pathlib import Path
 import traceback
+from datetime import datetime
+from pathlib import Path
+
+import numpy as np
+import sastvd.linevd as lvd
+import tqdm
+from code_gnn.main import visualize_example
 
 test = False
 
@@ -13,14 +15,13 @@ storage_dir = Path("storage/processed/bigvul")
 
 def do_one(ds, max_df_dim, split, dataargs, t):
     i, ids = t
-    for _id in tqdm.tqdm(ids, desc="cache_items", position=i):
+    # for _id in tqdm.tqdm(ids, desc="cache_items", position=i):
+    log_every = len(ids) // 10
+    for j, _id in enumerate(ids):
         try:
+            if j != 0 and j % log_every == 0:
+                print("do_one", i, j, datetime.now())
             g = ds.item(_id, max_dataflow_dim=max_df_dim)
-            # b_fpath = storage_dir / "before" / (str(_id) + ".c")
-            # b = b_fpath.open().read() if b_fpath.exists() else None
-            # a_fpath = storage_dir / "after" / (str(_id) + ".c")
-            # a = a_fpath.open().read() if a_fpath.exists() else None
-            # visualize_example(g, b, a, _id=_id)
         except Exception as E:
             print("exception", traceback.format_exc())
         if test:
@@ -32,7 +33,7 @@ if __name__ == "__main__":
         "sample": 100 if test else -1,
         "gtype": "cfg",
         "splits": "default",
-        "feat": "all"
+        "feat": "_ABS_DATAFLOW"
     }
 
     if test:
@@ -48,7 +49,7 @@ if __name__ == "__main__":
     # Load all data
     # breakpoint()
     # nproc = 3 if test else 12
-    nproc = 12
+    nproc = 1 if test else 12
     with multiprocessing.Pool(nproc) as pool:
         for split in ["train", "val", "test"]:
             ds = lvd.BigVulDatasetLineVD(partition=split, **dataargs)

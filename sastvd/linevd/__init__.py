@@ -1,11 +1,15 @@
 """Main code for training. Probably needs refactoring."""
 import os
+import traceback
 from glob import glob
+from multiprocessing import Pool
 
 import dgl
+import networkx as nx
 import pandas as pd
 import pytorch_lightning as pl
 import sastvd as svd
+import sastvd.analysis.dataflow as df
 import sastvd.codebert as cb
 import sastvd.helpers.dclass as svddc
 import sastvd.helpers.doc2vec as svdd2v
@@ -17,7 +21,6 @@ import sastvd.helpers.rank_eval as svdr
 import sastvd.helpers.sast as sast
 import sastvd.ivdetect.evaluate as ivde
 import sastvd.linevd.gnnexplainer as lvdgne
-import sastvd.analysis.dataflow as df
 import torch as th
 import torch.nn.functional as F
 import torchmetrics
@@ -26,8 +29,9 @@ from dgl.dataloading import GraphDataLoader
 from dgl.nn.pytorch import GATConv, GraphConv
 from sklearn.metrics import PrecisionRecallDisplay, precision_recall_curve
 from tqdm import tqdm
-from multiprocessing import Pool
-import networkx as nx
+
+# TODO: map all label strings to ints
+label_to_id = {}
 
 enable_dataflow = True
 
@@ -40,15 +44,14 @@ def get_dataflow_dim(i):
 
 def ne_groupnodes(n, e):
     """Group nodes with same line number."""
-    nl = n[n.lineNumber != ""].copy()
-    nl.lineNumber = nl.lineNumber.astype(int)
-    nl = nl.sort_values(by="code", key=lambda x: x.str.len(), ascending=False)
-    nl = nl.groupby("lineNumber").head(1)
+    nl = n.copy()
     el = e.copy()
-    el.innode = el.line_in
-    el.outnode = el.line_out
+    nl = nl.dropna(subset=["lineNumber"])
+    nl = nl.groupby("lineNumber").head(1)
     nl["nodeId"] = nl.id
     nl.id = nl.lineNumber
+    el.innode = el.line_in
+    el.outnode = el.line_out
     nl = svdj.drop_lone_nodes(nl, el)
     el = el.drop_duplicates(subset=["innode", "outnode", "etype"])
     el = el[el.innode.apply(lambda x: isinstance(x, float))]
@@ -93,7 +96,7 @@ def dataflow_feature_extraction(_id, node_ids=None, max_dataflow_dim=None):
     return dataflow_embeddings
 
 
-def feature_extraction(_id, graph_type="cfgcdg", return_nodes=False, return_node_ids=False, group=True):
+def feature_extraction(_id, graph_type="cfgcdg", return_nodes=False, return_node_ids=False, return_iddict=False, group=True, return_node_types=False):
     """Extract graph feature (basic).
 
     _id = svddc.BigVulDataset.itempath(177775)
@@ -140,20 +143,27 @@ def feature_extraction(_id, graph_type="cfgcdg", return_nodes=False, return_node
 
     # Append function name to code
     if "+raw" not in graph_type:
-        try:
-            func_name = n[n.lineNumber == 1].name.item()
-        except:
-            print(_id)
-            func_name = ""
-        n.code = func_name + " " + n.name + " " + "</s>" + " " + n.code
+        # try:
+        #     func_name = n[n.lineNumber == 1].name.item()
+        # except:
+        #     # print("file", _id)
+        #     func_name = ""
+        # n.code = func_name + " " + n.name + " " + "</s>" + " " + n.code
+        pass
     else:
         n.code = "</s>" + " " + n.code
 
+    ret = [n.code.tolist(), n.lineNumber.tolist(), e.innode.tolist(), e.outnode.tolist(), etypes]
     if return_node_ids:
-        return n.code.tolist(), n.lineNumber.tolist(), e.innode.tolist(), e.outnode.tolist(), etypes, n.nodeId.tolist()
-    else:
-        # Return plain-text code, line number list, innodes, outnodes
-        return n.code.tolist(), n.lineNumber.tolist(), e.innode.tolist(), e.outnode.tolist(), etypes
+        ret.append(n.nodeId.tolist())
+    if return_node_types:
+        label = n._label.tolist()
+        # TODO: replace calls to <operator>.assignment and such with name attribute
+        ret.append(label)
+    if return_iddict:
+        ret.append(iddict)
+    # Return plain-text code, line number list, innodes, outnodes
+    return tuple(ret)
 
 
 # %%
@@ -181,7 +191,7 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
 
         if enable_dataflow:
             savedir = svd.get_dir(
-                svd.cache_dir() / f"bigvul_linevd_codebert_dataflow_{self.graph_type}"
+                svd.cache_dir() / f"bigvul_linevd_codebert_dataflow_{self.graph_type}_{self.feat}"
             ) / str(_id)
         else:
             savedir = svd.get_dir(
@@ -199,23 +209,25 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
             #     g.ndata.pop("_DOC2VEC")
             # print(g)
             # breakpoint()
-            if g.node_attr_schemes()["_DATAFLOW"].shape[0] != max_dataflow_dim:
-                print("wrong shape!", _id, g.node_attr_schemes()["_DATAFLOW"].shape[0], max_dataflow_dim)
-            else:
-                if "_CODEBERT" in g.ndata:
-                    if self.feat == "codebert":
-                        for i in ["_GLOVE", "_DOC2VEC", "_RANDFEAT"]:
-                            g.ndata.pop(i, None)
-                    if self.feat == "glove":
-                        for i in ["_CODEBERT", "_DOC2VEC", "_RANDFEAT"]:
-                            g.ndata.pop(i, None)
-                    if self.feat == "doc2vec":
-                        for i in ["_CODEBERT", "_GLOVE", "_RANDFEAT"]:
-                            g.ndata.pop(i, None)
-                return g
+            if "_DATAFLOW" in g.ndata:
+                g.ndata.pop("_DATAFLOW")
+            #if g.node_attr_schemes()["_DATAFLOW"].shape[0] != max_dataflow_dim:
+            #    print("wrong shape!", _id, g.node_attr_schemes()["_DATAFLOW"].shape[0], max_dataflow_dim)
+            # else:
+            if "_CODEBERT" in g.ndata:
+                if self.feat == "codebert":
+                    for i in ["_GLOVE", "_DOC2VEC", "_RANDFEAT"]:
+                        g.ndata.pop(i, None)
+                if self.feat == "glove":
+                    for i in ["_CODEBERT", "_DOC2VEC", "_RANDFEAT"]:
+                        g.ndata.pop(i, None)
+                if self.feat == "doc2vec":
+                    for i in ["_CODEBERT", "_GLOVE", "_RANDFEAT"]:
+                        g.ndata.pop(i, None)
+            return g
         # breakpoint()
-        code, lineno, ei, eo, et, nids = feature_extraction(
-            svddc.BigVulDataset.itempath(_id), self.graph_type, return_node_ids=True, group=False,
+        code, lineno, ei, eo, et, nids, ntypes, iddict = feature_extraction(
+            svddc.BigVulDataset.itempath(_id), self.graph_type, return_node_ids=True, return_iddict=True, group=False, return_node_types=True,
         )
 
         # get dataflow features
@@ -240,10 +252,26 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
         g.ndata["_LINE"] = th.Tensor(lineno).int()
         g.ndata["_VULN"] = th.Tensor(vuln).float()
 
+        # TODO: map all label strings to ints
+        # g.ndata["_LABEL"] = th.Tensor([label_to_id[l] for l in ntypes]).float()
+
         # Get dataflow features
         if enable_dataflow:
             # print("Adding dataflow to graph", dataflow_features)
             g.ndata["_DATAFLOW"] = dataflow_features
+            
+            if "_ABS_DATAFLOW" in self.feat:
+                def get_abs_dataflow_features(_id):
+                    nids_to_abs_df = self.abs_df[self.abs_df["graph_id"] == _id]
+                    print(nids_to_abs_df.columns)
+                    nids_to_abs_df = nids_to_abs_df.set_index(nids_to_abs_df["node_id"].map(iddict))
+                    hashes = sorted(self.abs_df["hash"].unique().tolist())
+                    dgl_feat = th.zeros((g.number_of_nodes(), len(hashes)))
+                    for i in range(len(dgl_feat)):
+                        f = nids_to_abs_df["hash"].get(i, "-1 -1 -1 -1")
+                        dgl_feat[i, hashes.index(f)] = 1
+                    return dgl_feat
+                g.ndata["_ABS_DATAFLOW"] = get_abs_dataflow_features(_id)
 
         # Get SAST labels
         # s = sast.get_sast_lines(svd.processed_dir() / f"bigvul/before/{_id}.c.sast.pkl")
@@ -264,11 +292,15 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
         
     def get_max_dataflow_dim(self, max_dim=0):
         # Load each graph from file and get the dimension of the dataflow features
-        with Pool(12) as pool:
-            for domain_len in tqdm(pool.imap_unordered(get_dataflow_dim, self.df.sample(len(self.df)).id.tolist()), total=len(self.df), desc="get_max_dataflow_dim"):
-                if domain_len > max_dim:
-                    print("new max", domain_len)
-                    max_dim = domain_len
+#        with Pool(12) as pool:
+#            for domain_len in tqdm(pool.imap_unordered(get_dataflow_dim, self.df.sample(len(self.df)).id.tolist()), total=len(self.df), desc="get_max_dataflow_dim"):
+#                if domain_len > max_dim:
+#                    print("new max", domain_len)
+#                    max_dim = domain_len
+        for domain_len in tqdm((get_dataflow_dim(_id) for _id in self.df.sample(len(self.df)).id.tolist()), desc="get_max_dataflow_dim"):
+            if domain_len > max_dim:
+                print("new max", domain_len)
+                max_dim = domain_len
         return max_dim
 
     def cache_items(self, codebert, max_df_dim):
@@ -277,7 +309,7 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
             try:
                 self.item(i, codebert, max_dataflow_dim=max_df_dim)
             except Exception as E:
-                print(E)
+                print("cache_items exception", E)
 
     def cache_codebert_method_level(self, codebert):
         """Cache method-level embeddings using Codebert.
@@ -321,7 +353,7 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
     ):
         """Init class from bigvul dataset."""
         super().__init__()
-        codebert = cb.CodeBert()
+        # codebert = cb.CodeBert()
         # codebert = None
         dataargs = {"sample": sample, "gtype": gtype, "splits": splits, "feat": feat, "load_code": load_code}
         self.train = BigVulDatasetLineVD(partition="train", **dataargs)
@@ -334,7 +366,7 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
         #     print("max_df_dim", max_df_dim)
         #     max_df_dim = self.test.get_max_dataflow_dim(max_df_dim)
         #     print("max_df_dim", max_df_dim)
-        max_df_dim = 1058
+        max_df_dim = 1058*2
         self.max_df_dim = max_df_dim
         self.train.max_df_dim = max_df_dim
         self.val.max_df_dim = max_df_dim
@@ -348,6 +380,10 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
         self.batch_size = batch_size
         self.nsampling = nsampling
         self.nsampling_hops = nsampling_hops
+
+        # del self.train.df
+        # del self.val.df
+        # del self.test.df
 
     def node_dl(self, g, shuffle=False):
         """Return node dataloader."""
@@ -367,22 +403,22 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
         if self.nsampling:
             g = next(iter(GraphDataLoader(self.train, batch_size=len(self.train))))
             return self.node_dl(g, shuffle=True)
-        return GraphDataLoader(self.train, shuffle=True, batch_size=self.batch_size, num_workers=4)
+        return GraphDataLoader(self.train, shuffle=True, batch_size=self.batch_size, num_workers=0)
 
     def val_dataloader(self):
         """Return val dataloader."""
         if self.nsampling:
             g = next(iter(GraphDataLoader(self.val, batch_size=len(self.val))))
             return self.node_dl(g)
-        return GraphDataLoader(self.val, batch_size=self.batch_size, num_workers=4)
+        return GraphDataLoader(self.val, batch_size=self.batch_size, num_workers=0)
 
     def val_graph_dataloader(self):
         """Return test dataloader."""
-        return GraphDataLoader(self.val, batch_size=32, num_workers=4)
+        return GraphDataLoader(self.val, batch_size=32, num_workers=0)
 
     def test_dataloader(self):
         """Return test dataloader."""
-        return GraphDataLoader(self.test, batch_size=32, num_workers=4)
+        return GraphDataLoader(self.test, batch_size=32, num_workers=0)
 
 
 # %%
@@ -712,7 +748,7 @@ class LitGNN(pl.LightningModule):
                             importance = importance.unsqueeze(1)
                             gnnelogits = th.cat([zeros.unsqueeze(1), importance], dim=1)
                         except Exception as E:
-                            print(E)
+                            print("test_epoch_end exc", traceback.format_exc())
                             pass
                     all_pred = th.cat([all_pred, gnnelogits])
                     func_pred = out[0][idx].argmax().repeat(g.number_of_nodes())
@@ -773,7 +809,7 @@ class LitGNN(pl.LightningModule):
         try:
             self.res3 = ml.dict_mean(rank_metrs)
         except Exception as E:
-            print(E)
+            print("test_epoch_end 2 exc", traceback.format_exc())
             pass
         self.res3vo = ml.dict_mean(rank_metrs_vo)
 

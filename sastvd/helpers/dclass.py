@@ -1,4 +1,5 @@
 import json
+import traceback
 from glob import glob
 from pathlib import Path
 
@@ -64,6 +65,13 @@ class BigVulDataset:
         print(valid_cache_df["valid"].value_counts())
         self.df = self.df[self.df.id.isin(valid_cache_df[valid_cache_df["valid"]].id)]
 
+        # Load abstract dataflow information
+        abs_df_file = svd.processed_dir() / f"bigvul/abstract_dataflow_hash_sample=False.csv"
+        if abs_df_file.exists():
+            self.abs_df = pd.read_csv(abs_df_file)
+        else:
+            print("YOU SHOULD RUN abstract_dataflow.py")
+
         # Get mapping from index to sample ID.
         self.df = self.df.reset_index(drop=True).reset_index()
         self.df = self.df.rename(columns={"index": "idx"})
@@ -105,7 +113,7 @@ class BigVulDataset:
                     return False
                 return True
         except Exception as E:
-            print(E, str(BigVulDataset.itempath(_id)))
+            print("valid exception", traceback.format_exc(), str(BigVulDataset.itempath(_id)))
             return False
 
     def get_vuln_indices(self, _id):

@@ -39,10 +39,10 @@ nvidia-smi
 
 
 # Now need to retrain with the good dataset
-singularity exec --nv main.sif python code_gnn/main.py --model flow_gnn --dataset MSR \
-   --clean --batch_size 1024 --max_epochs 500 \
-   --label_style node --learning_rate 1e-3 --weight_decay 1e-2
+#singularity exec --nv main.sif python code_gnn/main.py --model flow_gnn --dataset SARD \
+#    --clean --batch_size 1024 --max_epochs 2500 \
+#    --label_style node --learning_rate 1e-3 --weight_decay 1e-2
 
-# singularity exec --nv main.sif python code_gnn/main.py --model flow_gnn --dataset SARD \
-#     --clean --batch_size 1024 --max_epochs 300 \
-#     --label_style node --learning_rate 1e-3 --weight_decay 1e-2 --undersample_factor 1.0
+singularity exec --nv main.sif python -m cProfile -o profile.pstat code_gnn/main.py --model flow_gnn --dataset SARD \
+    --clean --batch_size 1024 --max_epochs 2500 \
+    --label_style node --learning_rate 1e-3 --weight_decay 1e-2 --undersample_factor 1.0

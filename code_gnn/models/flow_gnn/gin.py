@@ -5,18 +5,17 @@ https://openreview.net/forum?id=ryGs6iA5Km
 Author's implementation: https://github.com/weihua916/powerful-gnns
 """
 
+import logging
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from dgl.nn.pytorch.glob import SumPooling, AvgPooling, MaxPooling
-
 from code_gnn.globals import all_aggregate_functions
 from code_gnn.models.base_module import BaseModule
 from code_gnn.models.embedding_ids import node_type_map
 from code_gnn.models.flow_gnn.ginconv import MyGINConv
 from code_gnn.models.flow_gnn.mlp import MLP
-
-import logging
+from dgl.nn.pytorch.glob import AvgPooling, MaxPooling, SumPooling
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +24,7 @@ logger = logging.getLogger(__name__)
 #     "node_type": "node_type",
 # }
 feature_keys = {
-    "feature": "_DATAFLOW",
+    "feature": "_ABS_DATAFLOW",
     "node_type": "node_type",
 }
 

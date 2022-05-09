@@ -8,28 +8,27 @@ import shutil
 import sys
 from datetime import datetime
 
+import dgl
+import gensim
+import matplotlib.pyplot as plt
+import networkx as nx
 import numpy as np
 # import optuna
 # from optuna.integration import PyTorchLightningPruningCallback
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning import seed_everything
-from pytorch_lightning.callbacks import EarlyStopping, DeviceStatsMonitor, ModelCheckpoint
+from pytorch_lightning.callbacks import (DeviceStatsMonitor, EarlyStopping,
+                                         ModelCheckpoint)
 from pytorch_lightning.loggers import TensorBoardLogger
+from sastvd.linevd import BigVulDatasetLineVDDataModule
 
 from code_gnn.dataset import MyDGLDataset, split
-from code_gnn.globals import seed_all, project_root_dir, all_models, all_datasets
+from code_gnn.globals import (all_datasets, all_models, project_root_dir,
+                              seed_all)
 from code_gnn.models import model_class_dict
 from code_gnn.models.base_module import BaseModule
 from code_gnn.periodic_checkpoint import PeriodicModelCheckpoint
-
-from sastvd.linevd import BigVulDatasetLineVDDataModule
-
-import dgl
-import gensim
-import matplotlib.pyplot as plt
-import networkx as nx
-import torch
 
 logger = logging.getLogger()
 
@@ -159,12 +158,13 @@ def train_single_model(config):
         # gtype="pdg+raw",
         gtype="cfg",
         splits="default",
-        load_code=config["dataset_only"],
+        feat="_ABS_DATAFLOW"
+        #load_code=config["dataset_only"],
     )
-    if config["dataset_only"]:
-        for i in range(10):
-            visualize_example(data.train[i], data.train.df.loc[data.train.idx2id[i]]["before"], data.train.df.loc[data.train.idx2id[i]]["after"])
-        return
+    #if config["dataset_only"]:
+    #    for i in range(10):
+    #        visualize_example(data.train[i], data.train.df.loc[data.train.idx2id[i]]["before"], data.train.df.loc[data.train.idx2id[i]]["after"])
+    #    return
     trainer = get_trainer(config)
     print("graph", data.train[0])
     print("graph data", data.train[0].ndata)
