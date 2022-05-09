@@ -200,7 +200,7 @@ def get_cpg(id_itempath):
 
     # Extract CFG with code
     cpg = nx.MultiDiGraph()
-    cpg.add_nodes_from(nodes.apply(lambda n: (n.id, {'lineNumber': int(n.lineNumber), 'code': n.code, 'name': n["name"], '_label': n._label, 'order': int(n.order)}), axis=1))
+    cpg.add_nodes_from(nodes.apply(lambda n: (n.id, {'lineNumber': n.lineNumber if isinstance(n.lineNumber, (int, float)) else None, 'code': n.code, 'name': n["name"], '_label': n._label, 'order': int(n.order) if isinstance(n.order, (int, float)) else None, 'typeFullName': n.typeFullName}), axis=1))
     cpg.add_edges_from(edges.apply(lambda e: (e.outnode, e.innode, {'type': e.etype}), axis=1))
     # print_program(cpg)
 
