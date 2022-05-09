@@ -158,7 +158,8 @@ def train_single_model(config):
         # gtype="pdg+raw",
         gtype="cfg",
         splits="default",
-        feat="_ABS_DATAFLOW"
+        # feat="all",
+        feat="_ABS_DATAFLOW",
         #load_code=config["dataset_only"],
     )
     #if config["dataset_only"]:
@@ -168,7 +169,10 @@ def train_single_model(config):
     trainer = get_trainer(config)
     print("graph", data.train[0])
     print("graph data", data.train[0].ndata)
-    config["input_dim"] = data.max_df_dim
+
+    # config["input_dim"] = data.max_df_dim
+    config["input_dim"] = data.train[0].ndata["_ABS_DATAFLOW"].shape[1]
+    
     model = config["model_class"](**config)
     if config["evaluation"]:
         test_performance = trainer.test(model=model, datamodule=data, ckpt_path=config["resume_from_checkpoint"])

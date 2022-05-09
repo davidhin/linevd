@@ -88,11 +88,11 @@ def dataflow_feature_extraction(_id, node_ids=None, max_dataflow_dim=None):
     # print(_id, dataflow_embeddings.shape, gen_embeddings.sum().item(), kill_embeddings.sum().item())
     
     # pad to max dim
-    if max_dataflow_dim is not None:
-        # print("pad", dataflow_embeddings.shape[1], "to", max_dataflow_dim)
-        pad = th.zeros((dataflow_embeddings.shape[0], max_dataflow_dim))  # Assume 2d
-        pad[:, :dataflow_embeddings.size(1)] = dataflow_embeddings
-        dataflow_embeddings = pad
+    # if max_dataflow_dim is not None:
+    #     # print("pad", dataflow_embeddings.shape[1], "to", max_dataflow_dim)
+    #     pad = th.zeros((dataflow_embeddings.shape[0], max_dataflow_dim))  # Assume 2d
+    #     pad[:, :dataflow_embeddings.size(1)] = dataflow_embeddings
+    #     dataflow_embeddings = pad
     return dataflow_embeddings
 
 
@@ -181,13 +181,13 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
         # self.glove_dict, _ = svdg.glove_dict(glove_path)
         # self.d2v = svdd2v.D2V(svd.processed_dir() / "bigvul/d2v_False")
         self.feat = feat
-        self.max_df_dim = max_df_dim
+        # self.max_df_dim = max_df_dim
 
     def item(self, _id, codebert=None, max_dataflow_dim=None):
         """Cache item."""
         
-        if max_dataflow_dim is None:
-            max_dataflow_dim = self.max_df_dim
+        # if max_dataflow_dim is None:
+        #     max_dataflow_dim = self.max_df_dim
 
         if enable_dataflow:
             savedir = svd.get_dir(
@@ -366,11 +366,11 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
         #     print("max_df_dim", max_df_dim)
         #     max_df_dim = self.test.get_max_dataflow_dim(max_df_dim)
         #     print("max_df_dim", max_df_dim)
-        max_df_dim = 1058*2
-        self.max_df_dim = max_df_dim
-        self.train.max_df_dim = max_df_dim
-        self.val.max_df_dim = max_df_dim
-        self.test.max_df_dim = max_df_dim
+        # max_df_dim = 1058*2
+        # self.max_df_dim = max_df_dim
+        # self.train.max_df_dim = max_df_dim
+        # self.val.max_df_dim = max_df_dim
+        # self.test.max_df_dim = max_df_dim
         # self.train.cache_codebert_method_level(codebert)
         # self.val.cache_codebert_method_level(codebert)
         # self.test.cache_codebert_method_level(codebert)
