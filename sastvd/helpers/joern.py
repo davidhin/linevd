@@ -1,6 +1,8 @@
 import json
 import random
 import shutil
+# from graphviz import Digraph
+import traceback
 from collections import defaultdict
 from pathlib import Path
 
@@ -8,7 +10,6 @@ import numpy as np
 import pandas as pd
 import sastvd as svd
 import scipy.sparse as sparse
-from graphviz import Digraph
 
 
 def nodelabel2line(label: str):
@@ -111,18 +112,27 @@ def get_node_edges(filepath: str, verbose=0):
 
     with open(str(outfile) + ".nodes.json", "r") as f:
         nodes = json.load(f)
-        nodes = pd.DataFrame.from_records(nodes)
-        if "controlStructureType" not in nodes.columns:
-            nodes["controlStructureType"] = ""
+        keepcols = ["id", "_label", "name", "code", "lineNumber", "columnNumber", "lineNumberEnd", "columnNumberEnd", "controlStructureType", "order", "fullName", "typeFullName"]
+        nodes = pd.DataFrame.from_records(nodes, columns=keepcols)
+        #if "controlStructureType" not in nodes.columns:
+        #    nodes["controlStructureType"] = ""
         nodes = nodes.fillna("")
         try:
-            nodes = nodes[
-                ["id", "_label", "name", "code", "lineNumber", "controlStructureType", "order"]
-            ]
+            #actual_keepcols = []
+            #for col in keepcols:
+            #    if col in nodes.columns:
+            #        actual_keepcols.append(col)
+            #    else:
+            #        print("warn:", col, "not in columns", nodes.columns)
+            #keepcols = actual_keepcols
+            nodes = nodes[keepcols]
         except Exception as E:
             if verbose > 1:
-                svd.debug(f"Failed {filepath}: {E}")
+                svd.debug(f"Failed {filepath}: {E} {traceback.format_exc()}")
             return None
+
+    if len(nodes[nodes._label == "METHOD"]) == 0:
+        raise Exception("empty graph")
 
     # Assign line number to local variables
     with open(filepath, "r") as f:
@@ -176,10 +186,26 @@ def get_node_edges(filepath: str, verbose=0):
         if type(e.outnode) == str:
             lineNum = linemap[e.innode]
             node_label = f"TYPE_{lineNum}: {typemap[int(e.outnode.split('_')[0])]}"
-            nodes = nodes.append(
-                {"id": e.outnode, "node_label": node_label, "lineNumber": lineNum},
+            nodes = pd.concat(
+                (nodes, pd.DataFrame({"id": e.outnode, "node_label": node_label, "lineNumber": lineNum}, index=[0])),
                 ignore_index=True,
             )
+            
+    # moved some stuff from ne_groupnodes to here
+    nodes["nodeId"] = nodes.id  # id column is later overwritten to lineNumer, so saving it here
+    nodes.lineNumber = pd.to_numeric(nodes.lineNumber, errors='coerce').fillna(-1).astype(int)
+    nodes = nodes.sort_values(by="code", key=lambda x: x.str.len(), ascending=False)
+    nodes = drop_lone_nodes(nodes, edges)
+    edges = edges.drop_duplicates(subset=["innode", "outnode", "etype"])
+    
+    # breakpoint()
+    # TODO: test if this is necessary... check in_line and innode to see which one is float
+    # if "innode" in edges.columns:
+    #     edges = edges[edges.innode.apply(lambda x: isinstance(x, float))]
+    #     edges.innode = edges.innode.astype(int)
+    # if "outnode" in edges.columns:
+    #     edges = edges[edges.outnode.apply(lambda x: isinstance(x, float))]
+    #     edges.outnode = edges.outnode.astype(int)
 
     return nodes, edges
 
@@ -217,11 +243,11 @@ def full_run_joern(filepath: str, verbose=0):
     """Run full Joern extraction and save output."""
     try:
         run_joern(filepath, verbose)
-        nodes, edges = get_node_edges(filepath)
+        nodes, edges = get_node_edges(filepath, verbose=verbose)
         return {"nodes": nodes, "edges": edges}
     except Exception as E:
         if verbose > 0:
-            svd.debug(f"Failed {filepath}: {E}")
+            svd.debug(f"Failed {filepath}: {E} {traceback.format_exc()}")
         return None
 
 
