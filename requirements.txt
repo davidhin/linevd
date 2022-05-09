@@ -16,7 +16,6 @@ pandas
 fastparquet
 spacy
 imbalanced-learn
-dgl
 networkx
 pydot
 graphviz
@@ -31,11 +30,11 @@ pandarallel
 ipywidgets
 transformers
 torchtext
-torchsummary
 torchinfo
-tsne_torch
 pytorch-lightning
-torch_scatter
+torch-scatter
 ujson
 unidecode
-ray[tune]
+pygraphviz
+nltk
+dgl-cuda10.2
