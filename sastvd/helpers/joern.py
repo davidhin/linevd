@@ -81,7 +81,7 @@ def get_digraph(nodes, edges, edge_label=True):
 
 def run_joern(filepath: str, verbose: int):
     """Extract graph using most recent Joern."""
-    script_file = svd.external_dir() / "get_func_graph.scala"
+    script_file = (svd.external_dir() / "get_func_graph.scala").resolve().relative_to(Path.cwd())
     filename = svd.external_dir() / filepath
     params = f"filename={filename}"
     command = f"joern --script {script_file} --params='{params}'"
