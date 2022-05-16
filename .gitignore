@@ -22,5 +22,5 @@ logs*
 /x42/
 joern-install.sh
 joern-cli.zip
-hash_*.png
-has_hash_percent_*.png
+/*.png
+/*.csv
