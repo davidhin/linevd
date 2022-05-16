@@ -159,7 +159,7 @@ def train_single_model(config):
         gtype="cfg",
         splits="default",
         # feat="all",
-        feat="_ABS_DATAFLOW",
+        feat=config["feat"],
         #load_code=config["dataset_only"],
     )
     #if config["dataset_only"]:
@@ -379,6 +379,7 @@ if __name__ == '__main__':
     parser.add_argument("--dataset", choices=all_datasets,
                         required=True,
                         help='short ID for the dataset to train on')
+    parser.add_argument("--feat", required=True, help='node features to use')
     parser.add_argument("--node_limit", type=int, help='upper limit to the number of nodes in a graph')
     parser.add_argument("--graph_limit", type=int, help='upper limit to the number of graphs to parse')
     parser.add_argument("--filter", type=str, help='filter data to a certain persuasion', default='')
@@ -421,7 +422,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     args.model_class = model_class_dict[args.model]
 
-    args.unique_id = '_'.join(map(str, (args.model, args.dataset, args.node_limit, args.graph_limit, args.undersample_factor, args.filter, f"{args.learning_rate:f}".rstrip("0").rstrip("."), f"{args.weight_decay:f}".rstrip("0").rstrip("."), args.batch_size)))
+    args.unique_id = '_'.join(map(str, (args.model, args.dataset, args.feat, args.node_limit, args.graph_limit, args.undersample_factor, args.filter, f"{args.learning_rate:f}".rstrip("0").rstrip("."), f"{args.weight_decay:f}".rstrip("0").rstrip("."), args.batch_size)))
     if args.model == 'devign':
         args.unique_id += '_' + '_'.join(map(str, (args.window_size, args.graph_embed_size, args.num_layers)))
     else:

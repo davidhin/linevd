@@ -262,14 +262,14 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
             
             if "_ABS_DATAFLOW" in self.feat:
                 def get_abs_dataflow_features(_id):
+                    dgl_feat = th.zeros((g.number_of_nodes(), len(self.abs_df_hashes)))
+
                     nids_to_abs_df = self.abs_df[self.abs_df["graph_id"] == _id]
-                    print(nids_to_abs_df.columns)
+                    # assert len(nids_to_abs_df) > 0
                     nids_to_abs_df = nids_to_abs_df.set_index(nids_to_abs_df["node_id"].map(iddict))
-                    hashes = sorted(self.abs_df["hash"].unique().tolist())
-                    dgl_feat = th.zeros((g.number_of_nodes(), len(hashes)))
-                    for i in range(len(dgl_feat)):
-                        f = nids_to_abs_df["hash"].get(i, "-1 -1 -1 -1")
-                        dgl_feat[i, hashes.index(f)] = 1
+                    for nid in range(len(dgl_feat)):
+                        f = nids_to_abs_df["hash"].get(nid, None)
+                        dgl_feat[nid, self.abs_df_hashes.index(f)] = 1
                     return dgl_feat
                 g.ndata["_ABS_DATAFLOW"] = get_abs_dataflow_features(_id)
 

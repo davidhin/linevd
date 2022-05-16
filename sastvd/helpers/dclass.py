@@ -62,13 +62,17 @@ class BigVulDataset:
             df_id = self.df.id
             valid_cache_df = pd.DataFrame({"id": df_id, "valid": valid}, index=self.df.index)
             valid_cache_df.to_csv(valid_cache)
-        print(valid_cache_df["valid"].value_counts())
+        # print(valid_cache_df["valid"].value_counts())
         self.df = self.df[self.df.id.isin(valid_cache_df[valid_cache_df["valid"]].id)]
 
         # Load abstract dataflow information
-        abs_df_file = svd.processed_dir() / f"bigvul/abstract_dataflow_hash_sample=False.csv"
+        abs_df_file = svd.processed_dir() / f"bigvul/abstract_dataflow_hash_all.csv"
         if abs_df_file.exists():
             self.abs_df = pd.read_csv(abs_df_file)
+            self.abs_df["hash"] = self.abs_df["hash"].fillna(-1)
+            self.abs_df_hashes = sorted(self.abs_df["hash"].unique().tolist())
+            # self.abs_df_hashes.insert(0, -1)
+            self.abs_df_hashes.insert(0, None)
         else:
             print("YOU SHOULD RUN abstract_dataflow.py")
 
