@@ -79,6 +79,22 @@ def get_digraph(nodes, edges, edge_label=True):
     return dot
 
 
+def run_joern_dataflow(filepath: str, problem: str, verbose: int):
+    """Extract graph using most recent Joern."""
+    script_file = (svd.external_dir() / "get_dataflow.scala").resolve().relative_to(Path.cwd())
+    filename = svd.external_dir() / filepath
+    params = {
+        "filename": filepath,
+        "problem": problem,
+    }
+    params = ",".join(f"{k}={v}" for k, v in params.items())
+    command = f"joern --script {script_file} --params='{params}'"
+    command = str(svd.external_dir() / "joern-cli" / command)
+    if verbose > 2:
+        svd.debug(command)
+    svd.subprocess_cmd(command, verbose=verbose)
+
+
 def run_joern(filepath: str, verbose: int):
     """Extract graph using most recent Joern."""
     script_file = (svd.external_dir() / "get_func_graph.scala").resolve().relative_to(Path.cwd())

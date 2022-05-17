@@ -36,8 +36,19 @@ Tasks:
   - Graph based
 """
 
+# %%
+
 """
 1. Gather supervision
 """
 
+import sastvd.helpers.datasets as svdds
 
+test = True
+df = svdds.bigvul(sample=test)
+df = bigvul_filter(df, check_file=True, check_valid=True)
+
+problem = "reachingdefinition"
+for fpath in df["id"].map(svdds.itempath):
+    if not os.path.exists(f"{fpath}.dataflow.json") or test:
+        svdj.run_joern_dataflow(fpath, problem, verbose=args.verbose)
