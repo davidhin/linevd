@@ -114,7 +114,7 @@ def generate_d2v(dataset="bigvul", sample=False, cache=True, **kwargs):
     model.save(str(savedir / "d2v.model"))
 
 
-def bigvul(minimal=True, sample=False, return_raw=False, splits="default"):
+def bigvul(minimal=True, sample=False, return_raw=False, splits="default", after_parse=True):
     """Read BigVul Data.
 
     Args:
@@ -124,6 +124,7 @@ def bigvul(minimal=True, sample=False, return_raw=False, splits="default"):
     EDGE CASE FIXING:
     id = 177860 should not have comments in the before/after
     """
+
     savedir = svd.get_dir(svd.cache_dir() / "minimal_datasets")
     if minimal:
         try:
@@ -237,6 +238,116 @@ def bigvul(minimal=True, sample=False, return_raw=False, splits="default"):
     df[metadata_cols].to_csv(svd.cache_dir() / "bigvul/bigvul_metadata.csv", index=0)
     return df
 
+
+
+def check_validity(_id):
+    """Check whether sample with id=_id has node/edges.
+
+    Example:
+    _id = 1320
+    with open(str(svd.processed_dir() / f"bigvul/before/{_id}.c") + ".nodes.json", "r") as f:
+        nodes = json.load(f)
+    """
+    valid = 0
+    try:
+        with open(str(itempath(_id)) + ".nodes.json", "r") as f:
+            nodes = json.load(f)
+            lineNums = set()
+            for n in nodes:
+                if "lineNumber" in n.keys():
+                    lineNums.add(n["lineNumber"])
+                    if len(lineNums) > 1:
+                        valid = 1
+                        break
+            if valid == 0:
+                return False
+        with open(str(itempath(_id)) + ".edges.json", "r") as f:
+            edges = json.load(f)
+            edge_set = set([i[2] for i in edges])
+            if "REACHING_DEF" not in edge_set and "CDG" not in edge_set:
+                return False
+            return True
+    except Exception as E:
+        print("valid exception", traceback.format_exc(), str(itempath(_id)))
+        return False
+
+
+
+def itempath(_id):
+    """Get itempath path from item id."""
+    return svd.processed_dir() / f"bigvul/before/{_id}.c"
+
+
+def bigvul_filter(df, check_file=False, check_valid=False, vulonly=False, load_code=False, sample=-1):
+    """Filter dataset based on various considerations for training"""
+
+    # Small sample (for debugging):
+    if sample > 0:
+        df = df.sample(sample, random_state=0)
+
+    # Filter only vulnerable
+    if vulonly:
+        df = df[df.vul == 1]
+
+    # Filter out samples with no parsed file
+    if check_file:
+        finished = [
+            int(Path(i).name.split(".")[0])
+            for i in glob(str(svd.processed_dir() / "bigvul/before/*nodes*"))
+        ]
+        df = df[df.id.isin(finished)]
+
+    # Filter out samples with no lineNumber from Joern output
+    if check_valid:
+        valid_cache = svd.cache_dir() / f"bigvul_valid_{partition}.csv"
+        if valid_cache.exists():
+            valid_cache_df = pd.read_csv(valid_cache, index_col=0)
+        else:
+            valid = svd.dfmp(
+                df, check_validity, "id", desc="Validate Samples: "
+            )
+            df_id = df.id
+            valid_cache_df = pd.DataFrame({"id": df_id, "valid": valid}, index=df.index)
+            valid_cache_df.to_csv(valid_cache)
+        df = df[df.id.isin(valid_cache_df[valid_cache_df["valid"]].id)]
+
+    # NOTE: drop several columns to save memory
+    if not load_code:
+        df = df.drop(columns=["before", "after", "removed", "added", "diff"])
+
+def bigvul_partition(df, partition="train"):
+    """Filter to one partition of bigvul and rebalance function-wise"""
+
+    df = df[df.label == partition]
+    print("len(df)=", len(df))
+    print("df head=", df.head())
+
+    # Balance training set
+    if partition == "train" or partition == "val":
+        vul = df[df.vul == 1]
+        nonvul = df[df.vul == 0].sample(len(vul), random_state=0)
+        df = pd.concat([vul, nonvul])
+
+    # Correct ratio for test set
+    if partition == "test":
+        vul = df[df.vul == 1]
+        nonvul = df[df.vul == 0]
+        nonvul = nonvul.sample(min(len(nonvul), len(vul) * 20), random_state=0)
+        df = pd.concat([vul, nonvul])
+
+def abs_dataflow():
+    """Load abstract dataflow information"""
+    
+    abs_df_file = svd.processed_dir() / f"bigvul/abstract_dataflow_hash_all.csv"
+    if abs_df_file.exists():
+        abs_df = pd.read_csv(abs_df_file)
+        abs_df["hash"] = abs_df["hash"].fillna(-1)
+        abs_df_hashes = sorted(abs_df["hash"].unique().tolist())
+        # abs_df_hashes.insert(0, -1)
+        abs_df_hashes.insert(0, None)
+    else:
+        print("YOU SHOULD RUN abstract_dataflow.py")
+    return abs_df
 
 def bigvul_cve():
     """Return id to cve map."""

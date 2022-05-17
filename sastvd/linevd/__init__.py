@@ -12,6 +12,7 @@ import sastvd as svd
 import sastvd.analysis.dataflow as df
 import sastvd.codebert as cb
 import sastvd.helpers.dclass as svddc
+import sastvd.helpers.datasets as svdds
 import sastvd.helpers.doc2vec as svdd2v
 import sastvd.helpers.glove as svdg
 import sastvd.helpers.joern as svdj
@@ -36,7 +37,7 @@ label_to_id = {}
 enable_dataflow = True
 
 def get_dataflow_dim(i):
-    cpg = df.get_cpg(svddc.BigVulDataset.itempath(i))
+    cpg = df.get_cpg(svddc.svdds.itempath(i))
     problem = df.ReachingDefinitions(cpg)
     domain_len = len(problem.domain)*2
     return domain_len
@@ -99,9 +100,9 @@ def dataflow_feature_extraction(_id, node_ids=None, max_dataflow_dim=None):
 def feature_extraction(_id, graph_type="cfgcdg", return_nodes=False, return_node_ids=False, return_iddict=False, group=True, return_node_types=False):
     """Extract graph feature (basic).
 
-    _id = svddc.BigVulDataset.itempath(177775)
-    _id = svddc.BigVulDataset.itempath(180189)
-    _id = svddc.BigVulDataset.itempath(178958)
+    _id = svddc.svdds.itempath(177775)
+    _id = svddc.svdds.itempath(180189)
+    _id = svddc.svdds.itempath(178958)
 
     return_nodes arg is used to get the node information (for empirical evalu
     ation).
@@ -227,13 +228,13 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
             return g
         # breakpoint()
         code, lineno, ei, eo, et, nids, ntypes, iddict = feature_extraction(
-            svddc.BigVulDataset.itempath(_id), self.graph_type, return_node_ids=True, return_iddict=True, group=False, return_node_types=True,
+            svddc.svdds.itempath(_id), self.graph_type, return_node_ids=True, return_iddict=True, group=False, return_node_types=True,
         )
 
         # get dataflow features
         # breakpoint()
         if enable_dataflow:
-            dataflow_features = dataflow_feature_extraction(svddc.BigVulDataset.itempath(_id), node_ids=nids, max_dataflow_dim=max_dataflow_dim)
+            dataflow_features = dataflow_feature_extraction(svddc.svdds.itempath(_id), node_ids=nids, max_dataflow_dim=max_dataflow_dim)
 
         if _id in self.lines:
             vuln = [1 if i in self.lines[_id] else 0 for i in lineno]
