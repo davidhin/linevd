@@ -24,3 +24,5 @@ joern-install.sh
 joern-cli.zip
 /*.png
 /*.csv
+/workspace
+/workers

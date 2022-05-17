@@ -4,42 +4,30 @@ from pathlib import Path
 import time
 import logging
 import signal
+import sys
+import pexpect
 
 
 class JoernSession:
-    def __init__(self, worker_id: int=0, output_filename: str=None):
-        self.stdout_file = stdout = stderr = None
-        if output_filename is not None:
-            stdout = self.stdout_file = open(output_filename, "w")
-            stderr = subprocess.STDOUT
-        else:
-            stdout = subprocess.PIPE
-            stderr = subprocess.STDOUT
-        self.proc = subprocess.Popen(
-            ["joern", "--nocolors"],
-            stdout=stdout, stderr=stderr,
-            stdin=subprocess.PIPE, encoding="utf-8"
-            )
+    def __init__(self, worker_id: int=0):
+        self.proc = pexpect.spawn("joern --nocolors")
         print("started process")
+        self.read_until_prompt()
+
         if worker_id != 0:
             workspace = f"workers/{worker_id}"
             self.switch_workspace(workspace)
+            
+    def read_until_prompt(self):
+        self.proc.expect(".*joern>")
 
     def close(self):
-        try:
-            print("close")
-            if self.stdout_file is not None:
-                self.stdout_file.close()
-        finally:
-            try:
-                outs, errs = self.proc.communicate("exit\nN\n", timeout=60)
-            except subprocess.TimeoutError:
-                self.proc.terminate()
-                self.proc.wait()
+        self.proc.sendline("exit")
+        self.proc.sendline("N")
     
     def send_line(self, cmd: str):
         print(f"send_line {cmd}")
-        self.proc.stdin.write(f"{cmd}\n")
+        self.proc.sendline(cmd)
 
     """
     Joern commands
@@ -53,21 +41,27 @@ class JoernSession:
                 scriptdir_str = scriptdir_str[:-1]
             scriptdir_str = scriptdir_str.replace("/", ".")
             self.send_line(f"""import $file.{scriptdir_str}.{script}""")
+            self.read_until_prompt()
 
         params_str = ", ".join(f'{k}="{v}"' for k, v in params.items())
-        return self.send_line(f"""{script}.exec({params_str})""")
+        self.send_line(f"""{script}.exec({params_str})""")
+        self.read_until_prompt()
 
     def switch_workspace(self, filepath: str):
         self.send_line(f"""switchWorkspace("{filepath}")""")
+        self.read_until_prompt()
 
     def import_code(self, filepath: str):
         self.send_line(f"""importCode("{filepath}")""")
+        self.read_until_prompt()
         
     def delete(self):
         self.send_line(f"delete")
+        self.read_until_prompt()
 
     def list_workspace(self):
         self.send_line("workspace")
+        self.read_until_prompt()
 
 
 def test_interaction():
