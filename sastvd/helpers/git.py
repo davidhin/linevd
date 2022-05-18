@@ -29,7 +29,7 @@ def gitdiff(old: str, new: str):
             str(newfile),
         ]
     )
-    process = svd.subprocess_cmd(cmd)
+    process = svd.subprocess_cmd(cmd, force_shell=True, check_diff=True)
     os.remove(oldfile)
     os.remove(newfile)
     return process[0].decode()
@@ -97,6 +97,8 @@ def _c2dhelper(item):
         ret = code2diff(item["func_before"], item["func_after"])
         with open(savepath, "wb") as f:
             pkl.dump(ret, f)
+    except AssertionError:
+        raise
     except Exception as e:
         print("exception", item, traceback.format_exc())
 

@@ -99,7 +99,7 @@ def gitmessage():
     return "_".join(m.lower().split())
 
 
-def subprocess_cmd(command: str, verbose: int = 0, force_shell: bool = False):
+def subprocess_cmd(command: str, verbose: int = 0, force_shell: bool = False, check_diff: bool = False):
     """Run command line process.
 
     Example:
@@ -111,12 +111,14 @@ def subprocess_cmd(command: str, verbose: int = 0, force_shell: bool = False):
     if singularity != "true" and not force_shell:
         command = f"singularity exec {project_dir() / 'main.sif'} " + command
     process = subprocess.Popen(
-        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True
+        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True,
     )
     output = process.communicate()
     if verbose > 1:
         debug(output[0].decode())
         debug(output[1].decode())
+    if check_diff:
+        assert process.returncode in (1, 0), f"git exited with code {process.returncode}"
     return output
 
 

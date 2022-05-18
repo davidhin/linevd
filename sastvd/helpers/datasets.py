@@ -114,7 +114,7 @@ def generate_d2v(dataset="bigvul", sample=False, cache=True, **kwargs):
     model.save(str(savedir / "d2v.model"))
 
 
-def bigvul(minimal=True, sample=False, return_raw=False, splits="default", after_parse=True):
+def bigvul(cache=True, sample=False, return_raw=False, splits="default", after_parse=True):
     """Read BigVul Data.
 
     Args:
@@ -126,7 +126,7 @@ def bigvul(minimal=True, sample=False, return_raw=False, splits="default", after
     """
 
     savedir = svd.get_dir(svd.cache_dir() / "minimal_datasets")
-    if minimal:
+    if cache:
         try:
             df = pd.read_parquet(
                 savedir / f"minimal_bigvul_{sample}.pq", engine="fastparquet"
@@ -159,7 +159,45 @@ def bigvul(minimal=True, sample=False, return_raw=False, splits="default", after
 
             pass
     filename = "MSR_data_cleaned_SAMPLE.csv" if sample else "MSR_data_cleaned.csv"
-    df = pd.read_csv(svd.external_dir() / filename)
+    df = pd.read_csv(svd.external_dir() / filename, parse_dates=['Publish Date', 'Update Date'], dtype={
+        'commit_id': str,
+        'del_lines': int,
+        'file_name': str,
+        'lang': str,
+        'lines_after': str,
+        'lines_before': str,
+
+        'Unnamed: 0': int,
+        'Access Gained': str,
+        'Attack Origin': str,
+        'Authentication Required': str,
+        'Availability': str,
+        'CVE ID': str,
+        'CVE Page': str,
+        'CWE ID': str,
+        'Complexity': str,
+        'Confidentiality': str,
+        'Integrity': str,
+        'Known Exploits': str,
+        # 'Publish Date': pd.datetime64,
+        'Score': float,
+        'Summary': str,
+        # 'Update Date': pd.datetime64,
+        'Vulnerability Classification': str,
+        'add_lines': int,
+        'codeLink': str,
+        'commit_message': str,
+        'files_changed': str,
+        'func_after': str,
+        'func_before': str,
+        'parentID': str,
+        'patch': str,
+        'project': str,
+        'project_after': str,
+        'project_before': str,
+        'vul': int,
+        'vul_func_with_fix': str,
+    })
     df = df.rename(columns={"Unnamed: 0": "id"})
     df["dataset"] = "bigvul"
 
