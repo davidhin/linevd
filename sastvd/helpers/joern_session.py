@@ -30,7 +30,7 @@ def shesc(sometext):
 
 class JoernSession:
     def __init__(self, worker_id: int=0):
-        self.proc = pexpect.spawn("joern --nocolors")
+        self.proc = pexpect.spawn("joern --nocolors", timeout=120)
         self.read_until_prompt()
 
         if worker_id != 0:

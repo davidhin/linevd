@@ -43,12 +43,19 @@ Tasks:
 """
 
 import sastvd.helpers.datasets as svdds
+import sastvd.helpers.joern_session as svdjs
+import sastvd.helpers.joern as svdj
+import os
 
 test = True
 df = svdds.bigvul(sample=test)
-df = bigvul_filter(df, check_file=True, check_valid=True)
+df = svdds.bigvul_filter(df, check_file=True, check_valid=True)
 
-problem = "reachingdefinition"
-for fpath in df["id"].map(svdds.itempath):
-    if not os.path.exists(f"{fpath}.dataflow.json") or test:
-        svdj.run_joern_dataflow(fpath, problem, verbose=args.verbose)
+sess = svdjs.JoernSession()
+try:
+    problem = "reachingdefinition"
+    for fpath in df["id"].map(svdds.itempath):
+        if not os.path.exists(f"{fpath}.dataflow.json") or test:
+            svdj.run_joern_dataflow(sess, fpath, problem, verbose=args.verbose)
+finally:
+    sess.close()
