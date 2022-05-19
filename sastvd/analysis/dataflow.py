@@ -4,6 +4,7 @@ import networkx as nx
 import sastvd.linevd as svd
 import sastvd.helpers.joern as svdj
 import sastvd.helpers.dclass as svddc
+import sastvd.helpers.datasets as svdds
 import dataclasses
 import json
 
@@ -225,8 +226,8 @@ def get_domain(id_itempath):
     return mod_nodes.id.tolist(), n.id.tolist()
 
 def test_get_domain():
-    print(get_domain(svddc.BigVulDataset.itempath(0)))
-    print(get_domain(svddc.BigVulDataset.itempath(18983)))
+    print(get_domain(svddc.svdds.itempath(0)))
+    print(get_domain(svddc.svdds.itempath(18983)))
 
 
 def test_weird_assignment_operators():
@@ -234,14 +235,14 @@ def test_weird_assignment_operators():
     For some reason the operators in this program show up as <operators> instead of <operator>.
     Make sure these are still detected.
     """
-    cpg = get_cpg(svddc.BigVulDataset.itempath(18983))
+    cpg = get_cpg(svddc.svdds.itempath(18983))
     print(cpg)
     problem = ReachingDefinitions(cpg)
     print(problem)
     assert len(problem.domain) == 12
 
 def test_get_cpg():
-    cpg = get_cpg(svddc.BigVulDataset.itempath(0))
+    cpg = get_cpg(svddc.svdds.itempath(0))
     print(cpg)
     problem = ReachingDefinitions(cpg)
     print(problem)

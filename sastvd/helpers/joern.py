@@ -79,6 +79,32 @@ def get_digraph(nodes, edges, edge_label=True):
     return dot
 
 
+def run_joern_dataflow(sess, filepath: str, problem: str, verbose: int):
+    """Extract graph using most recent Joern."""
+    try:
+        sess.import_code(filepath)
+        sess.run_script("get_dataflow_output", params={"filename": filepath, "problem": problem})
+    finally:
+        sess.delete()
+
+
+def run_joern_sess(sess, filepath: str, verbose: int, export_json: bool, export_cpg: bool):
+    """Extract graph using most recent Joern."""
+    try:
+        output = sess.import_code(filepath)
+        if verbose >= 4:
+            print(output)
+        output = sess.run_script("get_func_graph", params={
+            "filename": filepath,
+            "exportJson": export_json,
+            "exportCpg": export_cpg
+        })
+        if verbose >= 4:
+            print(output)
+    finally:
+        sess.delete()
+
+
 def run_joern(filepath: str, verbose: int):
     """Extract graph using most recent Joern."""
     script_file = (svd.external_dir() / "get_func_graph.scala").resolve().relative_to(Path.cwd())

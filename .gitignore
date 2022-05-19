@@ -30,3 +30,5 @@ joern-cli.zip
 /*.tar.gz
 /repos
 /*.bin
+/workspace
+/workers

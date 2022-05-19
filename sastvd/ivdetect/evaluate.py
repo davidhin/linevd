@@ -51,13 +51,13 @@ def helper(row):
     return [row["id"], {"removed": row["removed"], "depadd": dep_add_lines}]
 
 
-def get_dep_add_lines_bigvul(cache=True):
+def get_dep_add_lines_bigvul(cache=True, sample=False):
     """Cache dependent added lines for bigvul."""
     saved = svd.get_dir(svd.processed_dir() / "bigvul/eval") / "statement_labels.pkl"
     if os.path.exists(saved) and cache:
         with open(saved, "rb") as f:
             return pkl.load(f)
-    df = svdd.bigvul()
+    df = svdd.bigvul(sample=sample)
     df = df[df.vul == 1]
     desc = "Getting dependent-added lines: "
     lines_dict = svd.dfmp(df, helper, ["id", "removed", "added"], ordr=False, desc=desc)
