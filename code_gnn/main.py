@@ -429,6 +429,8 @@ if __name__ == '__main__':
         args.unique_id += '_' + '_'.join(
             map(str, (args.num_layers, args.num_mlp_layers, args.hidden_dim, args.learn_eps,
                       args.final_dropout, args.graph_pooling_type, args.neighbor_pooling_type)))
+    if args.debug_overfit:
+        args.unique_id += '_debug_overfit'
 
     # if args.label_style is None:
     #     args.label_style = 'node' if args.dataset in ('SARD', 'MSR') else 'graph'
