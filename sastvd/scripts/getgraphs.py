@@ -52,11 +52,11 @@ def preprocess(row, fn):
                     f.write(row["after"])
 
             # Run Joern on "before" code
-            if not os.path.exists(f"{fpath1}.edges.json") or args.test:
+            if args.test or not (os.path.exists(f"{fpath1}.edges.json") or os.path.exists(f"{fpath1}.cpg.bin")):
                 fn(filepath=fpath1, verbose=args.verbose)
 
             # Run Joern on "after" code
-            if (not os.path.exists(f"{fpath2}.edges.json") or args.test) and len(row["diff"]) > 0:
+            if len(row["diff"]) > 0 and (args.test or not (os.path.exists(f"{fpath2}.edges.json") or os.path.exists(f"{fpath2}.cpg.bin"))):
                 fn(filepath=fpath2, verbose=args.verbose)
 
             # Run SAST extraction
@@ -87,7 +87,7 @@ def preprocess_whole_df_split(t):
     i, split = t
     sess = svdjs.JoernSession(i)
     try:
-        fn = functools.partial(svdj.run_joern_sess, sess=sess)
+        fn = functools.partial(svdj.run_joern_sess, sess=sess, export_json=False, export_cpg=True)
         items = split.to_dict("records")
         for row in tqdm.tqdm(items, desc=f"(worker {i})", position=i):
             preprocess(row, fn)

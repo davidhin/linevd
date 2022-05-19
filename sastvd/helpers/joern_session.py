@@ -69,7 +69,14 @@ class JoernSession:
             scriptdir_str = scriptdir_str.replace("/", ".")
             self.run_command(f"""import $file.{scriptdir_str}.{script}""")
 
-        params_str = ", ".join(f'{k}="{v}"' for k, v in params.items())
+        def get_str_repr(k, v):
+            if isinstance(v, str):
+                return f'{k}="{v}"'
+            elif isinstance(v, bool):
+                f'{k}={v.tolower()}'
+            else:
+                raise NotImplementedError(f"{k}: {v} ({type(v)})")
+        params_str = ", ".join(get_str_repr(k, v) for k, v in params.items())
         return self.run_command(f"""{script}.exec({params_str})""")
 
     def switch_workspace(self, filepath: str):
