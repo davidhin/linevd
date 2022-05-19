@@ -10,8 +10,7 @@
 #SBATCH --mail-type=FAIL,END
 
 # Setup Python Environment
-# module load singularity gcc/7.3.0-xegsmw4 cuda/10.2.89-jveb27i
-module load singularity
+module load singularity gcc/7.3.0-xegsmw4 cuda/10.2.89-jveb27i
 
 # Start singularity instance
 singularity exec main.sif python -u sastvd/scripts/cache_dataset.py
