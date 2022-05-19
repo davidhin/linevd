@@ -197,14 +197,57 @@ def get_dataflow_features(_id):
     except Exception:
         print("graph error", _id, traceback.format_exc())
 
+"""
+Getting types from full project
+1. Load example source code (function)
+2. Locate full project - assume already downloaded
+3. Parse full project with Joern
+4. For function in code:
+  a. Locate function in CPG
+  b. Locate all definitions
+  c. Locate all types in definition
+  d. Recursively gather all field types
+
+
+## get_type.sc gets the leaf types of a type you give it.
+Potential issues left:
+- [x] Types may not be selected correctly if they are typedef'd to an anonymous type.
+- For types which are aliased to an anonymous type, we select the anonymous type
+    based on the index of anonymous types in the same file, sorted by index.
+    This might not be correct.
+- Function pointer types are represented as external TypeDecls in Joern, but should be decomposed to their parameter/return types.
+
+## DEFINE problem
+
+Without providing the correct DEFINEs to Joern, they will not be included in the CPG. For example:
+
+#if HAVE_PCRE || HAVE_BUNDLED_PCRE
+/// ...code...
+typedef struct {
+    pcre *re;
+    pcre_extra *extra;
+    int preg_options;
+#if HAVE_SETLOCALE
+    char *locale;
+    unsigned const char *tables;
+#endif
+    int compile_options;
+    int refcount;
+} pcre_cache_entry; // <--- not included in CPG
+/// ...code...
+
+This can be fixed by providing DEFINEs:
+
+joern/joern-cli/c2cpg.sh php-src/ext/pcre/php_pcre.h \
+    --output php_pcre_HAVE_PCRE_1.h.cpg.bin.zip \
+    --define HAVE_PCRE=1
+
+But we don't want to have to give these. For now, just parse the whole project without DEFINEs
+and get the type decls that we can.
+"""
 
 def test_get_dataflow_features():
     # NOTE: this code is needed to get the commit ID/URL from the metadata
-    # md_df = pd.read_csv("storage/cache/bigvul/bigvul_metadata.csv")
-    # df = train.df
-    # df = pd.merge(df, md_df, on="id")
-    # all_df = pd.read_csv("storage/external/MSR_data_cleaned.csv").rename(columns={"Unnamed: 0": "id"})
-    # df = pd.merge(df, all_df, on="id")
     row = df.iloc[0]
     my_id = row.id
     print("id:", my_id)
