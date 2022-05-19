@@ -199,7 +199,11 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
             ) / str(_id)
         # breakpoint()
         if os.path.exists(savedir):
-            g = load_graphs(str(savedir))[0][0]
+            try:
+                g = load_graphs(str(savedir))[0][0]
+            except Exception:
+                savedir.unlink()
+                return self.item(_id, codebert=codebert, max_dataflow_dim=max_dataflow_dim)
             # g.ndata["_FVULN"] = g.ndata["_VULN"].max().repeat((g.number_of_nodes()))
             if "_SASTRATS" in g.ndata:
                 g.ndata.pop("_SASTRATS")
@@ -232,8 +236,8 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
 
         # get dataflow features
         # breakpoint()
-        if enable_dataflow:
-            dataflow_features = dataflow_feature_extraction(svddc.BigVulDataset.itempath(_id), node_ids=nids, max_dataflow_dim=max_dataflow_dim)
+        # if enable_dataflow:
+        #     dataflow_features = dataflow_feature_extraction(svddc.BigVulDataset.itempath(_id), node_ids=nids, max_dataflow_dim=max_dataflow_dim)
 
         if _id in self.lines:
             vuln = [1 if i in self.lines[_id] else 0 for i in lineno]
@@ -258,7 +262,7 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
         # Get dataflow features
         if enable_dataflow:
             # print("Adding dataflow to graph", dataflow_features)
-            g.ndata["_DATAFLOW"] = dataflow_features
+            # g.ndata["_DATAFLOW"] = dataflow_features
             
             if "_ABS_DATAFLOW" in self.feat:
                 def get_abs_dataflow_features(_id):

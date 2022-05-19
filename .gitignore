@@ -24,7 +24,9 @@ joern-install.sh
 joern-cli.zip
 /*.png
 /*.csv
-tmp/php-src-c351b47ce85a3a147cfa801fa9f0149ab4160834
-*.zip
-*.tar
-*.tar.gz
+/tmp
+/*.zip
+/*.tar
+/*.tar.gz
+/repos
+/*.bin
