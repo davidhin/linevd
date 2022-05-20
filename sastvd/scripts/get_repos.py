@@ -99,13 +99,13 @@ import numpy as np
 
 base = Path("repos")
 clean = base/"clean"
-checkout = base/"checkout"
+archive = base/"archive"
 
 """
 2. Check out each commit from each repo.
 """
 
-def print_commit_split_df():
+def print_uniq_repo_commit():
     """
     input: bigvul_metadata_with_commit_id.csv
     output: bigvul_metadata_with_commit_id_unique_i.csv
@@ -114,9 +114,10 @@ def print_commit_split_df():
     df = pd.read_csv("bigvul_metadata_with_commit_id.csv")
     df["repo"] = df["codeLink"].apply(extract_repo)
     df = df.sort_values(by=["repo", "commit_id"])
-    df_uniq = df.drop_duplicates(subset=["repo", "commit_id"])
+    df_uniq = df.drop_duplicates(subset=["repo", "commit_id"]).reset_index(drop=True)
     print("total:", len(df_uniq))
     df_uniq = df_uniq[["repo", "commit_id"]]
+    df_uniq.to_csv(f"bigvul_metadata_with_commit_id_unique.csv")
     n_splits = 10
     split_size = len(df_uniq) // n_splits
     for i in range(0, n_splits):
@@ -126,41 +127,51 @@ def print_commit_split_df():
             split = df_uniq[i*split_size:].copy()
         print(i, len(split))
         split.to_csv(f"bigvul_metadata_with_commit_id_unique_{i}.csv")
-        
 
-def checkout_commits(i):
+from multiprocessing import Pool 
+
+def archive_one_commit(row):
+    repo = row.repo
+    commit_id = row.commit_id
+    clean_repo = row.clean_repo
+    dst_repo = row.dst_repo
+    prefix=f"{repo}@{commit_id}:"
+    
+    cmd = f"""git archive {commit_id} -o {dst_repo}"""
+
+    out = f"{prefix}command: {cmd}"
+    try:
+        cmd_out = subprocess.check_output(cmd, stderr=subprocess.STDOUT, cwd=clean_repo, shell=True, encoding="utf-8")
+        if cmd_out:
+            out += "\n" + prefix + cmd_out
+        return out
+    except subprocess.CalledProcessError as e:
+        return out+f"""{prefix}error running command "{cmd}": {traceback.format_exc()}"""
+
+
+def archive_commits():
     """
     input: bigvul_metadata_with_commit_id_unique_i.csv
     output: checked-out commits in repos/checkout
     for each chunk, check out all unique commits
     """
-    df_uniq = pd.read_csv(f"bigvul_metadata_with_commit_id_unique_{i}.csv")
-    print(df_uniq)
-    # df_uniq = df_uniq.head(5)  # NOTE: for test only
+    df = pd.read_csv(f"bigvul_metadata_with_commit_id_unique.csv")
+    print("original", df)
+    df.clean_repo_name = df["repo"].str.replace("://", "__").str.replace("/", "__")
+    df.clean_repo = df.clean_repo_name.apply(lambda n: df.clean_repo_name/n)
+    df = df[df.clean_repo.apply(lambda r: r.exists())]
+    print("input exists", df)
+    df.dst_repo = df.apply(lambda row: (archive/f"{row.clean_repo_name}__{row.commit_id}.tar").absolute(), axis=1)
+    df = df[df.dst_repo.apply(lambda d: not d.exists())]
+    print("output does not exist", df)
+    df = df.head(50)  # NOTE: for test only
     with (
-        open(f'codeLinksCheckout_stdout_{i}.txt', 'w') as subprocess_output,
-        tqdm.tqdm(df_uniq.iterrows(), desc=f"checkout out {len(df_uniq)} commits", total=len(df_uniq)) as pbar
+        Pool(10) as p,
+        open(f'codeLinksCheckout_stdout.txt', 'w') as subprocess_output,
+        tqdm.tqdm(p.imap_unordered(archive_one_commit, df.itertuples()), desc=f"checkout out {len(df_uniq)} commits", total=len(df_uniq)) as pbar
         ):
-        for i, row in pbar:
-            repo = row["repo"]
-            commit_id = row["commit_id"]
-            
-            clean_repo_name = repo.replace("/", "__")
-            clean_repo = clean/clean_repo_name
-            if not clean_repo.exists():
-                print(f"{clean_repo} does not exist. Skipping...")
-                continue
-            dst_repo = (checkout/f"{clean_repo_name}____{commit_id}").absolute()
-            if dst_repo.exists():
-                print(f"{dst_repo} exists. Skipping...")
-                continue
-            cmd = f"""git worktree add -f -f {dst_repo} {commit_id}"""
-
-            print(f"command: {cmd}", file=subprocess_output, flush=True)
-            try:
-                subprocess.check_call(cmd, stdout=subprocess_output, stderr=subprocess.STDOUT, cwd=clean_repo, shell=True)
-            except subprocess.CalledProcessError as e:
-                print(f"""error running command "{cmd}": {traceback.format_exc()}""")
+        for outcome in pbar:
+            print(outcome, file=subprocess_output)
 
 """
 3. Parse each repo with Joern
