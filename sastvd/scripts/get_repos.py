@@ -1,7 +1,16 @@
 import pandas as pd
 import re
 
-def get_repos():
+"""
+Download all repos
+"""
+
+def print_commit_ids_df():
+    """
+    input: bigvul_metadata.csv, MSR_data_cleaned.csv
+    output: bigvul_metadata_with_commit_id.csv
+    print a dataframe with commit IDs of all projects
+    """
     md_df = pd.read_csv("storage/cache/bigvul/bigvul_metadata.csv")
     all_df = pd.read_csv("storage/external/MSR_data_cleaned.csv").rename(columns={"Unnamed: 0": "id"})
     all_df = all_df[["id", "project", "codeLink", "commit_id", "commit_message"]]
@@ -9,6 +18,11 @@ def get_repos():
     df.to_csv("bigvul_metadata_with_commit_id.csv")
 
 def extract_repo(cid):
+    """
+    input: cid (link to commit webpage as string)
+    output: repo base URL (without commit ID)
+    transform commit ID into repo URL
+    """
     extra = ""
     if m := re.match(r"(https://github.com/[^/]+/[^/]+)", cid):
         cid = m.group(1)
@@ -60,7 +74,12 @@ def extract_repo(cid):
     # cid += "," + extra
     return cid
 
-def print_repos():
+def print_repo_links():
+    """
+    input: bigvul_metadata_with_commit_id.csv
+    output: codeLinks.txt
+    print URL of each repo
+    """
     df = pd.read_csv("bigvul_metadata_with_commit_id.csv")
     df["repo"] = df["codeLink"].apply(extract_repo)
     codeLinks = df["repo"].sort_values().unique().tolist()
@@ -68,7 +87,9 @@ def print_repos():
         for cid in codeLinks:
             print(cid, file=f)
 
-# run download_all.sh on codeLinks.txt
+"""
+1. Run download_all.sh to download repos in codeLinks.txt
+"""
 
 from pathlib import Path
 import subprocess
@@ -80,7 +101,16 @@ base = Path("repos")
 clean = base/"clean"
 checkout = base/"checkout"
 
-def get_repos_commits_split():
+"""
+2. Check out each commit from each repo.
+"""
+
+def print_commit_split_df():
+    """
+    input: bigvul_metadata_with_commit_id.csv
+    output: bigvul_metadata_with_commit_id_unique_i.csv
+    split all metadata into equal-sized chunks
+    """
     df = pd.read_csv("bigvul_metadata_with_commit_id.csv")
     df["repo"] = df["codeLink"].apply(extract_repo)
     df = df.sort_values(by=["repo", "commit_id"])
@@ -98,7 +128,12 @@ def get_repos_commits_split():
         split.to_csv(f"bigvul_metadata_with_commit_id_unique_{i}.csv")
         
 
-def get_repos_commits(i):
+def checkout_commits(i):
+    """
+    input: bigvul_metadata_with_commit_id_unique_i.csv
+    output: checked-out commits in repos/checkout
+    for each chunk, check out all unique commits
+    """
     df_uniq = pd.read_csv(f"bigvul_metadata_with_commit_id_unique_{i}.csv")
     print(df_uniq)
     # df_uniq = df_uniq.head(5)  # NOTE: for test only
