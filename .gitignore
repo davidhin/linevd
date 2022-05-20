@@ -1,35 +1,38 @@
+# data files
 *.img
 *.simg
 *.sif
+*.png
+*.csv
+*.zip
+*.tar
+*.tar.gz
+*.bin
+*.gzip
+*.egg-info
+*.txt
+!storage/external/bigvul_rand_splits.csv
+
+# Python
+*.pyc
 .pytest_cache
 __pycache__
-/storage
-!/storage/external/*.sc
-*.egg-info
-output
-.vscode/sftp.json
-hpc/logs/*
-.dccache
-**/*.pyc
-**/*.gzip
-**/workspace
-hpc/logs*
-logs*
-/abstract_dataflow_*.csv
-/*.txt
-/.vscode
 
-/joern/
-/x42/
+# program outputs
+storage
+!storage/external/*.sc
+workspace
+workers
+output
+logs*
+joern
 joern-install.sh
-joern-cli.zip
-/*.png
-/*.csv
-/tmp
-/*.zip
-/*.tar
-/*.tar.gz
-/repos
-/*.bin
-/workspace
-/workers
+hpc/logs/*
+
+# project files
+.vscode
+
+# working files
+x42
+tmp
+repos
