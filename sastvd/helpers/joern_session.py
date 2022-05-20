@@ -39,11 +39,11 @@ class JoernSession:
             workspace = f"workers/{worker_id}"
             self.switch_workspace(workspace)
             
-    def read_until_prompt(self, zonk_line=False):
+    def read_until_prompt(self, zonk_line=False, timeout=-1):
         pattern = "joern>"
         if zonk_line:
             pattern += ".*\n"
-        out = self.proc.expect(pattern)
+        out = self.proc.expect(pattern, timeout=timeout)
         return shesc(self.proc.before.decode()).strip('\r')
 
     def close(self, force=True):
@@ -66,9 +66,9 @@ class JoernSession:
     Joern commands
     """
     
-    def run_command(self, command):
+    def run_command(self, command, timeout=-1):
         self.send_line(command)
-        return self.read_until_prompt().strip()
+        return self.read_until_prompt(timeout=timeout).strip()
 
     def import_script(self, script: str):
         scriptdir: Path = Path("storage/external")
@@ -78,7 +78,7 @@ class JoernSession:
         scriptdir_str = scriptdir_str.replace("/", ".")
         self.run_command(f"""import $file.{scriptdir_str}.{script}""")
 
-    def run_script(self, script: str, params, import_first=True):
+    def run_script(self, script: str, params, import_first=True, timeout=-1):
         if import_first:
             self.import_script(script)
 
@@ -90,7 +90,7 @@ class JoernSession:
             else:
                 raise NotImplementedError(f"{k}: {v} ({type(v)})")
         params_str = ", ".join(get_str_repr(k, v) for k, v in params.items())
-        return self.run_command(f"""{script}.exec({params_str})""")
+        return self.run_command(f"""{script}.exec({params_str})""", timeout=timeout)
 
     def switch_workspace(self, filepath: str):
         return self.run_command(f"""switchWorkspace("{filepath}")""")
