@@ -47,22 +47,16 @@ class JoernSession:
         return shesc(self.proc.before.decode()).strip('\r')
 
     def close(self, force=True):
-        out = ""
         self.proc.timeout = 5
         try:
-            # self.proc.kill(signal.SIGINT)  # Send Ctrl+C
-            # out += self.read_until_prompt()
-            self.send_line("exit")
-            self.proc.expect(["Would you like to save changes"])
-            out += (self.proc.before.decode() + self.proc.after.decode()).strip('\r')
+            self.proc.sendline("exit")
             self.proc.sendline("y")
             self.proc.expect(pexpect.EOF)
-            out += self.proc.before.decode().strip('\r')
-            assert not self.proc.isalive(), "child should be killed"
+            return shesc(self.proc.before.decode().strip('\r')).strip()
         except pexpect.exceptions.TIMEOUT:
             print("could not exit cleanly. terminating with force")
             self.proc.terminate(force)
-        return shesc(out).strip()
+            return shesc(self.proc.before.decode().strip('\r')).strip()
     
     def send_line(self, cmd: str):
         self.proc.sendline(cmd)
@@ -127,8 +121,7 @@ class JoernSession:
 # @pytest.mark.skip
 def test_close():
     sess = JoernSession(logfile=sys.stdout.buffer)
-    # sess.send_line("""for (i <- 1 to 1000) {println(s"iteration $i"); Thread.sleep(1000);}""")  # this will time out ordinarily if it is not canceled
-    # time.sleep(5)
+    sess.send_line("""for (i <- 1 to 1000) {println(s"iteration $i"); Thread.sleep(1000);}""")  # this will time out ordinarily if it is not canceled
     sess.close()
 
 
