@@ -220,24 +220,59 @@ def extract_archived_commits(split_idx=-1, n_splits=1):
 3. Parse each repo with Joern
 """
 
+import functools
+
 import sastvd.helpers.joern_session as svdjs
 
-def export_cpg(sess, fp):
-    sess.run_script("get_func_graph", params={
-        "filename": fp,
-        "runOssDataflow": False,
-        "exportJson": False,
-        "exportCpg": True,
-    }, import_first=False)
+repos_path = Path("repos/checkout")
 
-def parse_with_joern():
-    df = pd.read_csv("bigvul_metadata_with_commit_id.csv")
-    df["repo"] = df["codeLink"].apply(extract_repo)
-    df["repo_filepath"] = df["repo"].replace("/", "__")
+def export_cpg(sess, fp):
+    try:
+        return sess.run_script("get_func_graph", params={
+            "filename": fp,
+            "runOssDataflow": False,
+            "exportJson": False,
+            "exportCpg": True,
+        }, import_first=False, timeout=60*5)
+    except Exception:
+        return traceback.format_exc()
+
+def parse_with_joern(job_array_id=-1, n_splits=1):
+    df = pd.read_csv(f"bigvul_metadata_with_commit_id_unique.csv")
+    # df = pd.read_csv("bigvul_metadata_with_commit_id.csv")
+    # df["repo"] = df["codeLink"].apply(extract_repo)
+    df["repo_filepath"] = df["repo"].apply(lambda r: str(repos_path/(r.replace("://", "__").replace("/", "__"))))
+    df["checkout_filepath"] = df[['repo_filepath', 'commit_id']].T.agg('__'.join)
+    print("original", df)
+    df = df[df["checkout_filepath"].apply(lambda fp: Path(fp).exists())]
+    print("input exists", df)
+    df["checkout_filepath_dst"] = df["checkout_filepath"].apply(lambda fp: fp + ".cpg.bin")
+    df = df[df["checkout_filepath_dst"].apply(lambda fp: not Path(fp + ".cpg.bin").exists())]
+    print("output does not exist", df)
+
+    # split
+    split_size = len(df) // n_splits
+    logfile = open(f"output_get_repos_{job_array_id}.txt", "wb")
+    if job_array_id == -1:
+        df = df.head(5)  # NOTE: debug
+    elif job_array_id == n_splits:
+        df = df[job_array_id*split_size:].copy()
+    else:
+        df = df[job_array_id*split_size:(job_array_id+1)*split_size].copy()
     
-    sess = svdjs.JoernSession()
+    sess = svdjs.JoernSession(f"cpg_{job_array_id}", logfile=logfile, clean=True)
     sess.import_script("get_func_graph")
     try:
-        df["repo_filepath"].apply(functools.partial(export_cpg, sess=sess))
+        export_output = []
+        for fp in tqdm.tqdm(df["checkout_filepath"], desc="extract CPG"):
+            export_output.append(export_cpg(sess, fp))
+        df["export_output"] = export_output
+        print(df["export_output"].iloc[0])
     finally:
+        sess.delete()
         sess.close()
+    df.to_csv(f"bigvul_metadata_with_commit_id_parse_{job_array_id}.csv")
+
+# if __name__ == "__main__":
+#     import sys
+#     parse_with_joern()

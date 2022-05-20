@@ -8,6 +8,7 @@ import sys
 import pexpect
 import traceback
 import pytest
+import shutil
 
 import re
 
@@ -31,13 +32,19 @@ def shesc(sometext):
 
 
 class JoernSession:
-    def __init__(self, worker_id: int=0, logfile=None):
+    def __init__(self, worker_id: int=0, logfile=None, clean=False):
         self.proc = pexpect.spawn("joern --nocolors", timeout=120, logfile=logfile)
         self.read_until_prompt()
 
         if worker_id != 0:
             workspace = f"workers/{worker_id}"
             self.switch_workspace(workspace)
+        else:
+            workspace = "workspace"
+        
+        workspace_dir = Path(workspace)
+        if clean and workspace_dir.exists():
+            shutil.rmtree(workspace_dir)
             
     def read_until_prompt(self, zonk_line=False, timeout=-1):
         pattern = "joern>"
