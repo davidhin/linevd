@@ -5,11 +5,16 @@ import better.files.File
    run.ossdataflow
    if (exportCpg) {
       save
-      File(project.path + "/cpg.bin").copyTo(File(filename + ".cpg.bin"), overwrite=true)
+      val outputFilename = filename + ".cpg.bin"
+      println(s"Exporting CPG to $outputFilename")
+      File(project.path + "/cpg.bin").copyTo(File(outputFilename), overwrite=true)
    }
    if (exportJson) {
-      cpg.graph.E.map(node=>List(node.inNode.id, node.outNode.id, node.label, node.propertiesMap.get("VARIABLE"))).toJson |> filename + ".edges.json"
-      cpg.graph.V.map(node=>node).toJson |> filename + ".nodes.json"
+      val nodeOutputFilename = filename + ".nodes.json"
+      val edgeOutputFilename = filename + ".edges.json"
+      println(s"Exporting JSON to $nodeOutputFilename $edgeOutputFilename")
+      cpg.graph.E.map(node=>List(node.inNode.id, node.outNode.id, node.label, node.propertiesMap.get("VARIABLE"))).toJson |> edgeOutputFilename
+      cpg.graph.V.map(node=>node).toJson |> nodeOutputFilename
    }
    delete
 }

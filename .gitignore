@@ -3,7 +3,8 @@
 *.sif
 .pytest_cache
 __pycache__
-storage
+/storage
+!/storage/external/*.sc
 *.egg-info
 output
 .vscode/sftp.json
