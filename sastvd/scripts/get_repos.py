@@ -161,3 +161,29 @@ def checkout_commits(i):
                 subprocess.check_call(cmd, stdout=subprocess_output, stderr=subprocess.STDOUT, cwd=clean_repo, shell=True)
             except subprocess.CalledProcessError as e:
                 print(f"""error running command "{cmd}": {traceback.format_exc()}""")
+
+"""
+3. Parse each repo with Joern
+"""
+
+import sastvd.helpers.joern_session as svdjs
+
+def export_cpg(sess, fp):
+    sess.run_script("get_func_graph", params={
+        "filename": fp,
+        "runOssDataflow": False,
+        "exportJson": False,
+        "exportCpg": True,
+    }, import_first=False)
+
+def parse_with_joern():
+    df = pd.read_csv("bigvul_metadata_with_commit_id.csv")
+    df["repo"] = df["codeLink"].apply(extract_repo)
+    df["repo_filepath"] = df["repo"].replace("/", "__")
+    
+    sess = svdjs.JoernSession()
+    sess.import_script("get_func_graph")
+    try:
+        df["repo_filepath"].apply(functools.partial(export_cpg, sess=sess))
+    finally:
+        sess.close()

@@ -1,8 +1,10 @@
 import better.files.File
 
-@main def exec(filename: String, exportJson: Boolean, exportCpg: Boolean) = {
+@main def exec(filename: String, runOssDataflow: Boolean = true, exportJson: Boolean = true, exportCpg: Boolean = false, deleteAfter: Boolean = true) = {
    importCode(filename)
-   run.ossdataflow
+   if (runOssDataflow) {
+      run.ossdataflow
+   }
    if (exportCpg) {
       save
       val outputFilename = filename + ".cpg.bin"
@@ -16,6 +18,8 @@ import better.files.File
       cpg.graph.E.map(node=>List(node.inNode.id, node.outNode.id, node.label, node.propertiesMap.get("VARIABLE"))).toJson |> edgeOutputFilename
       cpg.graph.V.map(node=>node).toJson |> nodeOutputFilename
    }
-   delete
+   if (deleteAfter) {
+      delete
+   }
 }
 
