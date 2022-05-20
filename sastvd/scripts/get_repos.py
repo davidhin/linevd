@@ -84,14 +84,17 @@ def get_repos_commits_split():
     df = pd.read_csv("bigvul_metadata_with_commit_id.csv")
     df["repo"] = df["codeLink"].apply(extract_repo)
     df = df.sort_values(by=["repo", "commit_id"])
-    df_uniq = df.groupby(['repo','commit_id']).size().reset_index()
+    df_uniq = df.drop_duplicates(subset=["repo", "commit_id"])
+    print("total:", len(df_uniq))
+    df_uniq = df_uniq[["repo", "commit_id"]]
     n_splits = 10
-    split_size = len(df) // n_splits
+    split_size = len(df_uniq) // n_splits
     for i in range(0, n_splits):
         if i < n_splits-1:
-            split = df[i*split_size:(i+1)*split_size].copy()
+            split = df_uniq[i*split_size:(i+1)*split_size].copy()
         else:
-            split = df[i*split_size:].copy()
+            split = df_uniq[i*split_size:].copy()
+        print(i, len(split))
         split.to_csv(f"bigvul_metadata_with_commit_id_unique_{i}.csv")
         
 

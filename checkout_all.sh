@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --array=0-9
+#SBATCH --array=0-9%5
 #SBATCH --output=repos/checkout-%A-%a.txt
 #SBATCH --error=repos/checkout-%A-%a.txt
 #SBATCH --time 1-00:00:00 
