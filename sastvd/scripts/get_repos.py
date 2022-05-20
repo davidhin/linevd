@@ -100,6 +100,7 @@ import numpy as np
 base = Path("repos")
 clean = base/"clean"
 archive = base/"archive"
+checkout = base/"checkout"
 
 """
 2. Check out each commit from each repo.
@@ -172,6 +173,48 @@ def archive_commits():
         ):
         for outcome in pbar:
             print(outcome, file=subprocess_output)
+
+import shutil
+import tarfile
+
+def get_checkout_dir(tf):
+    return checkout/tf.stem
+def extract(tf):
+    cd = get_checkout_dir(tf)
+    try:
+        cd.mkdir(exist_ok=True)
+        with tarfile.open(tf) as my_tar:
+            my_tar.extractall(cd)
+    except Exception:
+        print(tf, "->", cd, "error:", traceback.format_exc())
+    return cd
+def extract_archived_commits(split_idx=-1, n_splits=1):
+    # tar_files = list(archive.glob("*.tar"))
+    tar_files = [Path(l.strip()) for l in open(archive/"index_fixed.txt").readlines()]
+    to_extract = []
+    for tf in tqdm.tqdm(tar_files, desc="check existing"):
+        # if not get_checkout_dir(tf).exists():
+        if True:
+            to_extract.append(tf)
+    if split_idx == -1:
+        to_extract = to_extract[:5]  # NOTE: test only
+    else:
+        splits = np.array_split(to_extract, n_splits)
+        to_extract = splits[split_idx]
+    # to_purge = list(map(str, map(get_checkout_dir, to_extract)))
+    print(len(to_extract), "to extract")
+    try:
+        # with Pool(25) as p:
+            # for cd in tqdm.tqdm(p.imap_unordered(extract, to_extract), total=len(to_extract), desc="untarring files"):
+        for cd in tqdm.tqdm(map(extract, to_extract), total=len(to_extract), desc="untarring files"):
+            # to_purge.pop(0)
+            pass
+    except:
+        # to_purge = [d for d in to_purge if Path(d).exists()]
+        # print(f"deleting {len(to_purge)} partially extracted directories: {to_purge}")
+        # for d in to_purge:
+        #     shutil.rmtree(d)
+        raise
 
 """
 3. Parse each repo with Joern
