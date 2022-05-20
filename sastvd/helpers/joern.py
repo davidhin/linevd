@@ -79,6 +79,14 @@ def get_digraph(nodes, edges, edge_label=True):
     return dot
 
 
+def run_joern_gettype(sess, filepath: str, datatype: str):
+    """Extract member types using Joern."""
+    try:
+        sess.run_script("get_type", params={"cpgName": filepath + ".cpg.bin", "rootType": datatype})
+    finally:
+        sess.delete()
+
+
 def run_joern_dataflow(sess, filepath: str, problem: str, verbose: int):
     """Extract graph using most recent Joern."""
     try:

@@ -379,9 +379,28 @@ def get_dataflow_features_df():
     print(dataflow_df.value_counts("operator"))
 
     return dataflow_df
-    
-if __name__ == "__main__":
+
+def expand_struct_datatypes(df):
+    md_df = pd.read_csv("bigvul_metadata_with_commit_id.csv")
+    df = pd.merge(df, md_df, on="id")
+    checkout_dir = Path("repos/checkout")
+    df["projectpath"] = df["repo"].apply(lambda r: checkout_dir/(r.replace("/", "__")))
+
+    sess = svdjs.JoernSession(i)
+    def get_dataflow_features_with_sess(row):
+        return run_joern_gettype(sess, row["projectpath"], row["datatype"])
+    try:
+        df.apply(get_dataflow_features_with_sess)
+    finally:
+        sess.close()
+
+def get_expanded_df():
     dataflow_df = get_dataflow_features_df()
+    dataflow_df = expand_struct_datatypes(dataflow_df)
+    return dataflow_df
+
+if __name__ == "__main__":
+    dataflow_df = get_expanded_df()
 
 def extract_nan_values():
     dataflow_df = get_dataflow_features_df()
