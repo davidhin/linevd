@@ -17,6 +17,98 @@ def print_commit_ids_df():
     df = pd.merge(md_df, all_df, on="id")
     df.to_csv("bigvul_metadata_with_commit_id.csv")
 
+
+def correct_repo_name(cid):
+    # replace cgit with gitlab
+    cid = cid.replace("cgit.", "gitlab.")
+    # replace cgit with github
+    cid = cid.replace("cgit.kde.org", "github.com/KDE")
+    # replace git.savannah.gnu.org/*/ with git.savannah.gnu.org/git
+    cid = (
+        cid
+        .replace("git.savannah.gnu.org/cgit", "git.savannah.gnu.org/git")
+        .replace("git.savannah.gnu.org/gitview", "git.savannah.gnu.org/git")
+    )
+    # misc mappings
+    cid = cid.replace("https://git.haproxy.org", "http://git.haproxy.org/git")
+    cid = cid.replace("https://git.gnupg.org/cgi-bin/gitweb.cgi", "https://dev.gnupg.org/source")
+    cid = cid.replace("https://git.enlightenment.org/core/enlightenment.git", "https://git.enlightenment.org/enlightenment/enlightenment")
+    cid = cid.replace("https://git.enlightenment.org/apps/terminology.git", "https://git.enlightenment.org/enlightenment/terminology")
+    cid = cid.replace("https://git.enlightenment.org/legacy/imlib2.git", "https://git.enlightenment.org/old/legacy-imlib2")
+    bigmap = {
+        "http://git.infradead.org/users/dwmw2/openconnect.git":
+        "git://git.infradead.org/users/dwmw2/openconnect.git",
+        "http://git.infradead.org/users/steved/libtirpc.git":
+        "git://git.infradead.org/users/dwmw2/openconnect.git",
+        "http://git.linux-nfs.org/steved/libtirpc.git":
+        "git://git.linux-nfs.org/projects/steved/libtirpc.git",
+        "http://git.savannah.nongnu.org/cgit/exosip.git":
+        "https://git.savannah.gnu.org/git/exosip.git",
+        "http://git.wpitchoune.net/gitweb/psensor.git":
+        "https://gitlab.com/jeanfi/psensor.git",
+        "https://git.savannah.gnu.org/cgit/quagga.git":
+        "https://github.com/Quagga/quagga",
+        "https://git.savannah.gnu.org/gitweb/quagga.git":
+        "https://github.com/Quagga/quagga",
+        "https://git.enlightenment.org/apps/terminology.git":
+        "http://git.enlightenment.org/enlightenment/terminology.git",
+        "https://git.enlightenment.org/core/enlightenment.git":
+        "http://git.enlightenment.org/enlightenment/enlightenment.git",
+        "https://git.enlightenment.org/legacy/imlib2.git":
+        "http://git.enlightenment.org/old/legacy-imlib2.git",
+        "https://git.exim.org/exim.git":
+        "git://git.exim.org/exim.git",
+        "https://git.gnupg.org/cgi-bin/gitweb.cgi/gnupg.git":
+        "git://git.gnupg.org/gnupg.git",
+        "https://git.gnupg.org/cgi-bin/gitweb.cgi/gpgme.git":
+        "git://git.gnupg.org/gpgme.git",
+        "https://git.gnupg.org/cgi-bin/gitweb.cgi/libgcrypt.git":
+        "git://git.gnupg.org/libgcrypt.git",
+        "https://git.gnupg.org/cgi-bin/gitweb.cgi/libksba.git":
+        "git://git.gnupg.org/libksba.git",
+        "https://git.haproxy.org/haproxy-1.5.git":
+        "http://git.haproxy.org/git/haproxy-1.5.git",
+        "https://git.haproxy.org/haproxy-1.8.git":
+        "http://git.haproxy.org/git/haproxy-1.8.git",
+        "https://git.haproxy.org/haproxy.git":
+        "http://git.haproxy.org/git/haproxy.git",
+        "https://git.hylafax.org/HylaFAX.git":
+        "https://github.com/ifax/HylaFAX.git",
+        "https://git.lxde.org/gitweb/lxde/lxterminal.git":
+        "https://github.com/lxde/lxterminal.git",
+        "https://git.lxde.org/gitweb/lxde/menu-cache.git":
+        "https://github.com/lxde/menu-cache.git",
+        "https://git.lxde.org/gitweb/lxde/pcmanfm.git":
+        "https://github.com/lxde/pcmanfm.git",
+        "https://git.php.net/php-src.git":
+        "https://github.com/php/php-src.git",
+        "https://git.postgresql.org/gitweb/postgresql.git":
+        "https://github.com/postgres/postgres",
+        "https://git.qemu.org/gitweb.cgi/qemu.git":
+        "https://git.qemu.org/git/qemu.git",
+        "https://github.com/tomhughes/libdwarf":
+        "https://github.com/davea42/libdwarf-code",
+        "https://git.shibboleth.net/view/cpp-opensaml.git":
+        "https://git.shibboleth.net/git/cpp-opensaml.git",
+        "https://git.shibboleth.net/view/cpp-sp.git":
+        "https://git.shibboleth.net/git/cpp-sp.git",
+        "https://git.shibboleth.net/view/cpp-xmltooling.git":
+        "https://git.shibboleth.net/git/cpp-xmltooling.git",
+        "https://git.openssl.org/gitweb/openssl.git":
+        "git://git.openssl.org/openssl.git",
+        "https://git.openssl.org/openssl.git":
+        "git://git.openssl.org/openssl.git",
+        "https://git.samba.org/rsync.git":
+        "https://git.samba.org/rsync.git",
+        "https://git.quassel-irc.org/quassel.git":
+        "https://github.com/quassel/quassel",
+        "https://htcondor-git.cs.wisc.edu/condor.git":
+        "https://github.com/htcondor/htcondor",
+    }
+    if cid in bigmap:
+        cid = bigmap[cid]
+    return cid
+
 def extract_repo(cid):
     """
     input: cid (link to commit webpage as string)
@@ -54,14 +146,7 @@ def extract_repo(cid):
         extra = "UNPROCESSED"
     
     cid = cid.replace("%2F", "/")
-    cid = cid.replace("https://cgit.freedesktop.org", "https://gitlab.freedesktop.org/")
-    cid = cid.replace("https://git.haproxy.org", "http://git.haproxy.org/git")
-    cid = cid.replace("https://git.gnupg.org/cgi-bin/gitweb.cgi", "https://dev.gnupg.org/source")
-    cid = cid.replace("https://git.enlightenment.org/core/enlightenment.git", "https://git.enlightenment.org/enlightenment/enlightenment")
-    cid = cid.replace("https://git.enlightenment.org/apps/terminology.git", "https://git.enlightenment.org/enlightenment/terminology")
-    cid = cid.replace("https://git.enlightenment.org/legacy/imlib2.git", "https://git.enlightenment.org/old/legacy-imlib2")
-    cid = cid.replace("https://cgit.kde.org", "https://github.com/KDE")
-    # cid = cid.replace("", "")
+    cid = correct_repo_name(cid)
 
     # import requests
     # try:
@@ -98,9 +183,9 @@ import traceback
 import numpy as np
 
 base = Path("repos")
-clean = base/"clean"
-archive = base/"archive"
-checkout = base/"checkout"
+clean = base/"clean2"
+archive = base/"archive2"
+checkout = base/"checkout2"
 
 """
 2. Check out each commit from each repo.
@@ -132,10 +217,10 @@ def print_uniq_repo_commit():
 from multiprocessing import Pool 
 
 def archive_one_commit(row):
-    repo = row.repo
-    commit_id = row.commit_id
-    clean_repo = row.clean_repo
-    dst_repo = row.dst_repo
+    repo = row["repo"]
+    commit_id = row["commit_id"]
+    clean_repo = row["clean_repo"]
+    dst_repo = row["dst_repo"]
     prefix=f"{repo}@{commit_id}:"
     
     cmd = f"""git archive {commit_id} -o {dst_repo}"""
@@ -158,18 +243,25 @@ def archive_commits():
     """
     df = pd.read_csv(f"bigvul_metadata_with_commit_id_unique.csv")
     print("original", df)
-    df.clean_repo_name = df["repo"].str.replace("://", "__").str.replace("/", "__")
-    df.clean_repo = df.clean_repo_name.apply(lambda n: df.clean_repo_name/n)
-    df = df[df.clean_repo.apply(lambda r: r.exists())]
+    df["repo"] = df["repo"].map(correct_repo_name)
+    df["clean_repo_name"] = df["repo"].str.replace("://", "__").str.replace("/", "__")
+    
+    df["clean_repo"] = df["clean_repo_name"].apply(lambda n: clean/n)
+    df = df[df["clean_repo"].apply(lambda r: r.exists())]
     print("input exists", df)
-    df.dst_repo = df.apply(lambda row: (archive/f"{row.clean_repo_name}__{row.commit_id}.tar").absolute(), axis=1)
-    df = df[df.dst_repo.apply(lambda d: not d.exists())]
+    print("unique items", len(df["clean_repo_name"].unique()))
+    print("\n".join(df["clean_repo_name"].sort_values().unique().tolist()))
+
+    df["dst_repo"] = df.apply(lambda row: (archive/f"{row['clean_repo_name']}__{row['commit_id']}.tar").absolute(), axis=1)
+    df = df[df["dst_repo"].apply(lambda d: not d.exists())]
     print("output does not exist", df)
-    df = df.head(50)  # NOTE: for test only
+
+    return
+    # df = df.head(50)  # NOTE: for test only
     with (
-        Pool(10) as p,
-        open(f'codeLinksCheckout_stdout.txt', 'w') as subprocess_output,
-        tqdm.tqdm(p.imap_unordered(archive_one_commit, df.itertuples()), desc=f"checkout out {len(df_uniq)} commits", total=len(df_uniq)) as pbar
+        Pool(6) as p,
+        open(f'codeLinksCheckout_stdout2.txt', 'w') as subprocess_output,
+        tqdm.tqdm(p.imap_unordered(archive_one_commit, df.to_dict("records")), desc=f"archive {len(df)} commits", total=len(df)) as pbar
         ):
         for outcome in pbar:
             print(outcome, file=subprocess_output)
@@ -188,12 +280,11 @@ def extract(tf):
     except Exception:
         print(tf, "->", cd, "error:", traceback.format_exc())
     return cd
+
 def extract_archived_commits(split_idx=-1, n_splits=1):
-    # tar_files = list(archive.glob("*.tar"))
     tar_files = [Path(l.strip()) for l in open(archive/"index_fixed.txt").readlines()]
     to_extract = []
     for tf in tqdm.tqdm(tar_files, desc="check existing"):
-        # if not get_checkout_dir(tf).exists():
         if True:
             to_extract.append(tf)
     if split_idx == -1:
@@ -201,19 +292,11 @@ def extract_archived_commits(split_idx=-1, n_splits=1):
     else:
         splits = np.array_split(to_extract, n_splits)
         to_extract = splits[split_idx]
-    # to_purge = list(map(str, map(get_checkout_dir, to_extract)))
     print(len(to_extract), "to extract")
     try:
-        # with Pool(25) as p:
-            # for cd in tqdm.tqdm(p.imap_unordered(extract, to_extract), total=len(to_extract), desc="untarring files"):
         for cd in tqdm.tqdm(map(extract, to_extract), total=len(to_extract), desc="untarring files"):
-            # to_purge.pop(0)
             pass
     except:
-        # to_purge = [d for d in to_purge if Path(d).exists()]
-        # print(f"deleting {len(to_purge)} partially extracted directories: {to_purge}")
-        # for d in to_purge:
-        #     shutil.rmtree(d)
         raise
 
 """
