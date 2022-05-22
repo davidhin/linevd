@@ -1,7 +1,7 @@
 #!/bin/bash
 
-#SBATCH --cpus-per-task 3
-#SBATCH --mem 16G
+#SBATCH --cpus-per-task 2
+#SBATCH --mem 24G
 
 #SBATCH --array=0-99%5
 #SBATCH --output=repos/parse-%A-%a.txt
@@ -17,5 +17,5 @@
 
 source activate.sh
 
-python -c "import sastvd.scripts.get_repos as gr; gr.parse_with_joern($SLURM_ARRAY_TASK_ID, 100)"
+/work/LAS/weile-lab/benjis/envs/linevd/bin/python3.10 -c "import sastvd.scripts.get_repos as gr; gr.parse_with_joern($SLURM_ARRAY_TASK_ID, 100)"
 # python -c "import sastvd.scripts.get_repos as gr; gr.parse_with_joern(-1)"
