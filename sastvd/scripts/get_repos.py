@@ -18,23 +18,10 @@ def print_commit_ids_df():
     df.to_csv("bigvul_metadata_with_commit_id.csv")
 
 
+def slug(cid):
+    return cid.replace("://", "__").replace("//", "__").replace("/", "__")
+
 def correct_repo_name(cid):
-    # replace cgit with gitlab
-    cid = cid.replace("cgit.", "gitlab.")
-    # replace cgit with github
-    cid = cid.replace("cgit.kde.org", "github.com/KDE")
-    # replace git.savannah.gnu.org/*/ with git.savannah.gnu.org/git
-    cid = (
-        cid
-        .replace("git.savannah.gnu.org/cgit", "git.savannah.gnu.org/git")
-        .replace("git.savannah.gnu.org/gitview", "git.savannah.gnu.org/git")
-    )
-    # misc mappings
-    cid = cid.replace("https://git.haproxy.org", "http://git.haproxy.org/git")
-    cid = cid.replace("https://git.gnupg.org/cgi-bin/gitweb.cgi", "https://dev.gnupg.org/source")
-    cid = cid.replace("https://git.enlightenment.org/core/enlightenment.git", "https://git.enlightenment.org/enlightenment/enlightenment")
-    cid = cid.replace("https://git.enlightenment.org/apps/terminology.git", "https://git.enlightenment.org/enlightenment/terminology")
-    cid = cid.replace("https://git.enlightenment.org/legacy/imlib2.git", "https://git.enlightenment.org/old/legacy-imlib2")
     bigmap = {
         "http://git.infradead.org/users/dwmw2/openconnect.git":
         "git://git.infradead.org/users/dwmw2/openconnect.git",
@@ -66,12 +53,6 @@ def correct_repo_name(cid):
         "git://git.gnupg.org/libgcrypt.git",
         "https://git.gnupg.org/cgi-bin/gitweb.cgi/libksba.git":
         "git://git.gnupg.org/libksba.git",
-        "https://git.haproxy.org/haproxy-1.5.git":
-        "http://git.haproxy.org/git/haproxy-1.5.git",
-        "https://git.haproxy.org/haproxy-1.8.git":
-        "http://git.haproxy.org/git/haproxy-1.8.git",
-        "https://git.haproxy.org/haproxy.git":
-        "http://git.haproxy.org/git/haproxy.git",
         "https://git.hylafax.org/HylaFAX.git":
         "https://github.com/ifax/HylaFAX.git",
         "https://git.lxde.org/gitweb/lxde/lxterminal.git":
@@ -80,10 +61,12 @@ def correct_repo_name(cid):
         "https://github.com/lxde/menu-cache.git",
         "https://git.lxde.org/gitweb/lxde/pcmanfm.git":
         "https://github.com/lxde/pcmanfm.git",
-        "https://git.php.net/php-src.git":
+        "https://github.com/php/php-src.git.git":
         "https://github.com/php/php-src.git",
         "https://git.postgresql.org/gitweb/postgresql.git":
         "https://github.com/postgres/postgres",
+        "https://git.qemu.org/qemu.git":
+        "https://git.qemu.org/git/qemu.git",
         "https://git.qemu.org/gitweb.cgi/qemu.git":
         "https://git.qemu.org/git/qemu.git",
         "https://github.com/tomhughes/libdwarf":
@@ -98,15 +81,58 @@ def correct_repo_name(cid):
         "git://git.openssl.org/openssl.git",
         "https://git.openssl.org/openssl.git":
         "git://git.openssl.org/openssl.git",
-        "https://git.samba.org/rsync.git":
+        # multiple occurrences of rsync
+        "https://git.samba.org/rsync.git/rsync.git":
         "https://git.samba.org/rsync.git",
         "https://git.quassel-irc.org/quassel.git":
         "https://github.com/quassel/quassel",
         "https://htcondor-git.cs.wisc.edu/condor.git":
         "https://github.com/htcondor/htcondor",
+        # misc freedesktop crap
+        "https://gitlab.freedesktop.org/accountsservice":
+        "https://gitlab.freedesktop.org/accountsservice/accountsservice",
+        "https://gitlab.freedesktop.org/drm/drm-misc":
+        "https://gitlab.freedesktop.org/drm/misc",
+        "https://gitlab.freedesktop.org/exempi":
+        "https://gitlab.freedesktop.org/libopenraw/exempi",
+        "https://gitlab.freedesktop.org/fontconfig":
+        "https://gitlab.freedesktop.org/fontconfig/fontconfig",
+        "https://gitlab.freedesktop.org/harfbuzz":
+        "https://github.com/freedesktop/harfbuzz",
+        "https://gitlab.freedesktop.org/harfbuzz.old":
+        "git://anongit.freedesktop.org/harfbuzz.old",
+        "https://gitlab.freedesktop.org/libbsd":
+        "https://gitlab.freedesktop.org/libbsd/libbsd",
+        "https://gitlab.freedesktop.org/pixman":
+        "https://gitlab.freedesktop.org/pixman/pixman",
+        "https://gitlab.freedesktop.org/polkit":
+        "https://gitlab.freedesktop.org/polkit/polkit",
+        "https://gitlab.freedesktop.org/systemd/systemd":
+        "https://github.com/freedesktop/systemd",
+        "https://gitlab.freedesktop.org/udisks":
+        "https://github.com/storaged-project/udisks",
+        "https://gitlab.freedesktop.org/virglrenderer":
+        "https://gitlab.freedesktop.org/virgl/virglrenderer",
     }
     if cid in bigmap:
         cid = bigmap[cid]
+    # replace cgit with gitlab
+    cid = cid.replace("cgit.", "gitlab.")
+    # replace cgit with github
+    cid = cid.replace("cgit.kde.org", "github.com/KDE").replace("gitlab.kde.org", "github.com/KDE")
+    # replace git.savannah.gnu.org/*/ with git.savannah.gnu.org/git
+    cid = (
+        cid
+        .replace("git.savannah.gnu.org/cgit", "git.savannah.gnu.org/git")
+        .replace("git.savannah.gnu.org/gitview", "git.savannah.gnu.org/git")
+        .replace("git.savannah.gnu.org/gitweb", "git.savannah.gnu.org/git")
+    )
+
+    # misc mappings
+    cid = cid.replace("https://dev.gnupg.org/source", "git://git.gnupg.org")
+    cid = cid.replace("git.haproxy.org", "git.haproxy.org/git")
+    cid = cid.replace("git.gnupg.org/cgi-bin/gitweb.cgi", "git.gnupg.org")
+
     return cid
 
 def extract_repo(cid):
@@ -166,7 +192,7 @@ def print_repo_links():
     print URL of each repo
     """
     df = pd.read_csv("bigvul_metadata_with_commit_id.csv")
-    df["repo"] = df["codeLink"].apply(extract_repo)
+    df["repo"] = df["codeLink"].map(extract_repo)
     codeLinks = df["repo"].sort_values().unique().tolist()
     with open("codeLinks.txt", "w") as f:
         for cid in codeLinks:
@@ -244,7 +270,7 @@ def archive_commits():
     df = pd.read_csv(f"bigvul_metadata_with_commit_id_unique.csv")
     print("original", df)
     df["repo"] = df["repo"].map(correct_repo_name)
-    df["clean_repo_name"] = df["repo"].str.replace("://", "__").str.replace("/", "__")
+    df["clean_repo_name"] = df["repo"].map(slug)
     
     df["clean_repo"] = df["clean_repo_name"].apply(lambda n: clean/n)
     df = df[df["clean_repo"].apply(lambda r: r.exists())]
@@ -323,9 +349,11 @@ def export_cpg(sess, fp):
 
 def parse_with_joern(job_array_id=-1, n_splits=1):
     df = pd.read_csv(f"bigvul_metadata_with_commit_id_unique.csv")
+    df["repo"] = df["repo"].map(correct_repo_name)
+    df["clean_repo_name"] = df["repo"].map(slug)
     # df = pd.read_csv("bigvul_metadata_with_commit_id.csv")
     # df["repo"] = df["codeLink"].apply(extract_repo)
-    df["repo_filepath"] = df["repo"].apply(lambda r: str(repos_path/(r.replace("://", "__").replace("/", "__"))))
+    df["repo_filepath"] = df["clean_repo_name"].apply(lambda r: str(repos_path/(r)))
     df["checkout_filepath"] = df[['repo_filepath', 'commit_id']].T.agg('__'.join)
     print("original", df)
     df = df[df["checkout_filepath"].apply(lambda fp: Path(fp).exists())]
@@ -336,7 +364,7 @@ def parse_with_joern(job_array_id=-1, n_splits=1):
 
     # split
     split_size = len(df) // n_splits
-    logfile = open(f"output_get_repos_{job_array_id}.txt", "wb")
+    logfile = open(f"output_parse_{job_array_id}.txt", "wb")
     if job_array_id == -1:
         df = df.head(5)  # NOTE: debug
     elif job_array_id == n_splits:
