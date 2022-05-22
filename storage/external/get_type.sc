@@ -40,13 +40,13 @@ def mapToMemberTypes(allT: List[TypeDecl], seen: HashSet[String] = HashSet()): L
     toReturn
 }
 
-@main def exec(cpgName: String, rootType: String) = {
-    importCpg(cpgName)
-    
+@main def exec(cpgName: String = null, rootType: String, outFile: String = null) = {
     val trueType = trueTypeDecl(rootType).dedup.l
-    val memberTypes = mapToMemberTypes(trueType).sorted.dedup
+    val memberTypes = mapToMemberTypes(trueType).sorted.dedup.l
     println(s"Exporting ${memberTypes.length} types")
-    memberTypes.mkString("\n") |> s"memberTypes_$rootType.txt"
-
-    delete
+    val outFileName = outFile match {
+        case null => s"memberTypes_$rootType.txt"
+        case s => s
+    }
+    memberTypes.mkString("\n") |> outFileName
 }

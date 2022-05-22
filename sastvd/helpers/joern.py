@@ -79,10 +79,19 @@ def get_digraph(nodes, edges, edge_label=True):
     return dot
 
 
-def run_joern_gettype(sess, filepath: str, datatype: str):
+def run_joern_gettype(sess, cpgpath: str, datatypes):
     """Extract member types using Joern."""
+    sess.import_cpg(cpgpath)
     try:
-        sess.run_script("get_type", params={"cpgName": filepath + ".cpg.bin", "rootType": datatype})
+        for datatype in datatypes:
+            try:
+                typepath = Path(f"{cpgpath}_types_{datatype}.txt")
+                if typepath.exists():
+                    return
+                else:
+                    sess.run_script("get_type", params={"rootType": datatype, "outFile": str(typepath)}, import_first=False)
+            except Exception:
+                print("error", datatype, traceback.format_exc())
     finally:
         sess.delete()
 

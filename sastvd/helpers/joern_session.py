@@ -105,6 +105,9 @@ class JoernSession:
     def import_code(self, filepath: str):
         return self.run_command(f"""importCode("{filepath}")""")
 
+    def import_cpg(self, cpgpath: str):
+        return self.run_command(f"""importCpg("{cpgpath}")""")
+
     # def export_cpg(self, filepath: str):
     #     out1 = self.run_command(f"""importCode("{filepath}")""")
     #     out2 = self.run_script("get_func_graph", params={

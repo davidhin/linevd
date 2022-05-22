@@ -14,7 +14,9 @@ import sastvd.analysis.dataflow as dataflow
 import sastvd.helpers.datasets as svdds
 import sastvd.helpers.dclass as svddc
 import sastvd.helpers.joern as svdj
+import sastvd.helpers.joern_session as svdjs
 import seaborn as sns
+# from tqdm import tqdm
 import tqdm
 from matplotlib import pyplot as plt
 
@@ -380,17 +382,36 @@ def get_dataflow_features_df():
 
     return dataflow_df
 
-def expand_struct_datatypes(df):
-    md_df = pd.read_csv("bigvul_metadata_with_commit_id.csv")
-    df = pd.merge(df, md_df, on="id")
-    checkout_dir = Path("repos/checkout")
-    df["projectpath"] = df["repo"].apply(lambda r: checkout_dir/(r.replace("/", "__")))
+from sastvd.scripts.get_repos import extract_repo
 
-    sess = svdjs.JoernSession(i)
-    def get_dataflow_features_with_sess(row):
-        return run_joern_gettype(sess, row["projectpath"], row["datatype"])
+checkout_dir = Path("repos/checkout")
+def expand_struct_datatypes(df):
+    md_df = pd.read_csv("bigvul_metadata_with_commit_id_slim.csv")
+    print("original", md_df)
+    md_df["repo"] = md_df["codeLink"].apply(extract_repo)
+    print("repo", md_df)
+    md_df["cpgpath"] = md_df.apply(lambda row: checkout_dir/(row["repo"].replace("://", "__").replace("/", "__") + "__" + row["commit_id"] + ".cpg.bin"), axis=1)
+    md_df = md_df[md_df["cpgpath"].apply(lambda p: p.exists())]
+    print("filter", md_df)
+    # md_df = md_df.head(10)
+    df = pd.merge(df, md_df, left_on="graph_id", right_on="id")
+    print("merge", df)
+    df = df.drop_duplicates(subset=["repo", "commit_id", "datatype"]).sort_values("cpgpath")
+    print("dedup", df)
+    # df = df.head(100)
+
+    # print(df)
+
+    sess = svdjs.JoernSession("datatype", logfile=open("output_datatype_test.txt", "wb"))
+    sess.import_script("get_type")
+    # def get_dataflow_features_with_sess(row):
+    #     return svdj.run_joern_gettype(sess, str(row["cpgpath"]), row["datatype"])
     try:
-        df.apply(get_dataflow_features_with_sess)
+        # tqdm.pandas()
+        for cpgpath, group in tqdm.tqdm(df.groupby("cpgpath"), desc="load types"):
+            dts = group["datatype"].dropna().unique()
+            svdj.run_joern_gettype(sess, str(cpgpath), dts)
+            # .progress_apply(get_dataflow_features_with_sess, axis=1)
     finally:
         sess.close()
 
