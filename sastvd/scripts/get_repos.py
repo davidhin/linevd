@@ -282,7 +282,8 @@ def extract(tf):
     return cd
 
 def extract_archived_commits(split_idx=-1, n_splits=1):
-    tar_files = [Path(l.strip()) for l in open(archive/"index_fixed.txt").readlines()]
+    tar_files = [Path(l.strip()) for l in open(archive/"index_fixed.txt").readlines() if l]
+    print(len(tar_files), "tar files")
     to_extract = []
     for tf in tqdm.tqdm(tar_files, desc="check existing"):
         if True:
