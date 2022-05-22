@@ -209,9 +209,9 @@ import traceback
 import numpy as np
 
 base = Path("repos")
-clean = base/"clean2"
-archive = base/"archive2"
-checkout = base/"checkout2"
+clean = base/"clean"
+archive = base/"archive3"
+# checkout = base/"checkout2"
 
 """
 2. Check out each commit from each repo.
@@ -230,15 +230,15 @@ def print_uniq_repo_commit():
     print("total:", len(df_uniq))
     df_uniq = df_uniq[["repo", "commit_id"]]
     df_uniq.to_csv(f"bigvul_metadata_with_commit_id_unique.csv")
-    n_splits = 10
-    split_size = len(df_uniq) // n_splits
-    for i in range(0, n_splits):
-        if i < n_splits-1:
-            split = df_uniq[i*split_size:(i+1)*split_size].copy()
-        else:
-            split = df_uniq[i*split_size:].copy()
-        print(i, len(split))
-        split.to_csv(f"bigvul_metadata_with_commit_id_unique_{i}.csv")
+    # n_splits = 10
+    # split_size = len(df_uniq) // n_splits
+    # for i in range(0, n_splits):
+    #     if i < n_splits-1:
+    #         split = df_uniq[i*split_size:(i+1)*split_size].copy()
+    #     else:
+    #         split = df_uniq[i*split_size:].copy()
+    #     print(i, len(split))
+    #     split.to_csv(f"bigvul_metadata_with_commit_id_unique_{i}.csv")
 
 from multiprocessing import Pool 
 
@@ -276,17 +276,18 @@ def archive_commits():
     df = df[df["clean_repo"].apply(lambda r: r.exists())]
     print("input exists", df)
     print("unique items", len(df["clean_repo_name"].unique()))
-    print("\n".join(df["clean_repo_name"].sort_values().unique().tolist()))
+    # print("\n".join(df["clean_repo_name"].sort_values().unique().tolist()))
 
     df["dst_repo"] = df.apply(lambda row: (archive/f"{row['clean_repo_name']}__{row['commit_id']}.tar").absolute(), axis=1)
     df = df[df["dst_repo"].apply(lambda d: not d.exists())]
+    df = df[df.apply(lambda row: not (base/"archive"/f"{row['clean_repo_name']}__{row['commit_id']}.tar").absolute().exists(), axis=1)]
     print("output does not exist", df)
 
-    return
+    # return
     # df = df.head(50)  # NOTE: for test only
     with (
         Pool(6) as p,
-        open(f'codeLinksCheckout_stdout2.txt', 'w') as subprocess_output,
+        open(f'codeLinksCheckout_stdout3.txt', 'w') as subprocess_output,
         tqdm.tqdm(p.imap_unordered(archive_one_commit, df.to_dict("records")), desc=f"archive {len(df)} commits", total=len(df)) as pbar
         ):
         for outcome in pbar:
