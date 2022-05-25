@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 import sastvd as svd
 import scipy.sparse as sparse
+import pexpect
 
 
 def nodelabel2line(label: str):
@@ -81,19 +82,43 @@ def get_digraph(nodes, edges, edge_label=True):
 
 def run_joern_gettype(sess, cpgpath: str, datatypes):
     """Extract member types using Joern."""
-    sess.import_cpg(cpgpath)
+    datatype_to_paths = {}
     try:
-        for datatype in datatypes:
-            try:
-                typepath = Path(f"{cpgpath}_types_{datatype}.txt")
-                if typepath.exists():
-                    return
-                else:
-                    sess.run_script("get_type", params={"rootType": datatype, "outFile": str(typepath)}, import_first=False)
-            except Exception:
-                print("error", datatype, traceback.format_exc())
-    finally:
-        sess.delete()
+        sess.import_cpg(cpgpath)
+        try:
+            for datatype in datatypes:
+                typepath = None
+                try:
+                    typepath = Path(f"{cpgpath}_types_{datatype}.txt")
+                    if not typepath.exists():
+                        sess.run_script("get_type", params={"rootType": datatype, "outFile": str(typepath)}, import_first=False)
+                    datatype_to_paths[datatype] = typepath
+                except pexpect.exceptions.EOF:
+                    raise
+                except Exception:
+                    print("error", datatype, traceback.format_exc())
+        finally:
+            sess.delete()
+        
+        def get_subtypes(typepath):
+            if typepath is None:
+                return None
+            with open(typepath) as f:
+                return list(f.read().splitlines())
+    except pexpect.exceptions.EOF:
+        raise
+    except Exception:
+        print("error", cpgpath, datatypes, traceback.format_exc())
+        
+    datatype_to_subtypes = {}
+    for k, v in datatype_to_paths.items():
+        try:
+            subtypes = get_subtypes(v)
+            if subtypes is not None:
+                datatype_to_subtypes[k] = subtypes
+        except Exception:
+            print("error", k, v, traceback.format_exc())
+    return datatype_to_subtypes
 
 
 def run_joern_dataflow(sess, filepath: str, problem: str, verbose: int):

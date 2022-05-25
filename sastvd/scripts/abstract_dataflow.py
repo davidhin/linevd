@@ -19,6 +19,8 @@ import seaborn as sns
 # from tqdm import tqdm
 import tqdm
 from matplotlib import pyplot as plt
+import json
+import pexpect
 
 sample = False
 
@@ -384,44 +386,86 @@ def get_dataflow_features_df():
 
 from sastvd.scripts.get_repos import extract_repo
 
-checkout_dir = Path("repos/checkout")
+checkout_dirs = [Path("repos/checkout"), Path("repos/checkout3")]
 def expand_struct_datatypes(df):
-    md_df = pd.read_csv("bigvul_metadata_with_commit_id_slim.csv")
-    print("original", md_df)
-    md_df["repo"] = md_df["codeLink"].apply(extract_repo)
-    print("repo", md_df)
-    md_df["cpgpath"] = md_df.apply(lambda row: checkout_dir/(row["repo"].replace("://", "__").replace("/", "__") + "__" + row["commit_id"] + ".cpg.bin"), axis=1)
-    md_df = md_df[md_df["cpgpath"].apply(lambda p: p.exists())]
-    print("filter", md_df)
-    # md_df = md_df.head(10)
-    df = pd.merge(df, md_df, left_on="graph_id", right_on="id")
-    print("merge", df)
-    df = df.drop_duplicates(subset=["repo", "commit_id", "datatype"]).sort_values("cpgpath")
-    print("dedup", df)
-    # df = df.head(100)
+    save_file = Path("bigvul_metadata_with_commit_id_slim_with_subtypes.csv")
+    if save_file.exists():
+        df = pd.read_csv(save_file)
+        # df = df[["node_id","graph_id","project_x","codeLink","repo","commit_id","datatype","operator","api","literal","datatype_subtypes"]].rename(columns={"project_x": "project"})
+        # df = df.dropna(subset=["datatype_subtypes"])
+        # df["datatype_subtypes_str"] = df["datatype_subtypes"].apply(lambda st: ", ".join(sorted(st)))
+        df["datatype_subtypes"] = df["datatype_subtypes"].apply(lambda st: json.loads(st))
+    else:
+        md_df = pd.read_csv("bigvul_metadata_with_commit_id_slim.csv")
+        print("original", md_df)
+        md_df["repo"] = md_df["codeLink"].apply(extract_repo)
+        print("repo", md_df)
+        md_df["cpgpath"] = md_df.apply(lambda row: next(filter(Path.exists, (cd/(row["repo"].replace("://", "__").replace("/", "__") + "__" + row["commit_id"] + ".cpg.bin") for cd in checkout_dirs)), None), axis=1)
+        md_df = md_df[md_df["cpgpath"].apply(lambda p: p is not None and p.exists())]
+        print("filter", md_df)
+        df = pd.merge(df, md_df, left_on="graph_id", right_on="id")
+        print("merge", df)
+        df = df.drop_duplicates(subset=["repo", "commit_id", "datatype"]).sort_values("cpgpath")
+        print("dedup", df)
 
-    # print(df)
+        df = (
+            df[["node_id","graph_id","project_x","codeLink","repo","commit_id","cpgpath","datatype","operator","api","literal"]]
+            .rename(columns={"project_x": "project"})
+            )
 
-    sess = svdjs.JoernSession("datatype", logfile=open("output_datatype_test.txt", "wb"))
-    sess.import_script("get_type")
-    # def get_dataflow_features_with_sess(row):
-    #     return svdj.run_joern_gettype(sess, str(row["cpgpath"]), row["datatype"])
-    try:
-        # tqdm.pandas()
-        for cpgpath, group in tqdm.tqdm(df.groupby("cpgpath"), desc="load types"):
-            dts = group["datatype"].dropna().unique()
-            svdj.run_joern_gettype(sess, str(cpgpath), dts)
-            # .progress_apply(get_dataflow_features_with_sess, axis=1)
-    finally:
-        sess.close()
+        # df = df.head(50)  # NOTE: debug
+        df["datatype_subtypes"] = pd.NA
+
+        df["datatype"] = df["datatype"].apply(lambda dt: dt if pd.isna(dt) else re.sub(r"^const ", r"", re.sub(r"\s+\[.*\]", r"", dt)))
+        
+        sess = svdjs.JoernSession("datatype", logfile=open("output_datatype_test.txt", "wb"))
+        sess.import_script("get_type")
+        try:
+            for cpgpath, group in tqdm.tqdm(df.groupby("cpgpath"), desc="load types"):
+                try:
+                    dts = group["datatype"].dropna().unique()
+                    # breakpoint()
+                    dt_to_subtypes = svdj.run_joern_gettype(sess, str(cpgpath), dts)
+                    print("cpg", cpgpath, "extracted subtypes for", len(dt_to_subtypes), "/", len(group), "datatypes")
+                    for i, row in group.iterrows():
+                        dt = row["datatype"]
+                        if dt in dt_to_subtypes:
+                            subtypes = dt_to_subtypes[dt]
+                            print("id", i, "-", dt, "=", subtypes)
+                            if len(subtypes) > 0:
+                                df.at[i, "datatype_subtypes"] = subtypes
+                        else:
+                            print("id", i, "-", dt, "has no subtypes")
+                except pexpect.exceptions.EOF:
+                    sess.close()
+                    sess = svdjs.JoernSession("datatype", logfile=open("output_datatype_test.txt", "ab"))
+                    sess.import_script("get_type")
+        finally:
+            sess.close()
+        
+        df = df.dropna(subset=["datatype_subtypes"])
+        df["datatype_subtypes_str"] = df["datatype_subtypes"].apply(lambda st: ", ".join(sorted(st)))
+        tdf = df.copy()
+        tdf["datatype_subtypes"] = tdf["datatype_subtypes"].apply(lambda st: json.dumps(st))
+        tdf.to_csv(save_file)
+    return df
 
 def get_expanded_df():
     dataflow_df = get_dataflow_features_df()
-    dataflow_df = expand_struct_datatypes(dataflow_df)
-    return dataflow_df
+    print("dataflow_df", len(dataflow_df))
+    expanded_dataflow_df = expand_struct_datatypes(dataflow_df)
+    print("expanded_dataflow_df", len(expanded_dataflow_df))
+    merge_df = pd.merge(dataflow_df, expanded_dataflow_df[["node_id", "datatype", "datatype_subtypes_str"]], how="left", on=("node_id", "datatype"))
+    print("merge_df", len(dataflow_df))
+    # breakpoint()
+    print(merge_df["datatype"])
+    merge_df["datatype"] = merge_df.apply(lambda row: row["datatype_subtypes_str"] if not pd.isna(row["datatype_subtypes_str"]) else row["datatype"], axis=1)
+    print(merge_df["datatype"])
+    return merge_df
 
 if __name__ == "__main__":
     dataflow_df = get_expanded_df()
+    print("dataflow_df", dataflow_df)
 
 def extract_nan_values():
     dataflow_df = get_dataflow_features_df()
@@ -516,6 +560,7 @@ if __name__ == "__main__":
     train_df = pd.merge(train_df, dataflow_df, left_on="id", right_on="graph_id")
     print(train_df.columns)
     datatype_vc = train_df["datatype"].value_counts()
+    # datatype_vc = train_df["datatype_subtypes_str"].value_counts()
 
     # Filter to decls only
     # NOTE: disabled because already done in get_dataflow_features... get a hint!
@@ -614,7 +659,7 @@ Output from first run:
 
 # %% Generate hash value for each node
 
-def to_hash(row):
+def to_hash(row, select):
     items = []
     for key in select:
         items.append(select[key].index(row[key]) if row[key] in select[key] else pd.NA)
@@ -643,13 +688,14 @@ def generate_frequency_graphs():
         number = int(len(datatype_vc) * portion)
         print("ITERATION", i, "portion", portion, "number", number, "/", len(datatype_vc))
         select = {
+            # "datatype_subtypes_str": datatype_vc.nlargest(number).index.sort_values().tolist(),
             "datatype": datatype_vc.nlargest(number).index.sort_values().tolist(),
         }
         for k in select:
             print(k, len(select[k]), "items selected")
             print("headdd", list(select[k])[:10])
         # print(test_df)
-        test_df["hash"] = test_df.apply(to_hash, axis=1).replace("<NA>", pd.NA)
+        test_df["hash"] = test_df.apply(to_hash, select=select, axis=1).replace("<NA>", pd.NA)
         print(test_df["hash"])
         # breakpoint()
         test_df["has_hash"] = ~test_df["hash"].isna()
@@ -672,9 +718,14 @@ def generate_frequency_graphs():
 # %% 
 
 if __name__ == "__main__":
+    generate_frequency_graphs()
+    exit()
+
+if __name__ == "__main__":
 
     # Export dataset
     select = {
+        # "datatype_subtypes_str": datatype_vc.nlargest(1000).index.sort_values().tolist(),
         "datatype": datatype_vc.nlargest(1000).index.sort_values().tolist(),
         # "datatype": datatype_vc.index.sort_values().tolist(),
     }

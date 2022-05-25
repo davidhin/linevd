@@ -335,7 +335,7 @@ import functools
 
 import sastvd.helpers.joern_session as svdjs
 
-repos_path = Path("repos/checkout")
+# repos_path = Path("repos/checkout3")
 
 def export_cpg(sess, fp):
     try:
@@ -344,11 +344,12 @@ def export_cpg(sess, fp):
             "runOssDataflow": False,
             "exportJson": False,
             "exportCpg": True,
-        }, import_first=False, timeout=60*5)
+        }, import_first=False, timeout=60*10)
     except Exception:
         return traceback.format_exc()
 
-def parse_with_joern(job_array_id=-1, n_splits=1):
+def parse_with_joern(job_array_id=-1, n_splits=1, repos_path="repos/checkout3", stuff_idx=3):
+    repos_path = Path(repos_path)
     df = pd.read_csv(f"bigvul_metadata_with_commit_id_unique.csv")
     df["repo"] = df["repo"].map(correct_repo_name)
     df["clean_repo_name"] = df["repo"].map(slug)
@@ -373,7 +374,7 @@ def parse_with_joern(job_array_id=-1, n_splits=1):
     else:
         df = df[job_array_id*split_size:(job_array_id+1)*split_size].copy()
     
-    sess = svdjs.JoernSession(f"cpg_{job_array_id}", logfile=logfile, clean=True)
+    sess = svdjs.JoernSession(f"cpg{stuff_idx}_{job_array_id}", logfile=logfile, clean=True)
     sess.import_script("get_func_graph")
     try:
         export_output = []
