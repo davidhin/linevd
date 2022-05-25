@@ -9,7 +9,7 @@ import networkx as nx
 import pandas as pd
 import pytorch_lightning as pl
 import sastvd as svd
-import sastvd.analysis.dataflow as df
+import code_gnn.analysis.dataflow as df
 import sastvd.codebert as cb
 import sastvd.helpers.dclass as svddc
 import sastvd.helpers.datasets as svdds

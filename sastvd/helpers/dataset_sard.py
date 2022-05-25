@@ -464,7 +464,7 @@ import sastvd.helpers.rank_eval as svdr
 import sastvd.helpers.sast as sast
 import sastvd.ivdetect.evaluate as ivde
 import sastvd.linevd.gnnexplainer as lvdgne
-import sastvd.analysis.dataflow as df
+import code_gnn.analysis.dataflow as df
 import torch as th
 import torch.nn.functional as F
 import torchmetrics
