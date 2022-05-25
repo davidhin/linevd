@@ -408,14 +408,14 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
         if self.nsampling:
             g = next(iter(GraphDataLoader(self.train, batch_size=len(self.train))))
             return self.node_dl(g, shuffle=True)
-        return GraphDataLoader(self.train, shuffle=True, batch_size=self.batch_size, num_workers=0)
+        return GraphDataLoader(self.train, shuffle=True, batch_size=self.batch_size, num_workers=4)
 
     def val_dataloader(self):
         """Return val dataloader."""
         if self.nsampling:
             g = next(iter(GraphDataLoader(self.val, batch_size=len(self.val))))
             return self.node_dl(g)
-        return GraphDataLoader(self.val, batch_size=self.batch_size, num_workers=0)
+        return GraphDataLoader(self.val, batch_size=self.batch_size, num_workers=4)
 
     def val_graph_dataloader(self):
         """Return test dataloader."""
@@ -423,7 +423,7 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
 
     def test_dataloader(self):
         """Return test dataloader."""
-        return GraphDataLoader(self.test, batch_size=32, num_workers=0)
+        return GraphDataLoader(self.test, batch_size=32, num_workers=4)
 
 
 # %%

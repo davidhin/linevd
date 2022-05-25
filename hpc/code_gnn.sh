@@ -27,5 +27,5 @@ nvidia-smi
 #   --label_style node --learning_rate 1e-3 --weight_decay 1e-2 --undersample_factor 1.0
    
  singularity exec --nv main.sif python code_gnn/main.py --model flow_gnn --dataset MSR --feat "_ABS_DATAFLOW_datatypeonly" \
-    --clean --batch_size 2 --max_epochs 500 \
-    --label_style node --learning_rate 1e-3 --weight_decay 1e-2 --debug_overfit
+    --clean --batch_size 256 --max_epochs 500 \
+    --label_style graph

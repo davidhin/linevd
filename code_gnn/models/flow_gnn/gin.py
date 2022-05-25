@@ -154,13 +154,13 @@ class FlowGNNModule(BaseModule):
                 result = fc(result)
             result = torch.sigmoid(result).squeeze(dim=-1)
         else:
-            score_over_layer = torch.tensor(0)
+            score_over_layer = 0
 
             # perform pooling over all nodes in each graph in every layer
             for i, h in enumerate(hidden_rep):
-                logger.warning('NOT WORKING, UNDER CONSTRUCTION...')
-                # logger.debug(f'{h.shape=} {h=}')
+                # logger.info(f'{i} shape={h.shape} h={h}')
                 if self.hparams.node_type_separate:
+                    logger.warning('NOT WORKING, UNDER CONSTRUCTION...')
                     # if h.shape[0] != g.ndata['node_type'].shape[0]:
                     #     logger.debug(f'{h.shape=} {h=}')
                     #     logger.debug(f"{g.ndata['node_type'].shape=} {g.ndata['node_type']=}")
@@ -168,7 +168,9 @@ class FlowGNNModule(BaseModule):
                     # TODO: we want to pass this through a linear layer so that the one-hot gets picked up.
                 h = self.pool(g, h)
                 fc_out = self.linears_prediction[i](h)
-                score_over_layer += self.drop(fc_out)
+                drop = self.drop(fc_out)
+                # logger.info(f"drop shape={drop.shape} drop={drop} score_over_layer={score_over_layer}")
+                score_over_layer += drop
 
             result = torch.sigmoid(score_over_layer).squeeze(dim=-1)
 

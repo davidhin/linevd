@@ -31,7 +31,7 @@ class BigVulDataset:
         self.df = self.df.rename(columns={"index": "idx"})
         self.idx2id = pd.Series(self.df.id.values, index=self.df.idx).to_dict()
         
-        self.abs_df = svdds.abs_dataflow()
+        self.abs_df, self.abs_df_hashes = svdds.abs_dataflow()
 
     def get_vuln_indices(self, _id):
         """Obtain vulnerable lines from sample ID."""

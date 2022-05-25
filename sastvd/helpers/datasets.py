@@ -1,8 +1,13 @@
 import os
 import re
 
+import numpy as np
 import pandas as pd
 import sastvd as svd
+from glob import glob
+from pathlib import Path
+import json
+import traceback
 import sastvd.helpers.doc2vec as svdd2v
 import sastvd.helpers.git as svdg
 import sastvd.helpers.glove as svdglove
@@ -140,8 +145,18 @@ def bigvul(cache=True, sample=False, return_raw=False, splits="default", after_p
                 splits = pd.read_csv(default_splits)
                 splits = splits.set_index("id").to_dict()["label"]
                 df["label"] = df.id.map(splits)
+            
+            # def get_label(i):
+            #     if i < int(len(df) * 0.1):
+            #         return "valid"
+            #     elif i < int(len(df) * 0.2):
+            #         return "test"
+            #     else:
+            #         return "train"
+            # df["label"] = pd.Series(data=list(map(get_label, range(len(df)))), index=np.random.RandomState(seed=0).permutation(df.index))
 
             if "crossproject" in splits:
+                raise NotImplementedError(splits)
                 project = splits.split("_")[-1]
                 md = pd.read_csv(svd.cache_dir() / "bigvul/bigvul_metadata.csv")
                 nonproject = md[md.project != project].id.tolist()
@@ -337,12 +352,13 @@ def bigvul_filter(df, check_file=False, check_valid=False, vulonly=False, load_c
 
     # Filter out samples with no lineNumber from Joern output
     if check_valid:
-        valid_cache = svd.cache_dir() / f"bigvul_valid_{partition}.csv"
+        valid_cache = svd.cache_dir() / f"bigvul_valid.csv"
         if valid_cache.exists():
             valid_cache_df = pd.read_csv(valid_cache, index_col=0)
         else:
             valid = svd.dfmp(
-                df, check_validity, "id", desc="Validate Samples: "
+                df, check_validity, "id", desc="Validate Samples: ",
+                workers=6
             )
             df_id = df.id
             valid_cache_df = pd.DataFrame({"id": df_id, "valid": valid}, index=df.index)
@@ -352,6 +368,7 @@ def bigvul_filter(df, check_file=False, check_valid=False, vulonly=False, load_c
     # NOTE: drop several columns to save memory
     if not load_code:
         df = df.drop(columns=["before", "after", "removed", "added", "diff"])
+    return df
 
 def bigvul_partition(df, partition="train"):
     """Filter to one partition of bigvul and rebalance function-wise"""
@@ -372,6 +389,8 @@ def bigvul_partition(df, partition="train"):
         nonvul = df[df.vul == 0]
         nonvul = nonvul.sample(min(len(nonvul), len(vul) * 20), random_state=0)
         df = pd.concat([vul, nonvul])
+    
+    return df
 
 def abs_dataflow():
     """Load abstract dataflow information"""
@@ -385,7 +404,7 @@ def abs_dataflow():
         abs_df_hashes.insert(0, None)
     else:
         print("YOU SHOULD RUN abstract_dataflow.py")
-    return abs_df
+    return abs_df, abs_df_hashes
 
 def bigvul_cve():
     """Return id to cve map."""
