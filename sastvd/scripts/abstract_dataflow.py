@@ -10,7 +10,7 @@ from pathlib import Path
 import networkx as nx
 import numpy as np
 import pandas as pd
-import sastvd.analysis.dataflow as dataflow
+import code_gnn.analysis.dataflow as dataflow
 import sastvd.helpers.datasets as svdds
 import sastvd.helpers.dclass as svddc
 import sastvd.helpers.joern as svdj
