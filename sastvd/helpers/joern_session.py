@@ -37,7 +37,7 @@ class JoernSession:
         self.read_until_prompt()
 
         if worker_id != 0:
-            workspace = f"workers/{worker_id}"
+            workspace = "workers/" + str(worker_id)
             self.switch_workspace(workspace)
         else:
             workspace = "workspace"
@@ -83,30 +83,30 @@ class JoernSession:
         if scriptdir_str.endswith("/"):
             scriptdir_str = scriptdir_str[:-1]
         scriptdir_str = scriptdir_str.replace("/", ".")
-        self.run_command(f"""import $file.{scriptdir_str}.{script}""")
+        self.run_command("import $file." + str(scriptdir_str) + "." + str(script))
 
     def run_script(self, script: str, params, import_first=True, timeout=-1):
         if import_first:
             self.import_script(script)
 
         def get_str_repr(k, v):
-            if isinstance(v, str):
-                return f'{k}="{v}"'
+            if isinstance(v, str) or isinstance(v, Path):
+                return str(k) + "=\"" + str(v) + "\""
             elif isinstance(v, bool):
-                return f'{k}={str(v).lower()}'
+                return str(k) + "=" + str(v).lower()
             else:
-                raise NotImplementedError(f"{k}: {v} ({type(v)})")
+                raise NotImplementedError(str(k) + ": " + str(v) + " (" + str(type(v)) + ")")
         params_str = ", ".join(get_str_repr(k, v) for k, v in params.items())
-        return self.run_command(f"""{script}.exec({params_str})""", timeout=timeout)
+        return self.run_command(script + ".exec(" + params_str + ")", timeout=timeout)
 
     def switch_workspace(self, filepath: str):
-        return self.run_command(f"""switchWorkspace("{filepath}")""")
+        return self.run_command("switchWorkspace(\"" + filepath  + "\")")
 
     def import_code(self, filepath: str):
-        return self.run_command(f"""importCode("{filepath}")""")
+        return self.run_command("importCode(\"" + filepath + "\")")
 
     def import_cpg(self, cpgpath: str):
-        return self.run_command(f"""importCpg("{cpgpath}")""")
+        return self.run_command("importCpg(\"" + cpgpath + "\")")
 
     # def export_cpg(self, filepath: str):
     #     out1 = self.run_command(f"""importCode("{filepath}")""")
