@@ -14,6 +14,30 @@ import sastvd.helpers.joern_session as svdjs
 import sastvd.helpers.sast as sast
 
 
+def write_file(row):
+    savedir_before = svd.get_dir(svd.processed_dir() / row["dataset"] / "before")
+    savedir_after = svd.get_dir(svd.processed_dir() / row["dataset"] / "after")
+
+    # Write C Files
+    if row["dataset"] == "sard":
+        savedir = svd.get_dir(svd.processed_dir() / row["dataset"] / "code")
+
+        fpath = savedir / f"{row['index']}.c"
+        if not fpath.exists():
+            with open(fpath, "w") as f:
+                f.write(row["code"])
+        return fpath
+    if row["dataset"] == "bigvul":
+        fpath1 = savedir_before / f"{row['id']}.c"
+        with open(fpath1, "w") as f:
+            f.write(row["before"])
+        fpath2 = savedir_after / f"{row['id']}.c"
+        if len(row["diff"]) > 0:
+            with open(fpath2, "w") as f:
+                f.write(row["after"])
+        return fpath1, fpath2
+
+
 def preprocess(row, fn):
     """Parallelise svdj functions.
 
@@ -26,30 +50,13 @@ def preprocess(row, fn):
     try:
 
         if row["dataset"] == "sard":
-            savedir = svd.get_dir(svd.processed_dir() / row["dataset"] / "code")
-            # print(row)
-
-            # Write C Files
-            fpath = savedir / f"{row['index']}.c"
-            if not fpath.exists():
-                with open(fpath, "w") as f:
-                    f.write(row["code"])
+            fpath = write_file(row)
 
             # Run Joern on code
             if not os.path.exists(f"{fpath}.edges.json") or args.test:
                 fn(filepath=fpath, verbose=args.verbose)
         if row["dataset"] == "bigvul":
-            savedir_before = svd.get_dir(svd.processed_dir() / row["dataset"] / "before")
-            savedir_after = svd.get_dir(svd.processed_dir() / row["dataset"] / "after")
-
-            # Write C Files
-            fpath1 = savedir_before / f"{row['id']}.c"
-            with open(fpath1, "w") as f:
-                f.write(row["before"])
-            fpath2 = savedir_after / f"{row['id']}.c"
-            if len(row["diff"]) > 0:
-                with open(fpath2, "w") as f:
-                    f.write(row["after"])
+            fpath1, fpath2 = write_file(row)
 
             # Run Joern on "before" code
             if args.test or not (os.path.exists(f"{fpath1}.edges.json") or os.path.exists(f"{fpath1}.cpg.bin")):
@@ -118,12 +125,21 @@ if __name__ == "__main__":
     parser.add_argument("--run_sast", action="store_true")
     parser.add_argument("--test", action="store_true")
     parser.add_argument("--verbose", type=int, default=3)
+    parser.add_argument("--file_only", action="store_true")
     args = parser.parse_args()
 
     if args.dataset == "bigvul":
         df = svdd.bigvul(sample=args.test)
     if args.dataset == "sard":
         df = svds.sard()
+
+    if args.file_only:
+        def write_file_pair(row):
+            i, row = t
+            write_file(row)
+        with Pool(args.workers) as pool:
+            for _ in tqdm.tqdm(pool.imap_unordered(write_file, df.iterrows()), total=len(df)):
+                pass
 
     # Read Data
     df = df.reset_index().iloc[::-1]
