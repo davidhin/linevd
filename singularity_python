@@ -1,3 +1,0 @@
-#!/bin/bash
-
-exec singularity exec main.sif python "$@"

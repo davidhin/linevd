@@ -11,7 +11,6 @@
 *.gzip
 *.egg-info
 *.txt
-!storage/external/bigvul_rand_splits.csv
 
 # Python
 *.pyc
@@ -19,8 +18,9 @@
 __pycache__
 
 # program outputs
-storage
+!storage/external/bigvul_rand_splits.csv
 !storage/external/*.sc
+storage/*
 workspace
 workers
 output
@@ -35,5 +35,6 @@ hpc/logs/*
 # working files
 x42
 tmp
-repos
+repos/*
+!repos/*.sh
 archives_to_extract*_*
