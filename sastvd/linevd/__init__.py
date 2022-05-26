@@ -171,7 +171,7 @@ def feature_extraction(_id, graph_type="cfgcdg", return_nodes=False, return_node
 class BigVulDatasetLineVD(svddc.BigVulDataset):
     """IVDetect version of BigVul."""
 
-    def __init__(self, gtype="pdg", feat="all", max_df_dim=None, **kwargs):
+    def __init__(self, gtype="pdg", feat="all", **kwargs):
         """Init."""
         super(BigVulDatasetLineVD, self).__init__(**kwargs)
         lines = ivde.get_dep_add_lines_bigvul()
@@ -182,13 +182,9 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
         # self.glove_dict, _ = svdg.glove_dict(glove_path)
         # self.d2v = svdd2v.D2V(svd.processed_dir() / "bigvul/d2v_False")
         self.feat = feat
-        # self.max_df_dim = max_df_dim
 
     def item(self, _id, codebert=None, max_dataflow_dim=None):
         """Cache item."""
-        
-        # if max_dataflow_dim is None:
-        #     max_dataflow_dim = self.max_df_dim
 
         if enable_dataflow:
             savedir = svd.get_dir(
@@ -262,8 +258,24 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
 
         # Get dataflow features
         if enable_dataflow:
-            # print("Adding dataflow to graph", dataflow_features)
-            # g.ndata["_DATAFLOW"] = dataflow_features
+            if "_1G_DATAFLOW" in self.feat:
+                def get_dataflow_1g_features(_id):
+                    dgl_feat = th.zeros((g.number_of_nodes(), self.df_1g_max_idx*2))
+
+                    nids_to_1g_df = self.df_1g.groupby("graph_id").get_group(_id)
+                    nids_to_1g_df = nids_to_1g_df.set_index(nids_to_1g_df["node_id"].map(iddict))
+                    all_nids = [i for i in nids_to_1g_df.index.dropna().astype(int).tolist() if i in iddict.values()]
+                    for nid in range(len(dgl_feat)):
+                        gen_f = nids_to_1g_df["gen"].get(nid, "")
+                        kill_f = nids_to_1g_df["kill"].get(nid, "")
+                        for i in [int(s) for s in sorted(gen_f.split(",")) if s.isdigit()]:
+                            if i in iddict:
+                                dgl_feat[nid, all_nids.index(iddict[i])] = 1
+                        for i in [int(s) for s in sorted(kill_f.split(",")) if s.isdigit()]:
+                            if i in iddict:
+                                dgl_feat[nid, self.df_1g_max_idx+all_nids.index(iddict[i])] = 1
+                    return dgl_feat
+                g.ndata["_1G_DATAFLOW"] = get_dataflow_1g_features(_id)
             
             if "_ABS_DATAFLOW" in self.feat:
                 def get_abs_dataflow_features(_id):
@@ -308,11 +320,11 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
                 max_dim = domain_len
         return max_dim
 
-    def cache_items(self, codebert, max_df_dim):
+    def cache_items(self, codebert):
         """Cache all items."""
         for i in tqdm(self.df.sample(len(self.df)).id.tolist(), desc="cache_items"):
             try:
-                self.item(i, codebert, max_dataflow_dim=max_df_dim)
+                self.item(i, codebert)
             except Exception as E:
                 print("cache_items exception", E)
 
@@ -364,24 +376,6 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
         self.train = BigVulDatasetLineVD(partition="train", **dataargs)
         self.val = BigVulDatasetLineVD(partition="val", **dataargs)
         self.test = BigVulDatasetLineVD(partition="test", **dataargs)
-        # if enable_dataflow:
-        #     max_df_dim = self.train.get_max_dataflow_dim()
-        #     print("max_df_dim", max_df_dim)
-        #     max_df_dim = self.val.get_max_dataflow_dim(max_df_dim)
-        #     print("max_df_dim", max_df_dim)
-        #     max_df_dim = self.test.get_max_dataflow_dim(max_df_dim)
-        #     print("max_df_dim", max_df_dim)
-        # max_df_dim = 1058*2
-        # self.max_df_dim = max_df_dim
-        # self.train.max_df_dim = max_df_dim
-        # self.val.max_df_dim = max_df_dim
-        # self.test.max_df_dim = max_df_dim
-        # self.train.cache_codebert_method_level(codebert)
-        # self.val.cache_codebert_method_level(codebert)
-        # self.test.cache_codebert_method_level(codebert)
-        # self.train.cache_items(codebert, max_df_dim)
-        # self.val.cache_items(codebert, max_df_dim)
-        # self.test.cache_items(codebert, max_df_dim)
         self.batch_size = batch_size
         self.nsampling = nsampling
         self.nsampling_hops = nsampling_hops

@@ -406,6 +406,45 @@ def abs_dataflow():
         print("YOU SHOULD RUN abstract_dataflow.py")
     return abs_df, abs_df_hashes
 
+def dataflow_1g():
+    """Load 1st generation dataflow information"""
+    
+    df = bigvul()
+    df = df.rename(columns={"id": "graph_id"})[["graph_id"]]
+    df = df[df["graph_id"] == 0]
+    base = svd.processed_dir()
+    df["summary"] = (
+        df["graph_id"]
+        .apply(lambda i: str(i) + ".c.dataflow.summary.json")
+        .apply(lambda filename: [base/"bigvul/before"/filename, base/"bigvul/after"/filename])
+        )
+    df = df.explode("summary")
+    df = df[df["summary"].apply(lambda p: p.exists())]
+    assert len(df) > 0
+    def load_summary(summary_file):
+        with open(summary_file) as f:
+            funcs = json.load(f)
+        ret = []
+        for func in funcs:
+            with open(str(summary_file).replace(".dataflow.summary.json", ".dataflow." + func + ".json")) as f:
+                kg = json.load(f)
+            gen = {int(k): v for k, v in kg["gen"].items()}
+            kill = {int(k): v for k, v in kg["kill"].items()}
+            ret += [{
+                "func": func,
+                "node_id": k,
+                "gen": ",".join(map(str, sorted(gen.get(k, [])))),
+                "kill": ",".join(map(str, sorted(kill.get(k, []))))
+            } for k in set((*gen.keys(), *kill.keys()))]
+        return ret
+    df["genkill"] = df["summary"].apply(load_summary)
+    df = df.explode("genkill")
+    df = df.join(df["genkill"].apply(pd.Series), how='left', lsuffix="_")
+    df = df[["graph_id", "func", "node_id", "gen", "kill"]].copy()
+    df = df.sort_values(by=["graph_id", "func", "node_id"])
+    df = df.drop_duplicates()
+    return df
+
 def bigvul_cve():
     """Return id to cve map."""
     md = pd.read_csv(svd.cache_dir() / "bigvul/bigvul_metadata.csv")

@@ -18,9 +18,11 @@
 __pycache__
 
 # program outputs
+storage/*
+!storage/external/
+storage/external/*
 !storage/external/bigvul_rand_splits.csv
 !storage/external/*.sc
-storage/*
 workspace
 workers
 output

@@ -32,6 +32,8 @@ class BigVulDataset:
         self.idx2id = pd.Series(self.df.id.values, index=self.df.idx).to_dict()
         
         self.abs_df, self.abs_df_hashes = svdds.abs_dataflow()
+        self.df_1g = svdds.dataflow_1g()
+        self.df_1g_max_idx = max(max(max(int(s) if s.isdigit() else -1 for s in l.split(",")) for l in self.df_1g[k]) for k in ["gen", "kill"])
 
     def get_vuln_indices(self, _id):
         """Obtain vulnerable lines from sample ID."""
