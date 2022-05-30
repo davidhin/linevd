@@ -14,15 +14,20 @@ class BigVulDataset:
 
     def __init__(
         self, partition="train", splits="default",
-        check_file=True, check_valid=True, vulonly=False, load_code=False, sample=-1
+        check_file=True, check_valid=True, vulonly=False, load_code=False, sample=-1,
         ):
         """Init class."""
         # Get finished samples
         self.partition = partition
         
         df = svdds.bigvul(splits=splits)
+        # print("load", len(df))
+        # Filter to storage/cache/bigvul_linevd_codebert_dataflow_cfg
+        # df = df[df["id"].apply(lambda i: (Path("storage/cache/bigvul_linevd_codebert_dataflow_cfg")/str(i)).exists())]
+        # print("original", len(df))
         df = svdds.bigvul_filter(df, check_file=check_file, check_valid=check_valid, vulonly=vulonly, load_code=load_code, sample=sample)
         df = svdds.bigvul_partition(df, partition)
+        print(partition, len(df))
 
         self.df = df
 
@@ -32,8 +37,8 @@ class BigVulDataset:
         self.idx2id = pd.Series(self.df.id.values, index=self.df.idx).to_dict()
         
         self.abs_df, self.abs_df_hashes = svdds.abs_dataflow()
-        self.df_1g = svdds.dataflow_1g()
-        self.df_1g_max_idx = max(max(max(int(s) if s.isdigit() else -1 for s in l.split(",")) for l in self.df_1g[k]) for k in ["gen", "kill"])
+        #self.df_1g = svdds.dataflow_1g()
+        #self.df_1g_max_idx = max(max(max(int(s) if s.isdigit() else -1 for s in l.split(",")) for l in self.df_1g[k]) for k in ["gen", "kill"])
 
     def get_vuln_indices(self, _id):
         """Obtain vulnerable lines from sample ID."""

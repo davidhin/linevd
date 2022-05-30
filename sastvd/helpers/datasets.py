@@ -140,20 +140,23 @@ def bigvul(cache=True, sample=False, return_raw=False, splits="default", after_p
             md = pd.read_csv(svd.cache_dir() / "bigvul/bigvul_metadata.csv")
             md.groupby("project").count().sort_values("id")
 
-            default_splits = svd.external_dir() / "bigvul_rand_splits.csv"
-            if os.path.exists(default_splits):
-                splits = pd.read_csv(default_splits)
-                splits = splits.set_index("id").to_dict()["label"]
-                df["label"] = df.id.map(splits)
+            #default_splits = svd.external_dir() / "bigvul_rand_splits.csv"
+            #if os.path.exists(default_splits):
+            #    splits = pd.read_csv(default_splits)
+            #    splits = splits.set_index("id").to_dict()["label"]
+            #    df["label"] = df.id.map(splits)
             
-            # def get_label(i):
-            #     if i < int(len(df) * 0.1):
-            #         return "valid"
-            #     elif i < int(len(df) * 0.2):
-            #         return "test"
-            #     else:
-            #         return "train"
-            # df["label"] = pd.Series(data=list(map(get_label, range(len(df)))), index=np.random.RandomState(seed=0).permutation(df.index))
+            """
+            def get_label(i):
+                if i < int(len(df) * 0.1):
+                    return "val"
+                elif i < int(len(df) * 0.2):
+                    return "test"
+                else:
+                    return "train"
+            df["label"] = pd.Series(data=list(map(get_label, range(len(df)))), index=np.random.RandomState(seed=0).permutation(df.index))
+            print("splits", df["label"].value_counts())
+            """
 
             if "crossproject" in splits:
                 raise NotImplementedError(splits)
@@ -301,8 +304,11 @@ def check_validity(_id):
     with open(str(svd.processed_dir() / f"bigvul/before/{_id}.c") + ".nodes.json", "r") as f:
         nodes = json.load(f)
     """
+    import sastvd.helpers.joern as svdj
+    
     valid = 0
     try:
+        svdj.get_node_edges(itempath(_id))
         with open(str(itempath(_id)) + ".nodes.json", "r") as f:
             nodes = json.load(f)
             lineNums = set()
@@ -327,7 +333,7 @@ def check_validity(_id):
 
 
 def itempath(_id):
-    """Get itempath path from item id."""
+    """Get itempath path from item id. TODO: somehow give itempath of before and after."""
     return svd.processed_dir() / f"bigvul/before/{_id}.c"
 
 
@@ -347,8 +353,10 @@ def bigvul_filter(df, check_file=False, check_valid=False, vulonly=False, load_c
         finished = [
             int(Path(i).name.split(".")[0])
             for i in glob(str(svd.processed_dir() / "bigvul/before/*nodes*"))
+            if not os.path.basename(i).startswith("~")
         ]
         df = df[df.id.isin(finished)]
+        print("check_file", len(df))
 
     # Filter out samples with no lineNumber from Joern output
     if check_valid:
@@ -364,6 +372,7 @@ def bigvul_filter(df, check_file=False, check_valid=False, vulonly=False, load_c
             valid_cache_df = pd.DataFrame({"id": df_id, "valid": valid}, index=df.index)
             valid_cache_df.to_csv(valid_cache)
         df = df[df.id.isin(valid_cache_df[valid_cache_df["valid"]].id)]
+        print("check_valid", len(df))
 
     # NOTE: drop several columns to save memory
     if not load_code:
@@ -373,9 +382,20 @@ def bigvul_filter(df, check_file=False, check_valid=False, vulonly=False, load_c
 def bigvul_partition(df, partition="train"):
     """Filter to one partition of bigvul and rebalance function-wise"""
 
+    def get_label(i):
+        if i < int(len(df) * 0.1):
+            return "val"
+        elif i < int(len(df) * 0.2):
+            return "test"
+        else:
+            return "train"
+    df["label"] = pd.Series(data=list(map(get_label, range(len(df)))), index=np.random.RandomState(seed=0).permutation(df.index))
+    # print("splits", df["label"].value_counts())
+
+    # breakpoint()
     df = df[df.label == partition]
-    print("len(df)=", len(df))
-    print("df head=", df.head())
+    # print("len(df)=", len(df))
+    # print("df head=", df.head())
 
     # Balance training set
     if partition == "train" or partition == "val":
@@ -409,40 +429,11 @@ def abs_dataflow():
 def dataflow_1g():
     """Load 1st generation dataflow information"""
     
-    df = bigvul()
-    df = df.rename(columns={"id": "graph_id"})[["graph_id"]]
-    df = df[df["graph_id"] == 0]
-    base = svd.processed_dir()
-    df["summary"] = (
-        df["graph_id"]
-        .apply(lambda i: str(i) + ".c.dataflow.summary.json")
-        .apply(lambda filename: [base/"bigvul/before"/filename, base/"bigvul/after"/filename])
-        )
-    df = df.explode("summary")
-    df = df[df["summary"].apply(lambda p: p.exists())]
-    assert len(df) > 0
-    def load_summary(summary_file):
-        with open(summary_file) as f:
-            funcs = json.load(f)
-        ret = []
-        for func in funcs:
-            with open(str(summary_file).replace(".dataflow.summary.json", ".dataflow." + func + ".json")) as f:
-                kg = json.load(f)
-            gen = {int(k): v for k, v in kg["gen"].items()}
-            kill = {int(k): v for k, v in kg["kill"].items()}
-            ret += [{
-                "func": func,
-                "node_id": k,
-                "gen": ",".join(map(str, sorted(gen.get(k, [])))),
-                "kill": ",".join(map(str, sorted(kill.get(k, []))))
-            } for k in set((*gen.keys(), *kill.keys()))]
-        return ret
-    df["genkill"] = df["summary"].apply(load_summary)
-    df = df.explode("genkill")
-    df = df.join(df["genkill"].apply(pd.Series), how='left', lsuffix="_")
-    df = df[["graph_id", "func", "node_id", "gen", "kill"]].copy()
-    df = df.sort_values(by=["graph_id", "func", "node_id"])
-    df = df.drop_duplicates()
+    cache_file = svd.processed_dir() / f"bigvul/1g_dataflow_hash_all.csv"
+    if cache_file.exists():
+        df = pd.read_csv(cache_file)
+    else:
+        print("YOU SHOULD RUN dataflow_1g.py")
     return df
 
 def bigvul_cve():

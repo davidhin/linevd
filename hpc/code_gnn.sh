@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -N 1
 #SBATCH -n 6
-#SBATCH --mem-per-cpu=8G
+#SBATCH --mem 32G
 #SBATCH --time=3-00:00:00
 #SBATCH --gres=gpu:1
 #SBATCH --partition=gpu
@@ -21,11 +21,7 @@ nvidia-smi
 
 # Now need to retrain with the good dataset
    
-# 683176
-#singularity exec --nv main.sif python code_gnn/main.py --model flow_gnn --dataset MSR --feat "_ABS_DATAFLOW_datatypeonly" \
-#   --clean --batch_size 1024 --max_epochs 500 \
-#   --label_style node --learning_rate 1e-3 --weight_decay 1e-2 --undersample_factor 1.0
-   
- singularity exec --nv main.sif python code_gnn/main.py --model flow_gnn --dataset MSR --feat "_ABS_DATAFLOW_datatypeonly" \
+singularity exec --nv main.sif python code_gnn/main.py --model flow_gnn --dataset MSR --feat "_ABS_DATAFLOW_datatypeonly" \
     --clean --batch_size 256 --max_epochs 500 \
-    --label_style graph
+    --label_style graph --cache_all \
+    --evaluation

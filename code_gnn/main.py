@@ -7,14 +7,15 @@ import pickle
 import shutil
 import sys
 from datetime import datetime
+import traceback
+import pandas as pd
+import tqdm
 
 import dgl
 import gensim
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
-# import optuna
-# from optuna.integration import PyTorchLightningPruningCallback
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning import seed_everything
@@ -23,7 +24,6 @@ from pytorch_lightning.callbacks import (DeviceStatsMonitor, EarlyStopping,
 from pytorch_lightning.loggers import TensorBoardLogger
 from sastvd.linevd import BigVulDatasetLineVDDataModule
 
-from code_gnn.dataset import MyDGLDataset, split
 from code_gnn.globals import (all_datasets, all_models, project_root_dir,
                               seed_all)
 from code_gnn.models import model_class_dict
@@ -92,62 +92,6 @@ def train_single_model(config):
     Train a single model
     """
 
-    # # Expects dataset to be shuffled BEFORE this point.
-    # # How much data to reserve for test and validation sets
-    # n_folds = config["n_folds"]
-    # if n_folds == 1:
-    #     test_val_portion = 0.1
-    # else:
-    #     test_val_portion = 1 / n_folds
-    # dataset_splits = [1 - (2 * test_val_portion), test_val_portion, test_val_portion]
-    # roll_n = len(dataset) // n_folds  # How many indices to roll the dataset for each fold
-
-    # logger.info(f'{n_folds=} {dataset_splits=} {roll_n=}')
-    # test_performances = []
-    # for fold_idx in range(n_folds):
-    #     if config["n_folds"] > 1:
-    #         config["fold_idx"] = fold_idx
-    #         logger.info(f'{fold_idx=}')
-    #     if fold_idx > 0:
-    #         dataset.roll(roll_n)  # TODO: What to do for odd values of roll_n?
-    #     train_dataloader, valid_dataloader, test_dataloader = split(config["filter"], config["batch_size"], dataset, dataset_splits)
-    #     logger.info(f'{dataset=} splits: {len(train_dataloader)=} {len(valid_dataloader)=} {len(test_dataloader)=} {sum(len(b.batch_num_nodes()) for b in train_dataloader)=} {sum(len(b.batch_num_nodes()) for b in valid_dataloader)=} {sum(len(b.batch_num_nodes()) for b in test_dataloader)=}')
-
-        # trainer = get_trainer(config)
-
-        # slim_config = copy.deepcopy(config)
-        # if config["tune"]:
-        #     del slim_config["tune_trial"]
-        # model = config["model_class"](**slim_config)
-        # trainer.fit(model, train_dataloaders=train_dataloader, val_dataloaders=valid_dataloader)
-        # if trainer.interrupted:
-        #     raise KeyboardInterrupt()
-
-        # if config["debug_overfit"]:
-        #     return
-
-        # if config["take_checkpoint"] == 'last':
-        #     test_performance = trainer.test(model=model, dataloaders=test_dataloader)
-        # else:
-        #     test_performance = trainer.test(model=model, ckpt_path=config["take_checkpoint"],
-        #                                     dataloaders=test_dataloader)
-
-        # logger.info(f'Got {len(test_performance)} test performances')
-        # logger.info(json.dumps(test_performance, indent=2))
-
-        # chosen_test_performance = test_performance[0]
-        # test_performances.append(chosen_test_performance)
-
-        # if config["tune"]:
-        #     return chosen_test_performance["test_f1"]
-
-    # agg_performance = {k: [] for k in test_performances[0].keys()}
-    # for perf in test_performances:
-    #     for metric in perf:
-    #         agg_performance[metric].append(perf[metric])
-    # for metric in agg_performance:
-    #     logger.info(f'Average {metric} of {len(agg_performance[metric])} runs: {np.average(agg_performance[metric])}')
-    
     print("config =", config)
     data = BigVulDatasetLineVDDataModule(
         batch_size=config["batch_size"],
@@ -161,24 +105,92 @@ def train_single_model(config):
         # feat="all",
         feat=config["feat"],
         #load_code=config["dataset_only"],
+        cache_all=config["cache_all"],
     )
-    #if config["dataset_only"]:
-    #    for i in range(10):
-    #        visualize_example(data.train[i], data.train.df.loc[data.train.idx2id[i]]["before"], data.train.df.loc[data.train.idx2id[i]]["after"])
-    #    return
+
+    if config["dataset_only"]:
+        all_sums = None
+        all_sums_no1 = None
+        all_portions = None
+        for ds in (data.train, data.val, data.test):
+            print(ds.partition, "examine")
+            sums = []
+            sums_no1 = []
+            portions = []
+            for d in tqdm.tqdm(ds, desc=ds.partition):
+                sums.append(d.ndata["_ABS_DATAFLOW"].sum())
+                sums_no1.append(d.ndata["_ABS_DATAFLOW"][:,1:].sum())
+                portions.append(d.ndata["_ABS_DATAFLOW"][:,1:].sum() / d.number_of_nodes())
+            sums_df = pd.DataFrame(sums)
+            sums_no1_df = pd.DataFrame(sums_no1)
+            portions_df = pd.DataFrame(portions)
+            print(ds.partition, "sums_df", sums_df.describe())
+            print(ds.partition, "sums_no1_df", sums_no1_df.describe())
+            print(ds.partition, "portions_df", portions_df.describe())
+            all_sums = sums_df if all_sums is None else pd.concat((all_sums, sums_df), ignore_index=True)
+            all_sums_no1 = sums_no1_df if all_sums_no1 is None else pd.concat((all_sums_no1, sums_no1_df), ignore_index=True)
+            all_portions = portions_df if all_portions is None else pd.concat((all_portions, portions_df), ignore_index=True)
+        print("all_sums", all_sums.describe())
+        print("all_sums_no1", all_sums_no1.describe())
+        print("all_portions", all_portions.describe())
+        return
+
     trainer = get_trainer(config)
     print("graph", data.train[0])
+    print("graph 2nd time", data.train[0])
     print("graph data", data.train[0].ndata)
 
-    # config["input_dim"] = data.max_df_dim
     config["input_dim"] = data.train[0].ndata["_ABS_DATAFLOW"].shape[1]
+    print("shape", data.train[0].ndata["_ABS_DATAFLOW"].shape)
+    print("sum", data.train[0].ndata["_ABS_DATAFLOW"].sum())
+    print("sum no 1st dim", data.train[0].ndata["_ABS_DATAFLOW"][:,1:].sum())
+
+    # if config["check_mode"]:
+    #     blacklist = []
+    #     it = iter(data.train)
+    #     for i in tqdm.tqdm(range(len(data.train)), desc="check train"):
+    #         try:
+    #             next(it)
+    #         except Exception:
+    #             traceback.print_exc()
+    #             print("blacklist", i, data.train.idx2id[i])
+    #             blacklist.append(data.train.idx2id[i])
+    #     it = iter(data.val)
+    #     for i in tqdm.tqdm(range(len(data.val)), desc="check val"):
+    #         try:
+    #             next(it)
+    #         except Exception:
+    #             traceback.print_exc()
+    #             print("blacklist", i, data.val.idx2id[i])
+    #             blacklist.append(data.val.idx2id[i])
+    #     it = iter(data.test)
+    #     for i in tqdm.tqdm(range(len(data.test)), desc="check test"):
+    #         try:
+    #             next(it)
+    #         except Exception:
+    #             traceback.print_exc()
+    #             print("blacklist", i, data.test.idx2id[i])
+    #             blacklist.append(data.test.idx2id[i])
+    #     with open("blacklist.txt", "w") as f:
+    #         f.write("\n".join(blacklist))
+    #     return
+
     
     model = config["model_class"](**config)
-    if config["evaluation"]:
-        test_performance = trainer.test(model=model, datamodule=data, ckpt_path=config["resume_from_checkpoint"])
-        logger.info(test_performance)
-    else:
+    if not config["skip_train"]:
         trainer.fit(model, datamodule=data)
+    if config["evaluation"]:
+        if config["resume_from_checkpoint"]:
+            logger.info("loading checkpoint %s", config["resume_from_checkpoint"])
+            trainer.test(model=model, datamodule=data, ckpt_path=config["resume_from_checkpoint"])
+        else:
+            ckpts = list(config["base_dir"].glob("checkpoints/periodical-*.ckpt"))
+            logger.info("unsorted: %s", str([int(str(fp.name).split("-")[1]) for fp in ckpts]))
+            ckpts = sorted(ckpts, key=lambda fp: int(str(fp.name).split("-")[1]))
+            logger.info("sorted: %s", str([int(str(fp.name).split("-")[1]) for fp in ckpts]))
+            for ckpt in ckpts:
+                logger.info("loading checkpoint %s", ckpt)
+                trainer.test(model=model, datamodule=data, ckpt_path=ckpt)
 
 
 def get_trainer(config):
@@ -206,14 +218,14 @@ def get_trainer(config):
                 / (config["unique_id"] + config["log_suffix"])
                 / 'overfit_batch'
         )
-    elif config["evaluation"]:
-        base_dir = (
-                project_root_dir
-                / "logs"
-                / (config["unique_id"] + config["log_suffix"])
-                / 'evaluation'
-        )
-        assert config["resume_from_checkpoint"] is not None
+    # elif config["evaluation"]:
+    #     base_dir = (
+    #             project_root_dir
+    #             / "logs"
+    #             / (config["unique_id"] + config["log_suffix"])
+    #             / 'evaluation'
+    #     )
+    #     assert config["resume_from_checkpoint"] is not None
     else:
         base_dir = (
                 project_root_dir
@@ -221,10 +233,11 @@ def get_trainer(config):
                 / (config["unique_id"] + config["log_suffix"])
                 / 'default'
         )
+    config["base_dir"] = base_dir
 
     if base_dir.exists():
         if config["clean"]:
-            if config["resume_from_checkpoint"] is not None:
+            if config["resume_from_checkpoint"] is not None or config["evaluation"]:
                 logger.warning(f'Told to clean {base_dir}, but also to load. Skipping --clean.')
             else:
                 logger.info(f'Cleaning old results from {base_dir}...')
@@ -264,6 +277,8 @@ def get_trainer(config):
     if "tune_trial" in config:
         callbacks.append(PyTorchLightningPruningCallback(config["tune_trial"], monitor=config["target_metric"]))
 
+    profiler = pl.profiler.AdvancedProfiler(filename="profile.txt")
+    
     trainer = pl.Trainer(
         gpus=1 if config["cuda"] else 0,
         num_sanity_val_steps=0 if config["tune"] else 2,
@@ -277,7 +292,7 @@ def get_trainer(config):
         # default_root_dir=base_dir,  # Use checkpoint callback instead
         # deterministic=True,  # RuntimeError: scatter_add_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True)'.
         enable_checkpointing=True,
-        profiler="simple" if config["profile"] else None,
+        profiler=profiler,
         resume_from_checkpoint=config["resume_from_checkpoint"],
     )
     return trainer
@@ -290,63 +305,9 @@ def main(config):
     config["cuda"] = torch.cuda.is_available()
     logger.info(f'gpus={torch.cuda.is_available()}, {torch.cuda.device_count()}')
 
-    # dataset = MyDGLDataset(config, verbose=True)
-    # logger.debug(f'{dataset[0]=}')
-    # logger.debug(f'{dataset[0].ndata=}')
-
-    # config["input_dim"] = dataset.input_dim
-    # if config["dataset_only"]:
-    #     # logger.debug('Quitting early after dataset load...')
-    #     # logger.debug(f'{torch.sum(torch.eq(dataset.labels, 0))=}')
-    #     # logger.debug(f'{torch.sum(torch.eq(dataset.labels, 1))=}')
-    #     # logger.debug(f'{len(dataset.labels)=}')
-    #     n = 0
-    #     n_pos = 0
-    #     n_target_1 = 0
-    #     n_target_1_nopos = 0
-    #     graph_sizes = []
-    #     for i in range(len(dataset)):
-    #         graph = dataset[i]
-    #         this_n = graph.number_of_nodes()
-    #         n += this_n
-    #         this_n_pos = graph.ndata["node_label"].sum().item()
-    #         n_pos += this_n_pos
-    #         if config["dataset"] != "SARD":
-    #             if dataset.df.loc[dataset.idx_to_row_name[i]]["target"] == 1:
-    #                 n_target_1 += 1
-    #                 if this_n_pos == 0:
-    #                     n_target_1_nopos += 1
-    #         graph_sizes.append(this_n)
-    #         # logger.debug(f'{i=} {len(dataset)=}')
-    #     logger.debug(f'{n=} {n_pos=} {n_target_1=} {n_target_1_nopos=} average_graph_size={np.average(graph_sizes)} positive_percent={(n_pos / n) * 100:.2f}%')
-    #     return
-
-    # config["input_dim"] = dataset.input_dim
-
     seed_everything(config["seed"], workers=True)
     if config["tune"]:
         pass
-        # objective_fn = functools.partial(train_optuna, config=config)
-        # study_savefile = project_root_dir / 'saved_studies' / f'{args.unique_id}.pkl'
-        # study_savefile.parent.mkdir(parents=True, exist_ok=True)
-        # if args.resume:
-        #     with open(study_savefile, 'rb') as f:
-        #         study = pickle.load(f)
-        #     logger.info('Intermediate study results:')
-        #     log_results(study)
-        # else:
-        #     study = optuna.create_study(direction="maximize", study_name=args.unique_id,
-        #                                 sampler=optuna.samplers.TPESampler(),
-        #                                 pruner=optuna.pruners.NopPruner(),
-        #                                 load_if_exists=args.resume)
-        # try:
-        #     study.optimize(objective_fn, n_trials=config["n_trials"], timeout=config["tune_timeout"])
-        # except KeyboardInterrupt:
-        #     logger.warning('Detected keyboard interrupt.')
-
-        # with open(study_savefile, 'wb') as f:
-        #     pickle.dump(study, f)
-        # log_results(study)
     else:
         train_single_model(config)
 
@@ -386,6 +347,7 @@ if __name__ == '__main__':
     parser.add_argument("--label_style", type=str, help='use node or graph labels', default='graph')
     parser.add_argument("--debug_train_batches", type=int, help='debug mode - train with n batches')
     parser.add_argument("--undersample_factor", type=float, help='factor to undersample majority class')
+    parser.add_argument("--cache_all", action="store_true", help='cache all items in memory')
     # logging and reproducibility
     parser.add_argument("--seed", type=int, default=0, help='random seed')
     parser.add_argument("--log_suffix", type=str, default='', help='suffix to append after log directory')
@@ -393,6 +355,7 @@ if __name__ == '__main__':
     parser.add_argument("--version", type=str, default=None, help='version ID to use for logging')
     # different run modes
     parser.add_argument("--dataset_only", action='store_true', help='only load the dataset, then exit')
+    # parser.add_argument("--check_mode", action='store_true', help='check the dataset, then exit')
     parser.add_argument("--profile", action='store_true',
                         help='run training under the profiler and report results at the end')
     # tuning options
@@ -401,7 +364,8 @@ if __name__ == '__main__':
     parser.add_argument("--n_trials", type=int, default=50, help='how many trials to tune')
     parser.add_argument("--tune_timeout", type=int, default=60 * 60 * 24, help='time limit for tuning')
     # training options
-    parser.add_argument("--evaluation", action='store_true', help='only do evaluation on test set')
+    parser.add_argument("--skip_train", action='store_true', help='skip training')
+    parser.add_argument("--evaluation", action='store_true', help='do evaluation on test set')
     parser.add_argument("--debug_overfit", action='store_true', help='debug mode - overfit one batch')
     parser.add_argument("--clean", action='store_true', help='clean old outputs')
     parser.add_argument("--batch_size", type=int, default=64, help='number of items to load in a batch')
@@ -422,7 +386,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     args.model_class = model_class_dict[args.model]
 
-    args.unique_id = '_'.join(map(str, (args.model, args.dataset, args.feat, args.node_limit, args.graph_limit, args.undersample_factor, args.filter, f"{args.learning_rate:f}".rstrip("0").rstrip("."), f"{args.weight_decay:f}".rstrip("0").rstrip("."), args.batch_size)))
+    args.unique_id = '_'.join(map(str, (args.model, args.dataset, args.label_style, args.feat, args.node_limit, args.graph_limit, args.undersample_factor, args.filter, f"{args.learning_rate:f}".rstrip("0").rstrip("."), f"{args.weight_decay:f}".rstrip("0").rstrip("."), args.batch_size)))
     if args.model == 'devign':
         args.unique_id += '_' + '_'.join(map(str, (args.window_size, args.graph_embed_size, args.num_layers)))
     else:
@@ -431,9 +395,6 @@ if __name__ == '__main__':
                       args.final_dropout, args.graph_pooling_type, args.neighbor_pooling_type)))
     if args.debug_overfit:
         args.unique_id += '_debug_overfit'
-
-    # if args.label_style is None:
-    #     args.label_style = 'node' if args.dataset in ('SARD', 'MSR') else 'graph'
 
     with open('ran_main.py_log.txt', 'a') as f:
         f.write(f'{datetime.now()} {" ".join(sys.argv)}\n')

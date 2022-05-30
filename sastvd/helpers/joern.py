@@ -206,7 +206,7 @@ def get_node_edges(filepath: str, verbose=0):
     # Assign line number to local variables
     with open(filepath, "r") as f:
         code = f.readlines()
-    lmap = assign_line_num_to_local(nodes, edges, code)
+    lmap = assign_line_num_to_local(nodes, edges, code, filepath=filepath)
     nodes.lineNumber = nodes.apply(
         lambda x: lmap[x.id] if x.id in lmap else x.lineNumber, axis=1
     )
@@ -401,7 +401,7 @@ def rdg(edges, gtype):
         return edges[(edges.etype == "CFG") | (edges.etype == "AST")]
 
 
-def assign_line_num_to_local(nodes, edges, code):
+def assign_line_num_to_local(nodes, edges, code, filepath=None):
     """Assign line number to local variable in CPG."""
     label_nodes = nodes[nodes._label == "LOCAL"].id.tolist()
     onehop_labels = neighbour_nodes(nodes, rdg(edges, "ast"), label_nodes, 1, False)
@@ -420,9 +420,9 @@ def assign_line_num_to_local(nodes, edges, code):
         types = [i for i in v if i in id2name and i < 1000]
         if len(types) == 0:
             continue
-        assert len(types) == 1, "Incorrect Type Assumption."
+        assert len(types) == 1, "Incorrect Type Assumption {}.".format(filepath)
         block = onehop_labels[k]
-        assert len(block) == 1, "Incorrect block Assumption."
+        assert len(block) == 1, "Incorrect block Assumption {}.".format(filepath)
         block = block[0]
         local_vars[k] = id2name[types[0]]
         local_vars_block[k] = blocknode2line[block]

@@ -2,13 +2,13 @@
 #SBATCH -N 1
 #SBATCH -n 6
 #SBATCH --mem 32G
-#SBATCH --time=1-00:00:00
+#SBATCH --time=3-00:00:00
 #SBATCH --gres=gpu:1
 #SBATCH --partition=gpu
 #SBATCH --exclude=amp-1,amp-2,amp-3,amp-4,singularity,matrix
-#SBATCH --err="hpc/logs/code_gnn_eval_%j.info"
-#SBATCH --output="hpc/logs/code_gnn_eval_%j.info"
-#SBATCH --job-name="code_gnn_eval"
+#SBATCH --err="hpc/logs/code_gnn2_%j.info"
+#SBATCH --output="hpc/logs/code_gnn2_%j.info"
+#SBATCH --job-name="code_gnn"
 #SBATCH --mail-user=benjis@iastate.edu
 #SBATCH --mail-type=FAIL,END
 
@@ -20,9 +20,8 @@ echo $SLURM_JOB_ID $SLURM_JOB_NAME $SLURM_JOB_NODELIST
 nvidia-smi
 
 # Now need to retrain with the good dataset
-
+   
 singularity exec --nv main.sif python code_gnn/main.py --model flow_gnn --dataset MSR --feat "_ABS_DATAFLOW_datatypeonly" \
-    --clean --batch_size 256 --max_epochs 500 \
+    --clean --batch_size 256 --max_epochs 500 --weight_decay 1e-2 \
     --label_style graph --cache_all \
-    --evaluation --skip_train
-
+    --evaluation
