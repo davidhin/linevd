@@ -12,6 +12,7 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
     ndcg_score
 
 from code_gnn.models.rank_eval import rank_metr
+from sastvd import print_memory_mb
 
 try:
     from torchmetrics import F1Score
@@ -202,9 +203,11 @@ class BaseModule(pl.LightningModule):
         }
 
     def training_epoch_end(self, outputs):
+        print("step", self.global_step, print_memory_mb())
         self.do_log('train', outputs)
 
     def validation_epoch_end(self, outputs):
+        print("step", self.global_step, print_memory_mb())
         if self.hparams.roc_every is not None and (
                 self.current_epoch == 0 or
                 (self.current_epoch != 1 and ((self.current_epoch - 1) % self.hparams.roc_every == 0))
@@ -230,6 +233,7 @@ class BaseModule(pl.LightningModule):
         self.do_log('valid', outputs)
 
     def test_epoch_end(self, outputs):
+        print("step", self.global_step, print_memory_mb())
         self.do_log('test', outputs)
 
     @staticmethod

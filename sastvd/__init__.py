@@ -8,9 +8,29 @@ import subprocess
 from datetime import datetime
 from multiprocessing import Pool
 from pathlib import Path
+import traceback
 
 import pandas as pd
 from tqdm import tqdm
+
+
+def print_memory_mb():
+    try:
+        import psutil
+        return psutil.Process().memory_info().rss / (1024 * 1024)
+    except ImportError as e:
+        print("Error getting memory profile: {ex}".format(ex=e))
+
+
+def threadsafe_mkdir(path):
+    """
+    https://python-security.readthedocs.io/vuln/os-makedirs-not-thread-safe.html
+    https://bugs.python.org/issue21082#msg215346
+    """
+    try:
+        path.mkdir(exist_ok=True, parents=True)
+    except FileExistsError:
+        traceback.print_exc()
 
 
 def project_dir() -> Path:
@@ -29,41 +49,41 @@ def storage_dir() -> Path:
 def external_dir() -> Path:
     """Get storage external path."""
     path = storage_dir() / "external"
-    path.mkdir(exist_ok=True, parents=True)
+    threadsafe_mkdir(path)
     return path
 
 
 def interim_dir() -> Path:
     """Get storage interim path."""
     path = storage_dir() / "interim"
-    path.mkdir(exist_ok=True, parents=True)
+    threadsafe_mkdir(path)
     return path
 
 
 def processed_dir() -> Path:
     """Get storage processed path."""
     path = storage_dir() / "processed"
-    path.mkdir(exist_ok=True, parents=True)
+    threadsafe_mkdir(path)
     return path
 
 
 def outputs_dir() -> Path:
     """Get output path."""
     path = storage_dir() / "outputs"
-    path.mkdir(exist_ok=True, parents=True)
+    threadsafe_mkdir(path)
     return path
 
 
 def cache_dir() -> Path:
     """Get storage cache path."""
     path = storage_dir() / "cache"
-    path.mkdir(exist_ok=True, parents=True)
+    threadsafe_mkdir(path)
     return path
 
 
 def get_dir(path) -> Path:
     """Get path, if exists. If not, create it."""
-    path.mkdir(exist_ok=True, parents=True)
+    threadsafe_mkdir(path)
     return path
 
 
