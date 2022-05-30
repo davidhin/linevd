@@ -386,21 +386,18 @@ def get_dataflow_features_df():
 
 from sastvd.scripts.get_repos import extract_repo
 
-checkout_dirs = [Path("repos/checkout"), Path("repos/checkout3")]
+checkout_dir = Path("repos/checkout")
 def expand_struct_datatypes(df):
     save_file = Path("bigvul_metadata_with_commit_id_slim_with_subtypes.csv")
     if save_file.exists():
         df = pd.read_csv(save_file)
-        # df = df[["node_id","graph_id","project_x","codeLink","repo","commit_id","datatype","operator","api","literal","datatype_subtypes"]].rename(columns={"project_x": "project"})
-        # df = df.dropna(subset=["datatype_subtypes"])
-        # df["datatype_subtypes_str"] = df["datatype_subtypes"].apply(lambda st: ", ".join(sorted(st)))
         df["datatype_subtypes"] = df["datatype_subtypes"].apply(lambda st: json.loads(st))
     else:
         md_df = pd.read_csv("bigvul_metadata_with_commit_id_slim.csv")
         print("original", md_df)
         md_df["repo"] = md_df["codeLink"].apply(extract_repo)
         print("repo", md_df)
-        md_df["cpgpath"] = md_df.apply(lambda row: next(filter(Path.exists, (cd/(row["repo"].replace("://", "__").replace("/", "__") + "__" + row["commit_id"] + ".cpg.bin") for cd in checkout_dirs)), None), axis=1)
+        md_df["cpgpath"] = md_df.apply(lambda row: checkout_dir/(row["repo"].replace("://", "__").replace("/", "__") + "__" + row["commit_id"] + ".cpg.bin"), axis=1)
         md_df = md_df[md_df["cpgpath"].apply(lambda p: p is not None and p.exists())]
         print("filter", md_df)
         df = pd.merge(df, md_df, left_on="graph_id", right_on="id")
@@ -422,6 +419,8 @@ def expand_struct_datatypes(df):
         sess.import_script("get_type")
         try:
             for cpgpath, group in tqdm.tqdm(df.groupby("cpgpath"), desc="load types"):
+                if not sess.proc.isalive():
+                    raise Exception("process is no longer alive")
                 try:
                     dts = group["datatype"].dropna().unique()
                     # breakpoint()
@@ -464,102 +463,106 @@ def get_expanded_df():
     return merge_df
 
 if __name__ == "__main__":
-    dataflow_df = get_expanded_df()
+    dataflow_df = get_dataflow_features_df()
+    # dataflow_df = get_expanded_df()
     print("dataflow_df", dataflow_df)
 
-def extract_nan_values():
-    dataflow_df = get_dataflow_features_df()
-    nandt_df = dataflow_df[dataflow_df["datatype"].isna()]
-    nandt_df.to_csv("abstract_dataflow_nandatatype.csv")
-    print(nandt_df)
-    # for i, row in nandt_df.head().iterrows():
-    #     print(svddc.BigVulDataset.itempath(row.name), row.node_id)ad(25)  # sample portion
-    df = pd.DataFrame()
-    with Pool(16) as pool:
-        ids = nandt_df.graph_id.unique()
-        for feats_df in tqdm.tqdm(
-            pool.imap(get_dataflow_features, ids),
-            total=len(ids),
-            desc="re-extract NaN abstract dataflow features",
-        ):
-            if "datatype" in feats_df.columns:
-                na = feats_df[feats_df["datatype"].isna()]
-                if len(na) > 0:
-                    print("NaN values:", na)
-            # df.loc[df["datatype"] == "<<<INVALID>>>"]["datatype"] = np.nan
-            df.replace('N/A', pd.NA)
-            df = pd.concat([df, feats_df], ignore_index=True)
-    df = df[df["node_id"].isin(nandt_df["node_id"])]
-    df.to_csv("abstract_dataflow_nandatatype_fixed.csv")
+# def extract_nan_values():
+#     dataflow_df = get_dataflow_features_df()
+#     nandt_df = dataflow_df[dataflow_df["datatype"].isna()]
+#     nandt_df.to_csv("abstract_dataflow_nandatatype.csv")
+#     print(nandt_df)
+#     # for i, row in nandt_df.head().iterrows():
+#     #     print(svddc.BigVulDataset.itempath(row.name), row.node_id)ad(25)  # sample portion
+#     df = pd.DataFrame()
+#     with Pool(16) as pool:
+#         ids = nandt_df.graph_id.unique()
+#         for feats_df in tqdm.tqdm(
+#             pool.imap(get_dataflow_features, ids),
+#             total=len(ids),
+#             desc="re-extract NaN abstract dataflow features",
+#         ):
+#             if "datatype" in feats_df.columns:
+#                 na = feats_df[feats_df["datatype"].isna()]
+#                 if len(na) > 0:
+#                     print("NaN values:", na)
+#             # df.loc[df["datatype"] == "<<<INVALID>>>"]["datatype"] = np.nan
+#             df.replace('N/A', pd.NA)
+#             df = pd.concat([df, feats_df], ignore_index=True)
+#     df = df[df["node_id"].isin(nandt_df["node_id"])]
+#     df.to_csv("abstract_dataflow_nandatatype_fixed.csv")
 
-def merge_nan_values():
-    df = pd.read_csv("abstract_dataflow copy.csv")
-    fixed_df = pd.read_csv("abstract_dataflow_nandatatype_fixed.csv")
-    print("loaded")
-    assigned = 0
-    processed = 0
-    node_id_to_datatype = dict(zip(zip(fixed_df["graph_id"], fixed_df["node_id"]), fixed_df["datatype"]))
-    print("before", df["datatype"].value_counts(dropna=False))
-    print(df["datatype"].isna().sum(), "na")
-    for i, row in tqdm.tqdm(df.iterrows(), total=len(df)):
-        # print(i, row)
-        # matching = node_id_to_datatype[row["node_id"]]
-        key = (row["graph_id"], row["node_id"])
-        if key in node_id_to_datatype:
-            new_datatype = node_id_to_datatype[key]
-            if isinstance(row["datatype"], str):
-                assert row["datatype"] == new_datatype, (row["datatype"], new_datatype)
-            else:
-                df.at[i, "datatype"] = new_datatype
-                if assigned < 10:
-                    print("assigning", assigned, key, row["datatype"], new_datatype)
-                assigned += 1
-        processed += 1
-    print("after", df["datatype"].value_counts(dropna=False))
-    print(df["datatype"].isna().sum(), "na")
-    print("assigned", assigned, "out of", len(df))
-    # df = pd.merge(df, fixed_df, on="node_id")
-    df.to_csv("abstract_dataflow.csv")
+# def merge_nan_values():
+#     df = pd.read_csv("abstract_dataflow copy.csv")
+#     fixed_df = pd.read_csv("abstract_dataflow_nandatatype_fixed.csv")
+#     print("loaded")
+#     assigned = 0
+#     processed = 0
+#     node_id_to_datatype = dict(zip(zip(fixed_df["graph_id"], fixed_df["node_id"]), fixed_df["datatype"]))
+#     print("before", df["datatype"].value_counts(dropna=False))
+#     print(df["datatype"].isna().sum(), "na")
+#     for i, row in tqdm.tqdm(df.iterrows(), total=len(df)):
+#         # print(i, row)
+#         # matching = node_id_to_datatype[row["node_id"]]
+#         key = (row["graph_id"], row["node_id"])
+#         if key in node_id_to_datatype:
+#             new_datatype = node_id_to_datatype[key]
+#             if isinstance(row["datatype"], str):
+#                 assert row["datatype"] == new_datatype, (row["datatype"], new_datatype)
+#             else:
+#                 df.at[i, "datatype"] = new_datatype
+#                 if assigned < 10:
+#                     print("assigning", assigned, key, row["datatype"], new_datatype)
+#                 assigned += 1
+#         processed += 1
+#     print("after", df["datatype"].value_counts(dropna=False))
+#     print(df["datatype"].isna().sum(), "na")
+#     print("assigned", assigned, "out of", len(df))
+#     # df = pd.merge(df, fixed_df, on="node_id")
+#     df.to_csv("abstract_dataflow.csv")
 
 # %% Extract nodes from all graphs
 
-def get_nodes(_id):
-    itempath = svddc.BigVulDataset.itempath(_id)
-    n, e = svdj.get_node_edges(itempath)
-    return pd.DataFrame(list(zip(n["_label"], n["name"], n["id"])), columns=["_label", "name", "id"])
+# def get_nodes(_id):
+#     itempath = svddc.BigVulDataset.itempath(_id)
+#     n, e = svdj.get_node_edges(itempath)
+#     return pd.DataFrame(list(zip(n["_label"], n["name"], n["id"])), columns=["_label", "name", "id"])
 
-if __name__ == "__main__":
-    node_df_file = Path("node_df.csv")
-    if node_df_file.exists():
-        node_df = pd.read_csv(node_df_file)
-    else:
-        print("Loading node df")
-        with Pool(16) as pool:
-            node_df = None
-            ids = dataflow_df["graph_id"].unique()
-            for i, d in enumerate(pool.imap_unordered(get_nodes, tqdm.tqdm(ids, desc="get aux node info", total=len(ids)))):
-                if i < 3:
-                    print(f"df {i}: {node_df}")
-                if node_df is None:
-                    node_df = d
-                else:
-                    node_df = pd.concat((node_df, d), ignore_index=True)
-        print("writing to csv")
-        node_df.to_csv(node_df_file)
-    node_df["id"] = node_df["id"].astype(int)
+# if __name__ == "__main__":
+#     node_df_file = Path("node_df.csv")
+#     if node_df_file.exists():
+#         node_df = pd.read_csv(node_df_file)
+#     else:
+#         print("Loading node df")
+#         with Pool(16) as pool:
+#             node_df = None
+#             ids = dataflow_df["graph_id"].unique()
+#             for i, d in enumerate(pool.imap_unordered(get_nodes, tqdm.tqdm(ids, desc="get aux node info", total=len(ids)))):
+#                 if i < 3:
+#                     print(f"df {i}: {node_df}")
+#                 if node_df is None:
+#                     node_df = d
+#                 else:
+#                     node_df = pd.concat((node_df, d), ignore_index=True)
+#         print("writing to csv")
+#         node_df.to_csv(node_df_file)
+#     node_df["id"] = node_df["id"].astype(int)
 
 #%% Get most common subkeys
+
+if __name__ == "__main__":
+    select_key = "datatype"
 
 if __name__ == "__main__":
     dataargs = {"sample": -1, "splits": "default", "load_code": False}
     train = svddc.BigVulDataset(partition="train", **dataargs)
     train_df = train.df
-    print(train_df.columns)
-    print(train_df)
+    print(f"{train_df.columns=}")
+    print("generate hash from train", train_df)
 
     train_df = pd.merge(train_df, dataflow_df, left_on="id", right_on="graph_id")
     print(train_df.columns)
-    datatype_vc = train_df["datatype"].value_counts()
+    datatype_vc = train_df[select_key].value_counts()
     # datatype_vc = train_df["datatype_subtypes_str"].value_counts()
 
     # Filter to decls only
@@ -668,6 +671,29 @@ def to_hash(row, select):
 
     # combine
     return " ".join(map(str,items))
+    
+
+if __name__ == "__main__":
+
+    # Export dataset
+    select = {
+        select_key: datatype_vc.nlargest(1000).index.sort_values().tolist(),
+    }
+    all_df = None
+    for split in ("train", "val", "test"):
+        split_df = svddc.BigVulDataset(partition=split, **dataargs).df
+        split_df = pd.merge(split_df, dataflow_df, left_on="id", right_on="graph_id")
+        split_df["hash"] = split_df.apply(to_hash, axis=1).replace("<NA>", pd.NA)
+        split_df = split_df[["graph_id", "node_id", "hash"]].sort_values(by=["graph_id", "node_id"]).reset_index(drop=True)
+        split_df["node_id"] = split_df["node_id"].astype(int)
+        print(split, len(split_df), split_df["hash"].value_counts(dropna=False))
+        # split_df.to_csv(f"abstract_dataflow_hash_all.csv")
+        if all_df is None:
+            all_df = split_df
+        else:
+            all_df = pd.concat((all_df, split_df), ignore_index=True)
+    all_df.to_csv(f"abstract_dataflow_hash_all.csv")
+    exit()
 
 # if __name__ == "__main__":
 #     df["hash"] = df.apply(to_hash, axis=1)
@@ -676,6 +702,8 @@ def to_hash(row, select):
 #     items_with_missing = sum(df["hash"].str.contains("-1"))
 
 #     df.to_csv(f"abstract_dataflow_hash{'_sample' if sample else ''}.csv")
+
+# %% generate frequency graphs
 
 def generate_frequency_graphs():
     test = svddc.BigVulDataset(partition="test", **dataargs)
@@ -688,8 +716,7 @@ def generate_frequency_graphs():
         number = int(len(datatype_vc) * portion)
         print("ITERATION", i, "portion", portion, "number", number, "/", len(datatype_vc))
         select = {
-            # "datatype_subtypes_str": datatype_vc.nlargest(number).index.sort_values().tolist(),
-            "datatype": datatype_vc.nlargest(number).index.sort_values().tolist(),
+            select_key: datatype_vc.nlargest(number).index.sort_values().tolist(),
         }
         for k in select:
             print(k, len(select[k]), "items selected")
@@ -719,30 +746,6 @@ def generate_frequency_graphs():
 
 if __name__ == "__main__":
     generate_frequency_graphs()
-    exit()
-
-if __name__ == "__main__":
-
-    # Export dataset
-    select = {
-        # "datatype_subtypes_str": datatype_vc.nlargest(1000).index.sort_values().tolist(),
-        "datatype": datatype_vc.nlargest(1000).index.sort_values().tolist(),
-        # "datatype": datatype_vc.index.sort_values().tolist(),
-    }
-    all_df = None
-    for split in ("train", "val", "test"):
-        split_df = svddc.BigVulDataset(partition=split, **dataargs).df
-        split_df = pd.merge(split_df, dataflow_df, left_on="id", right_on="graph_id")
-        split_df["hash"] = split_df.apply(to_hash, axis=1).replace("<NA>", pd.NA)
-        split_df = split_df[["graph_id", "node_id", "hash"]].sort_values(by=["graph_id", "node_id"]).reset_index(drop=True)
-        split_df["node_id"] = split_df["node_id"].astype(int)
-        print(split, len(split_df), split_df["hash"].value_counts(dropna=False))
-        split_df.to_csv(f"abstract_dataflow_hash_all.csv")
-        if all_df is None:
-            all_df = split_df
-        else:
-            all_df = pd.concat((all_df, split_df), ignore_index=True)
-    all_df.to_csv(f"abstract_dataflow_hash_all.csv")
     exit()
 
 def generate_dataset_old():
