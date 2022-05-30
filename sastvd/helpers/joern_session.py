@@ -33,7 +33,7 @@ def shesc(sometext):
 
 class JoernSession:
     def __init__(self, worker_id: int=0, logfile=None, clean=False):
-        self.proc = pexpect.spawn("joern --nocolors", timeout=120, logfile=logfile)
+        self.proc = pexpect.spawn("joern --nocolors", timeout=600, logfile=logfile)
         self.read_until_prompt()
 
         if worker_id != 0:
@@ -105,8 +105,18 @@ class JoernSession:
     def import_code(self, filepath: str):
         return self.run_command("importCode(\"" + filepath + "\")")
 
-    def import_cpg(self, cpgpath: str):
-        return self.run_command("importCpg(\"" + cpgpath + "\")")
+    def import_cpg(self, filepath: str):
+        cpgpath = filepath + ".cpg.bin"
+        if Path(cpgpath).exists():
+            return self.run_command("importCpg(\"" + cpgpath + "\")")
+        else:
+            print("cpg missing, import code", filepath)
+            ret = self.import_code(filepath)
+            try:
+                shutil.copyfile(self.cpg_path(), cpgpath)
+            except Exception:
+                traceback.print_exc()
+            return ret
 
     # def export_cpg(self, filepath: str):
     #     out1 = self.run_command(f"""importCode("{filepath}")""")
@@ -126,7 +136,7 @@ class JoernSession:
     def cpg_path(self):
         project_path = self.run_command("print(project.path)")
         cpg_path = Path(project_path) / "cpg.bin"
-        return 
+        return cpg_path
 
 # @pytest.mark.skip
 def test_close():
