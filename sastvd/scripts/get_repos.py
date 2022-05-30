@@ -63,6 +63,10 @@ def correct_repo_name(cid):
         "https://github.com/lxde/pcmanfm.git",
         "https://github.com/php/php-src.git.git":
         "https://github.com/php/php-src.git",
+        "https://github.com/php/php-src":
+        "https://github.com/php/php-src.git",
+        "https://git.php.net/php-src.git":
+        "https://github.com/php/php-src.git",
         "https://git.postgresql.org/gitweb/postgresql.git":
         "https://github.com/postgres/postgres",
         "https://git.qemu.org/qemu.git":

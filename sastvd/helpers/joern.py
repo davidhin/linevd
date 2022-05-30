@@ -80,7 +80,7 @@ def get_digraph(nodes, edges, edge_label=True):
     return dot
 
 
-def run_joern_gettype(sess, cpgpath: str, datatypes):
+def run_joern_gettype(sess, cpgpath: str, datatypes, cache):
     """Extract member types using Joern."""
     datatype_to_paths = {}
     try:
@@ -90,7 +90,7 @@ def run_joern_gettype(sess, cpgpath: str, datatypes):
                 typepath = None
                 try:
                     typepath = Path(f"{cpgpath}_types_{datatype}.txt")
-                    if not typepath.exists():
+                    if not cache or not typepath.exists():
                         sess.run_script("get_type", params={"rootType": datatype, "outFile": str(typepath)}, import_first=False)
                     datatype_to_paths[datatype] = typepath
                 except pexpect.exceptions.EOF:
@@ -100,6 +100,7 @@ def run_joern_gettype(sess, cpgpath: str, datatypes):
         finally:
             sess.delete()
         
+        print("output to", typepath)
         def get_subtypes(typepath):
             if typepath is None:
                 return None
