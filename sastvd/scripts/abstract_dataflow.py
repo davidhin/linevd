@@ -39,7 +39,7 @@ def is_decl(n_attr):
 
 def get_dataflow_features(_id):
     try:
-        itempath = svddc.BigVulDataset.itempath(_id)
+        itempath = svdds.itempath(_id)
         # print(_id, itempath)
         cpg = dataflow.get_cpg(itempath)
         # print(cpg)

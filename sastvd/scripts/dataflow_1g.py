@@ -19,6 +19,7 @@ if __name__ == "__main__":
         else:
             df = svdds.bigvul()
             df = df.rename(columns={"id": "graph_id"})[["graph_id"]]
+            print("start", df)
             # df = df[df["graph_id"] == 0]
             # df = df.head(10)
             base = svd.processed_dir()
@@ -28,15 +29,18 @@ if __name__ == "__main__":
                 .apply(lambda filename: [base/"bigvul/before"/filename, base/"bigvul/after"/filename])
                 )
             df = df.explode("summary_filepath")
-            df = df[df["summary_filepath"].apply(lambda p: p.exists())]
+            def check_exists(p):
+                return p.exists()
+            df = df[svd.dfmp(df, check_exists, "summary_filepath", workers=workers)]
+            # df = df[df["summary_filepath"].apply(check_exists)]
             print("summary filepath", df)
 
             assert len(df) > 0
             def load_summary(summary_filepath):
                 with open(summary_filepath) as f:
                     return json.load(f)
-            df["function"] = svd.dfmp(df, load_summary, "summary_filepath", workers=16)
-            df = df.explode("function")
+            df["function"] = svd.dfmp(df, load_summary, "summary_filepath", workers=workers)
+            df = df.explode("function").dropna(subset=["function"])
             print("function", df)
             df.to_csv(cache_file_funcs)
 
@@ -52,7 +56,7 @@ if __name__ == "__main__":
                 "gen": ",".join(map(str, sorted(gen.get(k, [])))),
                 "kill": ",".join(map(str, sorted(kill.get(k, []))))
             } for k in set((*gen.keys(), *kill.keys()))]
-        df["genkill"] = svd.dfmp(df, load_func, ["function", "summary_filepath"], workers=16)
+        df["genkill"] = svd.dfmp(df, load_func, ["function", "summary_filepath"], workers=workers)
         df = df.explode("genkill")
         df = df.join(df["genkill"].apply(pd.Series), how='left', lsuffix="_")
         df = df[["graph_id", "func", "node_id", "gen", "kill"]].copy()
