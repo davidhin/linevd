@@ -277,7 +277,7 @@ def get_trainer(config):
     if "tune_trial" in config:
         callbacks.append(PyTorchLightningPruningCallback(config["tune_trial"], monitor=config["target_metric"]))
 
-    profiler = pl.profiler.AdvancedProfiler(filename="profile.txt")
+    # profiler = pl.profiler.AdvancedProfiler(filename="profile.txt")
     
     trainer = pl.Trainer(
         gpus=1 if config["cuda"] else 0,
@@ -292,7 +292,7 @@ def get_trainer(config):
         # default_root_dir=base_dir,  # Use checkpoint callback instead
         # deterministic=True,  # RuntimeError: scatter_add_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True)'.
         enable_checkpointing=True,
-        profiler=profiler,
+        # profiler=profiler,
         resume_from_checkpoint=config["resume_from_checkpoint"],
     )
     return trainer
