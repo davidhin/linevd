@@ -147,14 +147,14 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
 
     def __init__(self, gtype="pdg", feat="all", cache_all=False, **kwargs):
         """Init."""
-        super(BigVulDatasetLineVD, self).__init__(**kwargs)
+        self.graph_type = gtype
+        self.feat = feat
+        super(BigVulDatasetLineVD, self).__init__(feat=feat, **kwargs)
         lines = ivde.get_dep_add_lines_bigvul()
         lines = {k: set(list(v["removed"]) + v["depadd"]) for k, v in lines.items()}
         self.cache_all = cache_all
         self.cache_all_cache = {}
         self.lines = lines
-        self.graph_type = gtype
-        self.feat = feat
 
     def item(self, _id, codebert=None, must_load=False):
         """Cache item."""
@@ -224,16 +224,19 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
                     dgl_feat = th.zeros((g.number_of_nodes(), self.df_1g_max_idx*2))
 
                     nids_to_1g_df = self.df_1g.groupby("graph_id").get_group(_id)
-                    nids_to_1g_df = nids_to_1g_df.set_index(nids_to_1g_df["node_id"].map(iddict))
-                    all_nids = [i for i in nids_to_1g_df.index.dropna().astype(int).tolist() if i in iddict.values()]
+                    node_id_dgl = nids_to_1g_df["node_id"].map(iddict)
+                    # all_nids = [i for i in node_id_dgl.dropna().astype(int).tolist() if i in iddict.values()]
+                    all_nids = node_id_dgl.dropna().astype(int).sort_values().unique().tolist()
+                    nids_gen = dict(zip(node_id_dgl, nids_to_1g_df["gen"]))
+                    nids_kill = dict(zip(node_id_dgl, nids_to_1g_df["kill"]))
                     for nid in range(len(dgl_feat)):
-                        gen_f = nids_to_1g_df["gen"].get(nid, "")
-                        kill_f = nids_to_1g_df["kill"].get(nid, "")
+                        gen_f = nids_gen.get(nid, "")
+                        kill_f = nids_kill.get(nid, "")
                         for i in [int(s) for s in sorted(gen_f.split(",")) if s.isdigit()]:
-                            if i in iddict:
+                            if i in iddict and iddict[i] in all_nids:
                                 dgl_feat[nid, all_nids.index(iddict[i])] = 1
                         for i in [int(s) for s in sorted(kill_f.split(",")) if s.isdigit()]:
-                            if i in iddict:
+                            if i in iddict and iddict[i] in all_nids:
                                 dgl_feat[nid, self.df_1g_max_idx+all_nids.index(iddict[i])] = 1
                     return dgl_feat
                 g.ndata["_1G_DATAFLOW"] = get_dataflow_1g_features(_id)
@@ -316,10 +319,17 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
         feat: str = "all",
         load_code=False,
         cache_all=False,
+        undersample=True,
+        filter_cwe=[],
     ):
         """Init class from bigvul dataset."""
         super().__init__()
-        dataargs = {"sample": sample, "gtype": gtype, "splits": splits, "feat": feat, "load_code": load_code, "cache_all": cache_all,}
+        dataargs = {
+            "sample": sample, "gtype": gtype,
+            "splits": splits, "feat": feat,
+            "load_code": load_code, "cache_all": cache_all,
+            "undersample": undersample, "filter_cwe": filter_cwe,
+        }
         self.train = BigVulDatasetLineVD(partition="train", **dataargs)
         self.val = BigVulDatasetLineVD(partition="val", **dataargs)
         self.test = BigVulDatasetLineVD(partition="test", **dataargs)

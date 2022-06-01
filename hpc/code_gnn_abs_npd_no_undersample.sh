@@ -6,9 +6,9 @@
 #SBATCH --gres=gpu:1
 #SBATCH --partition=gpu
 #SBATCH --exclude=amp-1,amp-2,amp-3,amp-4,singularity,matrix
-#SBATCH --err="hpc/logs/code_gnn3_%A.info"
-#SBATCH --output="hpc/logs/code_gnn3_%A.info"
-#SBATCH --job-name="code_gnn3"
+#SBATCH --err="hpc/logs/code_gnn_%A.info"
+#SBATCH --output="hpc/logs/code_gnn_%A.info"
+#SBATCH --job-name="code_gnn"
 #SBATCH --mail-user=benjis@iastate.edu
 #SBATCH --mail-type=FAIL,END
 
@@ -21,6 +21,7 @@ nvidia-smi
 
 # Now need to retrain with the good dataset
    
-singularity exec --nv main.sif python -m cProfile -o profile.txt code_gnn/main.py --model flow_gnn --dataset MSR --feat "_ABS_DATAFLOW_datatypeonly" \
-    --clean --batch_size 256 --max_epochs 5 \
-    --label_style graph --cache_all --log_suffix _short --evaluation
+singularity exec --nv main.sif python code_gnn/main.py --model flow_gnn --dataset MSR --feat "_ABS_DATAFLOW_datatypeonly" \
+    --clean --batch_size 16 --max_epochs 250 --weight_decay=1e-2 --filter_cwe CWE-476 CWE-690 \
+    --label_style graph --cache_all \
+    --evaluation --no_undersample

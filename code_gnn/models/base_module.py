@@ -8,8 +8,8 @@ import pytorch_lightning as pl
 import torch
 import torchmetrics
 from matplotlib import pyplot as plt
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_curve, average_precision_score, \
-    ndcg_score
+# from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_curve, average_precision_score, \
+#     ndcg_score
 
 from code_gnn.models.rank_eval import rank_metr
 from sastvd import print_memory_mb
@@ -70,67 +70,23 @@ class BaseModule(pl.LightningModule):
     def __init__(self):
         super().__init__()
         self.loss_fn = BCELoss()
+        self.class_threshold = 0.5
+
+        self.train_accuracy = torchmetrics.Accuracy()
+        self.train_precision = torchmetrics.Precision()
+        self.train_recall = torchmetrics.Recall()
+        self.train_f1 = torchmetrics.F1Score()
+        self.val_accuracy = torchmetrics.Accuracy()
+        self.val_precision = torchmetrics.Precision()
+        self.val_recall = torchmetrics.Recall()
+        self.val_f1 = torchmetrics.F1Score()
+        self.test_accuracy = torchmetrics.Accuracy()
+        self.test_precision = torchmetrics.Precision()
+        self.test_recall = torchmetrics.Recall()
+        self.test_f1 = torchmetrics.F1Score()
 
     def configure_optimizers(self):
         return Adam(self.parameters(), lr=self.hparams.learning_rate, weight_decay=self.hparams.weight_decay)
-
-    def log_ranking_metrics(self, name, all_label, all_out, batch_num_nodes):
-        all_graph_metrics = []
-        prefix = 0
-        for nn in batch_num_nodes:
-            graph_out = all_out[prefix:prefix + nn]
-            # graph_rank = [i for i, x in sorted(enumerate(graph_out), key=lambda x: x[1], reverse=True)]
-            # # print(graph_rank)
-            graph_label = all_label[prefix:prefix + nn]
-            graph_metrics = rank_metr(graph_out, graph_label)
-            all_graph_metrics.append(graph_metrics)
-        keys = all_graph_metrics[0].keys()
-        agg_metrics = {k: [] for k in keys}
-        for d in all_graph_metrics:
-            for k in keys:
-                agg_metrics[k].append(d[k])
-        mean_metrics = {k: np.average(v) for k, v in agg_metrics.items()}
-        for k in keys:
-            self.logger.experiment.add_scalar(name + '/rank/' + k.replace("@", "_"), mean_metrics[k], self.current_epoch)
-
-    def do_log(self, name, outputs):
-        if any("loss" in o for o in outputs):
-            all_loss = [o["loss"].item() for o in outputs]
-            self.logger.experiment.add_scalar(name + '/avg_epoch_loss', np.average(all_loss), self.current_epoch)
-            self.logger.experiment.add_scalar(name + '/total_epoch_loss', sum(all_loss), self.current_epoch)
-
-        # collate outputs
-        all_out = torch.cat([o["out"] for o in outputs]).float().cpu()
-        all_pred = (all_out > 0.5).int().cpu()
-        all_label = torch.cat([o["label"] for o in outputs]).int().cpu()
-        batch_num_nodes = torch.cat([o["batch_num_nodes"] for o in outputs]).int().cpu()
-        
-        # breakpoint()
-
-        # classification metrics
-        acc = accuracy_score(all_pred, all_label)
-        prec = precision_score(all_pred, all_label, zero_division=0)
-        rec = recall_score(all_pred, all_label, zero_division=0)
-        f1 = f1_score(all_pred, all_label, zero_division=0)
-        self.logger.experiment.add_scalar(name + '/class/acc', acc, self.current_epoch)
-        self.logger.experiment.add_scalar(name + '/class/prec', prec, self.current_epoch)
-        self.logger.experiment.add_scalar(name + '/class/rec', rec, self.current_epoch)
-        self.logger.experiment.add_scalar(name + '/class/f1', f1, self.current_epoch)
-
-        self.logger.experiment.add_scalar(name + '/meta/proportion_label', np.average(all_label), self.current_epoch)
-        self.logger.experiment.add_scalar(name + '/meta/proportion_pred', np.average(all_pred), self.current_epoch)
-        # self.logger.experiment.add_image(
-        #     name + '/meta/predictions',
-        #     np.expand_dims(np.stack((all_pred, all_label)), axis=0),
-        #     self.current_epoch, dataformats='CHW'
-        # )
-
-        if any("loss_dim" in o for o in outputs):
-            loss_percent = sum(o["loss_dim"] for o in outputs) / len(all_pred)
-            self.logger.experiment.add_scalar(name + '/percent_sampled', loss_percent, self.current_epoch)
-
-        # ranking metrics
-        self.log_ranking_metrics(name, all_label, all_out, batch_num_nodes)
 
     def get_label(self, batch):
         if self.hparams.label_style == 'node':
@@ -142,14 +98,16 @@ class BaseModule(pl.LightningModule):
             raise NotImplementedError(self.hparams.label_style)
         return label.float()
 
+    # def log_class_metrics(self, name, out, label):
+    #     for m_name, m in self.metrics[name].items():
+    #         m(out.float().to(self.device), label.int().to(self.device))
+    #         self.log(f'{name}/class/{m_name}', m, on_step=True, on_epoch=True)
+
     def training_step(self, batch, batch_idx):
-        # batch, batch_label = batch
         label = self.get_label(batch)
         out = self.forward(batch)
-        # breakpoint()
-        self.logger.experiment.add_scalar('train/meta/original_label_proportion', torch.mean(label))
-        self.logger.experiment.add_scalar('train/meta/original_label_len', label.shape[0])
-        # out_for_loss = out
+        self.log(f"train/meta/original_label_proportion", torch.mean(label), on_step=True, on_epoch=False, batch_size=batch.batch_size)
+        self.log(f"train/meta/original_label_len", label.shape[0], on_step=True, on_epoch=False, batch_size=batch.batch_size)
         if self.hparams.label_style == 'node':
             if self.hparams.undersample_factor is not None:
                 vuln_indices = label.nonzero().squeeze().tolist()
@@ -162,52 +120,56 @@ class BaseModule(pl.LightningModule):
                 indices = vuln_indices + nonvuln_indices
                 out = out[indices]
                 label = label[indices]
-        self.logger.experiment.add_scalar('train/meta/undersampled_label_proportion', torch.mean(label))
-        self.logger.experiment.add_scalar('train/meta/undersampled_label_len', label.shape[0])
+                self.log(f"train/meta/resampled_label_proportion", torch.mean(label), on_step=True, on_epoch=False, batch_size=batch.batch_size)
+                self.log(f"train/meta/resampled_label_len", label.shape[0], on_step=True, on_epoch=False, batch_size=batch.batch_size)
         loss = self.loss_fn(out, label)
-        return {
-            "loss": loss, "loss_dim": len(out),
-            "out": out.detach(),
-            "batch_num_nodes": batch.batch_num_nodes().detach(),
-            "label": label,
-        }
+        self.log(f'train/loss', loss, on_step=True, on_epoch=True, batch_size=batch.batch_size)
+        # self.log_class_metrics("train", out, label)
+        self.train_accuracy(out, label.int())
+        self.train_precision(out, label.int())
+        self.train_recall(out, label.int())
+        self.train_f1(out, label.int())
+        self.log(f'train/class/accuracy', self.train_accuracy, on_step=True, on_epoch=True)
+        self.log(f'train/class/precision', self.train_precision, on_step=True, on_epoch=True)
+        self.log(f'train/class/recall', self.train_recall, on_step=True, on_epoch=True)
+        self.log(f'train/class/f1', self.train_f1, on_step=True, on_epoch=True)
+
+        return loss
 
     def validation_step(self, batch, batch_idx):
-        # breakpoint()
-        # batch, batch_label = batch
         label = self.get_label(batch)
-        # logger.info(f'val label {label.sum().item()}')
         out = self.forward(batch)
-        pred = torch.gt(out, 0.5)
         loss = self.loss_fn(out, label)
-        self.log('valid/loss', loss, logger=False, batch_size=batch.batch_size)
-        self.log('valid/f1', torch.tensor(f1_score(pred.int().cpu(), label.int().cpu(), zero_division=0)), logger=False,
-                 batch_size=batch.batch_size)
-        self.log('valid/acc', torch.tensor(accuracy_score(pred.int().cpu(), label.int().cpu())), logger=False,
-                 batch_size=batch.batch_size)
-        return {
-            "loss": loss, "loss_dim": len(out),
-            "out": out.detach(),
-            "batch_num_nodes": batch.batch_num_nodes().detach(),
-            "label": label
-        }
+        self.log(f'valid/loss', loss, on_step=True, on_epoch=True, batch_size=batch.batch_size)
+        # self.log_class_metrics("val", out, label)
+        self.val_accuracy(out, label.int())
+        self.val_precision(out, label.int())
+        self.val_recall(out, label.int())
+        self.val_f1(out, label.int())
+        self.log(f'val/class/accuracy', self.val_accuracy, on_step=True, on_epoch=True)
+        self.log(f'val/class/precision', self.val_precision, on_step=True, on_epoch=True)
+        self.log(f'val/class/recall', self.val_recall, on_step=True, on_epoch=True)
+        self.log(f'val/class/f1', self.val_f1, on_step=True, on_epoch=True)
 
     def test_step(self, batch, batch_idx):
-        # batch, batch_label = batch
         label = self.get_label(batch)
         out = self.forward(batch)
-        return {
-            "out": out.detach(),
-            "batch_num_nodes": batch.batch_num_nodes().detach(),
-            "label": label
-        }
+        loss = self.loss_fn(out, label)
+        self.log(f'test/loss', loss, on_step=True, on_epoch=True, batch_size=batch.batch_size)
+        # self.log_class_metrics("test", out, label)
+        self.test_accuracy(out, label.int())
+        self.test_precision(out, label.int())
+        self.test_recall(out, label.int())
+        self.test_f1(out, label.int())
+        self.log(f'test/class/accuracy', self.test_accuracy, on_step=True, on_epoch=True)
+        self.log(f'test/class/precision', self.test_precision, on_step=True, on_epoch=True)
+        self.log(f'test/class/recall', self.test_recall, on_step=True, on_epoch=True)
+        self.log(f'test/class/f1', self.test_f1, on_step=True, on_epoch=True)
 
     def training_epoch_end(self, outputs):
-        print("step", self.global_step, print_memory_mb())
-        self.do_log('train', outputs)
+        self.log('epoch', self.current_epoch)
 
     def validation_epoch_end(self, outputs):
-        print("step", self.global_step, print_memory_mb())
         if self.hparams.roc_every is not None and (
                 self.current_epoch == 0 or
                 (self.current_epoch != 1 and ((self.current_epoch - 1) % self.hparams.roc_every == 0))
@@ -229,12 +191,6 @@ class BaseModule(pl.LightningModule):
             logger.info(f'Log ROC curve to {filename}')
             plt.savefig(filename)
             plt.show()
-
-        self.do_log('valid', outputs)
-
-    def test_epoch_end(self, outputs):
-        print("step", self.global_step, print_memory_mb())
-        self.do_log('test', outputs)
 
     @staticmethod
     def add_model_specific_args(parent_parser):

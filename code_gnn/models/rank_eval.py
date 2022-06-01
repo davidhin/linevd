@@ -191,6 +191,7 @@ def MAR(r):
 def get_r(pred, true, r_thresh=0.5, idx=0):
     """Sort predicted values based on output score."""
     zipped = list(zip(pred, true))
+    # TODO: This is taking up ~36% of training time
     zipped.sort(reverse=True, key=lambda x: x[idx])
     return [1 if i[0] > r_thresh and i[1] == 1 else 0 for i in zipped]
 
@@ -200,7 +201,9 @@ warned = False
 
 def rank_metr(pred, true, r_thresh=0.5, perfect=False):
     """Calculate all rank metrics."""
-    if not any([i != 0 and i != 1 for i in pred]):
+    # TODO: This is taking up ~12% of training time
+    # if any(pred > 1 or pred < 0):
+    if not any(i != 0 and i != 1 for i in pred):
         global warned
         if not warned:
             warned = True

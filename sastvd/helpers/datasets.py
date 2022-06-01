@@ -379,7 +379,7 @@ def bigvul_filter(df, check_file=False, check_valid=False, vulonly=False, load_c
         df = df.drop(columns=["before", "after", "removed", "added", "diff"])
     return df
 
-def bigvul_partition(df, partition="train"):
+def bigvul_partition(df, partition="train", undersample=True):
     """Filter to one partition of bigvul and rebalance function-wise"""
 
     def get_label(i):
@@ -398,13 +398,13 @@ def bigvul_partition(df, partition="train"):
     # print("df head=", df.head())
 
     # Balance training set
-    if partition == "train" or partition == "val":
+    if partition == "train" or partition == "val" and undersample:
         vul = df[df.vul == 1]
         nonvul = df[df.vul == 0].sample(len(vul), random_state=0)
         df = pd.concat([vul, nonvul])
 
     # Correct ratio for test set
-    if partition == "test":
+    if partition == "test" and undersample:
         vul = df[df.vul == 1]
         nonvul = df[df.vul == 0]
         nonvul = nonvul.sample(min(len(nonvul), len(vul) * 20), random_state=0)
@@ -431,7 +431,13 @@ def dataflow_1g():
     
     cache_file = svd.processed_dir() / f"bigvul/1g_dataflow_hash_all.csv"
     if cache_file.exists():
-        df = pd.read_csv(cache_file)
+        df = pd.read_csv(cache_file, converters={
+            "graph_id": int,
+            "node_id": int,
+            "func": str,
+            "gen": str,
+            "kill": str,
+        })
     else:
         print("YOU SHOULD RUN dataflow_1g.py")
     return df

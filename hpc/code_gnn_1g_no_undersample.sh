@@ -21,7 +21,7 @@ nvidia-smi
 
 # Now need to retrain with the good dataset
    
-singularity exec --nv main.sif python code_gnn/main.py --model flow_gnn --dataset MSR --feat "_ABS_DATAFLOW_datatypeonly" \
-    --clean --batch_size 256 --max_epochs 250 \
+singularity exec --nv main.sif python -u code_gnn/main.py --model flow_gnn --dataset MSR --feat "_1G_DATAFLOW" \
+    --clean --batch_size 256 --max_epochs 250 --weight_decay 1e-2 --no_undersample_graphs \
     --label_style graph --cache_all \
     --evaluation

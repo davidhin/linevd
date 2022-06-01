@@ -40,3 +40,4 @@ tmp
 repos/*
 !repos/*.sh
 archives_to_extract*_*
+core.*

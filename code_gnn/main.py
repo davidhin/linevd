@@ -106,6 +106,8 @@ def train_single_model(config):
         feat=config["feat"],
         #load_code=config["dataset_only"],
         cache_all=config["cache_all"],
+        undersample=not config["no_undersample_graphs"],
+        filter_cwe=config["filter_cwe"],
     )
 
     if config["dataset_only"]:
@@ -118,9 +120,9 @@ def train_single_model(config):
             sums_no1 = []
             portions = []
             for d in tqdm.tqdm(ds, desc=ds.partition):
-                sums.append(d.ndata["_ABS_DATAFLOW"].sum())
-                sums_no1.append(d.ndata["_ABS_DATAFLOW"][:,1:].sum())
-                portions.append(d.ndata["_ABS_DATAFLOW"][:,1:].sum() / d.number_of_nodes())
+                sums.append(d.ndata[config["feat"]].sum())
+                sums_no1.append(d.ndata[config["feat"]][:,1:].sum())
+                portions.append(d.ndata[config["feat"]][:,1:].sum() / d.number_of_nodes())
             sums_df = pd.DataFrame(sums)
             sums_no1_df = pd.DataFrame(sums_no1)
             portions_df = pd.DataFrame(portions)
@@ -140,10 +142,18 @@ def train_single_model(config):
     print("graph 2nd time", data.train[0])
     print("graph data", data.train[0].ndata)
 
-    config["input_dim"] = data.train[0].ndata["_ABS_DATAFLOW"].shape[1]
-    print("shape", data.train[0].ndata["_ABS_DATAFLOW"].shape)
-    print("sum", data.train[0].ndata["_ABS_DATAFLOW"].sum())
-    print("sum no 1st dim", data.train[0].ndata["_ABS_DATAFLOW"][:,1:].sum())
+    try:
+        if config["feat"].startswith("_ABS_DATAFLOW"):
+            featname = "_ABS_DATAFLOW"
+        else:
+            featname = config["feat"]
+        config["input_dim"] = data.train[0].ndata[featname].shape[1]
+        print("shape", data.train[0].ndata[featname].shape)
+        print("sum", data.train[0].ndata[featname].sum())
+        print("sum no 1st dim", data.train[0].ndata[featname][:,1:].sum())
+    except Exception:
+        print("error logging first example")
+        traceback.print_exc()
 
     # if config["check_mode"]:
     #     blacklist = []
@@ -183,6 +193,10 @@ def train_single_model(config):
         if config["resume_from_checkpoint"]:
             logger.info("loading checkpoint %s", config["resume_from_checkpoint"])
             trainer.test(model=model, datamodule=data, ckpt_path=config["resume_from_checkpoint"])
+        elif config["take_checkpoint"] == "best":
+            ckpt = trainer.checkpoint_callback.best_model_path
+            logger.info("loading checkpoint %s", ckpt)
+            trainer.test(model=model, datamodule=data, ckpt_path=ckpt)
         else:
             ckpts = list(config["base_dir"].glob("checkpoints/periodical-*.ckpt"))
             logger.info("unsorted: %s", str([int(str(fp.name).split("-")[1]) for fp in ckpts]))
@@ -251,7 +265,7 @@ def get_trainer(config):
         dirpath=str(ckpt_dir),
         filename='performance-{epoch:02d}-{step:02d}-{' + config["target_metric"] + ':02f}',
         monitor=config["target_metric"],
-        mode='max',
+        mode='min',
         save_last=True,
         # verbose=True,
     )
@@ -366,9 +380,11 @@ if __name__ == '__main__':
     # training options
     parser.add_argument("--skip_train", action='store_true', help='skip training')
     parser.add_argument("--evaluation", action='store_true', help='do evaluation on test set')
+    parser.add_argument("--no_undersample_graphs", action='store_true', help='undersample graphs as in LineVD')
     parser.add_argument("--debug_overfit", action='store_true', help='debug mode - overfit one batch')
     parser.add_argument("--clean", action='store_true', help='clean old outputs')
     parser.add_argument("--batch_size", type=int, default=64, help='number of items to load in a batch')
+    parser.add_argument("--filter_cwe", nargs="+", help='CWE to filter examples')
     parser.add_argument("--target_metric", type=str, default='valid/loss', help='metric to optimize for')
     parser.add_argument("--take_checkpoint", type=str, default='best', help='how to select checkpoint for evaluation')
     parser.add_argument("--resume_from_checkpoint", type=str, help='checkpoint file to resume from')
@@ -386,7 +402,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
     args.model_class = model_class_dict[args.model]
 
-    args.unique_id = '_'.join(map(str, (args.model, args.dataset, args.label_style, args.feat, args.node_limit, args.graph_limit, args.undersample_factor, args.filter, f"{args.learning_rate:f}".rstrip("0").rstrip("."), f"{args.weight_decay:f}".rstrip("0").rstrip("."), args.batch_size)))
+    # args.unique_id = '_'.join(map(str, (args.model, args.dataset, args.label_style, args.feat, args.node_limit, args.graph_limit, args.no_undersample_graphs, args.undersample_factor, args.filter, f"{args.learning_rate:f}".rstrip("0").rstrip("."), f"{args.weight_decay:f}".rstrip("0").rstrip("."), args.batch_size)))
+    args.unique_id = '_'.join(map(str, (args.model, args.dataset, args.label_style, args.feat, args.node_limit, args.graph_limit, "noundersample" if args.no_undersample_graphs else "undersample", args.undersample_factor, args.filter, f"{args.learning_rate:f}".rstrip("0").rstrip("."), f"{args.weight_decay:f}".rstrip("0").rstrip("."), args.batch_size)))
+    if args.filter_cwe:
+        args.unique_id += '_filter_' + '_'.join(args.filter_cwe)
     if args.model == 'devign':
         args.unique_id += '_' + '_'.join(map(str, (args.window_size, args.graph_embed_size, args.num_layers)))
     else:

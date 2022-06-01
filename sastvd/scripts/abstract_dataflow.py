@@ -1,4 +1,5 @@
 # %%
+import functools
 import sys
 
 sys.path.append("/home/benjis/benjis/weile-lab/linevd")
@@ -8,7 +9,6 @@ from multiprocessing import Pool
 from pathlib import Path
 
 import networkx as nx
-import numpy as np
 import pandas as pd
 import code_gnn.analysis.dataflow as dataflow
 import sastvd.helpers.datasets as svdds
@@ -16,7 +16,6 @@ import sastvd.helpers.dclass as svddc
 import sastvd.helpers.joern as svdj
 import sastvd.helpers.joern_session as svdjs
 import seaborn as sns
-# from tqdm import tqdm
 import tqdm
 from matplotlib import pyplot as plt
 import json
@@ -375,6 +374,14 @@ def get_dataflow_features_df():
 
     else:
         dataflow_df = pd.read_csv(csv_file)
+    
+    dataflow_df["node_id"] = dataflow_df["node_id"].astype(int)
+    dataflow_df = dataflow_df[["graph_id", "node_id", "datatype", "operator", "api", "literal"]]
+
+    dataflow_df["datatype"] = dataflow_df["datatype"].apply(
+        lambda dt: dt if pd.isna(dt) else re.sub(r"\s+", r" ", re.sub(r"^const ", r"", re.sub(r"\s*\[.*\]", r"[]", dt))).strip()
+        )
+    dataflow_df.to_csv("abstract_dataflow_fixed.csv")
 
     print(dataflow_df)
     print(dataflow_df.value_counts("datatype"))
@@ -563,6 +570,7 @@ if __name__ == "__main__":
     train_df = pd.merge(train_df, dataflow_df, left_on="id", right_on="graph_id")
     print(train_df.columns)
     datatype_vc = train_df[select_key].value_counts()
+    print(datatype_vc)
     # datatype_vc = train_df["datatype_subtypes_str"].value_counts()
 
     # Filter to decls only
@@ -672,21 +680,43 @@ def to_hash(row, select):
     # combine
     return " ".join(map(str,items))
     
+if __name__ == "__main__":
+    missing = []
+    all_df = None
+    split_df = svddc.BigVulDataset(partition="train", **dataargs).df
+    split_df = pd.merge(split_df, dataflow_df, left_on="id", right_on="graph_id")
+    portions = [10, 50, 100, 250, 500, 750, 1000, 1500, 2000, len(split_df[select_key].drop_duplicates())]
+    for portion in tqdm.tqdm(portions, desc="measuring train coverage for various portions..."):
+        select = {
+            select_key: datatype_vc.nlargest(portion).index.sort_values().tolist(),
+        }
+        split_na = split_df.apply(functools.partial(to_hash, select=select), axis=1)
+        missing.append((len(split_df) - split_na.replace("<NA>", pd.NA).isna().sum()) / len(split_df))
+    portions[-1] = f"{portions[-1]} (all values)"
+    sns.barplot(x=portions, y=missing)
+    # sns.scatterplot(portions, missing)
+    plt.xlabel("top k values hashed")
+    plt.xticks(rotation=45)
+    plt.ylabel("portion of training dataset which could be hashed")
+    plt.tight_layout()
+    plt.savefig("abstract_dataflow_missing_portions.png")
+    plt.close()
+
 
 if __name__ == "__main__":
 
     # Export dataset
     select = {
-        select_key: datatype_vc.nlargest(1000).index.sort_values().tolist(),
+        select_key: datatype_vc.nlargest(500).index.sort_values().tolist(),
     }
     all_df = None
     for split in ("train", "val", "test"):
         split_df = svddc.BigVulDataset(partition=split, **dataargs).df
         split_df = pd.merge(split_df, dataflow_df, left_on="id", right_on="graph_id")
-        split_df["hash"] = split_df.apply(to_hash, axis=1).replace("<NA>", pd.NA)
+        split_df["hash"] = split_df.apply(to_hash, axis=1, select=select).replace("<NA>", pd.NA)
         split_df = split_df[["graph_id", "node_id", "hash"]].sort_values(by=["graph_id", "node_id"]).reset_index(drop=True)
         split_df["node_id"] = split_df["node_id"].astype(int)
-        print(split, len(split_df), split_df["hash"].value_counts(dropna=False))
+        print(split, len(split_df), split_df["hash"].value_counts(dropna=False, normalize=True))
         # split_df.to_csv(f"abstract_dataflow_hash_all.csv")
         if all_df is None:
             all_df = split_df
