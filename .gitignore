@@ -38,6 +38,7 @@ hpc/logs/*
 x42
 tmp
 repos/*
-!repos/*.sh
+!repos/*.*
 archives_to_extract*_*
 core.*
+trash

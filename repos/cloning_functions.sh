@@ -1,3 +1,4 @@
+# utility functions used for cloning some repos manually
 function clo() {
     git clone $1 `echo "$1" | sed "s@://@__@g" | sed "s@/@__@g"`
 }
