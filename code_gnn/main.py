@@ -1,9 +1,5 @@
 import argparse
-import copy
-import functools
-import json
 import logging
-import pickle
 import shutil
 import sys
 from datetime import datetime
@@ -11,11 +7,6 @@ import traceback
 import pandas as pd
 import tqdm
 
-import dgl
-import gensim
-import matplotlib.pyplot as plt
-import networkx as nx
-import numpy as np
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning import seed_everything
@@ -28,63 +19,9 @@ from code_gnn.globals import (all_datasets, all_models, project_root_dir,
                               seed_all)
 from code_gnn.models import model_class_dict
 from code_gnn.models.base_module import BaseModule
-from code_gnn.periodic_checkpoint import PeriodicModelCheckpoint
+from code_gnn.models.periodic_checkpoint import PeriodicModelCheckpoint
 
 logger = logging.getLogger()
-
-
-def visualize_example(g, b=None, a=None, _id=None):
-    for cn, c in (("before", b), ("after", a)):
-        c = c.splitlines()
-        # visualize
-        plt.figure(figsize=(15, 12))
-        # color_map = [("white" if h.sum().item() == 0 else "red") for (n, attr), h in zip(graph.nodes(data=True), node_embeddings)]
-        color_map = None
-        int2label = {}
-        dataflow_embeddings = g.ndata["_DATAFLOW"]
-        node_label = g.ndata["_VULN"]
-        line = g.ndata["_LINE"]
-        for i in enumerate(g.nodes()):
-            s = str(node_label[i].item())
-            if c is not None:
-                s += ": " + c[line[i]]
-            if any(dataflow_embeddings[i]):
-                for j, j_feat in enumerate(dataflow_embeddings[i]):
-                    if j < len(dataflow_embeddings.shape[1]) / 2:
-                        s += "\ngen "
-                    else:
-                        s += "\nkill "
-                    if j_feat != 0:
-                        # breakpoint()
-                        s += j
-            int2label[i] = s
-        graph = dgl.to_networkx(g)
-        graph_rl = nx.relabel_nodes(graph, int2label)
-        # pos = nx.spring_layout(graph)
-        pos = None
-        nx.draw(graph_rl, pos=pos, node_color=color_map, with_labels=True)
-        plt.savefig("images/" + _id + "_" + cn + ".png")
-
-
-def train_optuna(trial, config):
-    """
-    Train a single model for hyperparameter tuning
-    """
-
-    assert config["n_folds"] == 1, 'Do not use cross-validation while running hyperparameter tuning!'
-
-    config = copy.deepcopy(config)
-    config["tune_trial"] = trial
-    if config["model"] == 'flow_gnn' or config["model"] == 'flow_gnn_only':
-        config["num_layers"] = trial.suggest_int("num_layers", 1, 8)
-        config["num_mlp_layers"] = trial.suggest_int("num_mlp_layers", 1, 8)
-        config["hidden_dim"] = trial.suggest_categorical("hidden_dim", [32, 64, 128, 256])
-    elif config["model"] == 'devign':
-        # window size fixed at 100
-        config["num_layers"] = trial.suggest_int("num_layers", 1, 8)
-        config["num_mlp_layers"] = trial.suggest_categorical("graph_embed_size", [32, 64, 128, 256])
-
-    return train_single_model(config)
 
 
 def train_single_model(config):

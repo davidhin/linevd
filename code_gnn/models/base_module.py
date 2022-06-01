@@ -1,23 +1,13 @@
 import logging
 import random
-from collections import defaultdict
 
 import dgl
-import numpy as np
 import pytorch_lightning as pl
+from sklearn.metrics import roc_curve
 import torch
 import torchmetrics
 from matplotlib import pyplot as plt
-# from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_curve, average_precision_score, \
-#     ndcg_score
 
-from code_gnn.models.rank_eval import rank_metr
-from sastvd import print_memory_mb
-
-try:
-    from torchmetrics import F1Score
-except ImportError:
-    F1Score = torchmetrics.F1
 from torch.nn import BCELoss
 from torch.optim import Adam
 
@@ -25,45 +15,10 @@ logger = logging.getLogger(__name__)
 
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 
-# label_keys = {
-#     "graph_label": "graph_label",
-#     "node_label": "node_label",
-# }
 label_keys = {
     "graph_label": "_FVULN",
     "node_label": "_VULN",
 }
-
-
-class DistributionTracker:
-    def __init__(self):
-        self.predictions = defaultdict(int)
-
-    def __call__(self, *args, **kwargs):
-        predictions = args[0]
-        for prediction in predictions:
-            self.predictions[prediction] += 1
-
-
-from torchmetrics import Metric
-
-
-class BinaryPredictionDistribution(Metric):
-    def __init__(self, dist_sync_on_step=False):
-        super().__init__(dist_sync_on_step=dist_sync_on_step)
-
-        self.add_state("zeros", default=torch.tensor(0), dist_reduce_fx="sum")
-        self.add_state("ones", default=torch.tensor(0), dist_reduce_fx="sum")
-
-    def _update(self, preds: torch.Tensor, target: torch.Tensor):
-        preds, target = self._input_format(preds, target)
-        assert preds.shape == target.shape
-
-        self.correct += torch.sum(preds == 1)
-        self.total += torch.sum(preds == 0)
-
-    def _compute(self):
-        return self.zeros.float() / self.ones
 
 
 class BaseModule(pl.LightningModule):
@@ -97,11 +52,6 @@ class BaseModule(pl.LightningModule):
         else:
             raise NotImplementedError(self.hparams.label_style)
         return label.float()
-
-    # def log_class_metrics(self, name, out, label):
-    #     for m_name, m in self.metrics[name].items():
-    #         m(out.float().to(self.device), label.int().to(self.device))
-    #         self.log(f'{name}/class/{m_name}', m, on_step=True, on_epoch=True)
 
     def training_step(self, batch, batch_idx):
         label = self.get_label(batch)

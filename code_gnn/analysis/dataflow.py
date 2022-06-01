@@ -1,12 +1,8 @@
 import networkx as nx
 
-# from sastvd.embedding_ids import node_type_map, edge_type_map
-import sastvd.linevd as svd
 import sastvd.helpers.joern as svdj
 import sastvd.helpers.dclass as svddc
-import sastvd.helpers.datasets as svdds
 import dataclasses
-import json
 
 
 def get_edge_subgraph(cpg, graph_etype):
@@ -196,38 +192,12 @@ def get_cpg(id_itempath):
     nodes = n
     edges = e
 
-    # print('nodes', nodes.columns, nodes.head())
-    # print('edges', edges.columns, edges.head())
-
     # Extract CFG with code
     cpg = nx.MultiDiGraph()
     cpg.add_nodes_from(nodes.apply(lambda n: (n.id, {'lineNumber': n.lineNumber if isinstance(n.lineNumber, (int, float)) else None, 'code': n.code, 'name': n["name"], '_label': n._label, 'order': int(n.order) if isinstance(n.order, (int, float)) else None, 'typeFullName': n.typeFullName}), axis=1))
     cpg.add_edges_from(edges.apply(lambda e: (e.outnode, e.innode, {'type': e.etype}), axis=1))
-    # print_program(cpg)
 
     return cpg
-
-def get_domain(id_itempath):
-    n, e = svdj.get_node_edges(id_itempath)
-    n = n[n.lineNumber != ""].copy()
-    n.lineNumber = n.lineNumber.astype(int)
-    e.innode = e.innode.astype(int)
-    e.outnode = e.outnode.astype(int)
-    n = svdj.drop_lone_nodes(n, e)
-    e = e.drop_duplicates(subset=["innode", "outnode", "etype"])
-    n = svdj.drop_lone_nodes(n, e)
-    e = e[e.innode.isin(n.id) & e.outnode.isin(n.id)]
-
-    # Too hard!
-    # mod_nodes = n[n["name"].isin(mod_ops)]
-    # mod_var_node_ids = mod_nodes.id.apply(lambda n: e[e.outnode == n & (e.etype == "AST")]["order"].idxmax()).innode
-    # mod_var_nodes = n.merge(mod_nodes[mod_nodes.id.isin(mod_var_node_ids)], on='id')
-
-    return mod_nodes.id.tolist(), n.id.tolist()
-
-def test_get_domain():
-    print(get_domain(svddc.svdds.itempath(0)))
-    print(get_domain(svddc.svdds.itempath(18983)))
 
 
 def test_weird_assignment_operators():

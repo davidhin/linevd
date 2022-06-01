@@ -3,7 +3,7 @@
 #SBATCH -n 8
 #SBATCH --time=48:00:00
 #SBATCH --mem=48GB
-#SBATCH --array=1-5
+#SBATCH --array=1-100%5
 #SBATCH --err="hpc/logs/prepros_%a.err"
 #SBATCH --output="hpc/logs/prepros_%a.out"
 #SBATCH --mail-user=benjis@iastate.edu
@@ -14,7 +14,4 @@
 module load singularity
 
 # Start singularity instance
-for i in $(seq 1 20)
-do
-  singularity exec main.sif python -u sastvd/scripts/getgraphs.py $(( $SLURM_ARRAY_TASK_ID * $i ))
-done
+singularity exec main.sif python -u sastvd/scripts/getgraphs.py $SLURM_ARRAY_TASK_ID

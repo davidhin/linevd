@@ -1,6 +1,5 @@
 import functools
 import traceback
-import tqdm
 
 import pandas as pd
 import sastvd as svd

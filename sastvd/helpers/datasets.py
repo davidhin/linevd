@@ -8,41 +8,7 @@ from glob import glob
 from pathlib import Path
 import json
 import traceback
-import sastvd.helpers.doc2vec as svdd2v
 import sastvd.helpers.git as svdg
-import sastvd.helpers.glove as svdglove
-import sastvd.helpers.tokenise as svdt
-from sklearn.model_selection import train_test_split
-
-
-def train_val_test_split_df(df, idcol, labelcol):
-    """Add train/val/test column into dataframe."""
-    X = df[idcol]
-    y = df[labelcol]
-    train_rat = 0.8
-    val_rat = 0.1
-    test_rat = 0.1
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=1 - train_rat, random_state=1
-    )
-    X_val, X_test, y_val, y_test = train_test_split(
-        X_test, y_test, test_size=test_rat / (test_rat + val_rat), random_state=1
-    )
-    X_train = set(X_train)
-    X_val = set(X_val)
-    X_test = set(X_test)
-
-    def path_to_label(path):
-        if path in X_train:
-            return "train"
-        if path in X_val:
-            return "val"
-        if path in X_test:
-            return "test"
-
-    df["label"] = df[idcol].apply(path_to_label)
-    return df
 
 
 def remove_comments(text):
@@ -60,63 +26,6 @@ def remove_comments(text):
         re.DOTALL | re.MULTILINE,
     )
     return re.sub(pattern, replacer, text)
-
-
-def generate_glove(dataset="bigvul", sample=False, cache=True):
-    """Generate Glove embeddings for tokenised dataset."""
-    savedir = svd.get_dir(svd.processed_dir() / dataset / f"glove_{sample}")
-    if os.path.exists(savedir / "vectors.txt") and cache:
-        svd.debug("Already trained GloVe.")
-        return
-    if dataset == "bigvul":
-        df = bigvul(sample=sample)
-    MAX_ITER = 2 if sample else 500
-
-    # Only train GloVe embeddings on train samples
-    samples = df[df.label == "train"].copy()
-
-    # Preprocessing
-    samples.before = svd.dfmp(
-        samples, svdt.tokenise_lines, "before", cs=200, desc="Get lines: "
-    )
-    lines = [i for j in samples.before.to_numpy() for i in j]
-
-    # Save corpus
-    savedir = svd.get_dir(svd.processed_dir() / dataset / f"glove_{sample}")
-    with open(savedir / "corpus.txt", "w") as f:
-        f.write("\n".join(lines))
-
-    # Train Glove Model
-    CORPUS = savedir / "corpus.txt"
-    svdglove.glove(CORPUS, MAX_ITER=MAX_ITER)
-
-
-def generate_d2v(dataset="bigvul", sample=False, cache=True, **kwargs):
-    """Train Doc2Vec model for tokenised dataset."""
-    savedir = svd.get_dir(svd.processed_dir() / dataset / f"d2v_{sample}")
-    if os.path.exists(savedir / "d2v.model") and cache:
-        svd.debug("Already trained Doc2Vec.")
-        return
-    if dataset == "bigvul":
-        df = bigvul(sample=sample)
-
-    # Only train Doc2Vec on train samples
-    samples = df[df.label == "train"].copy()
-
-    # Preprocessing
-    samples.before = svd.dfmp(
-        samples, svdt.tokenise_lines, "before", cs=200, desc="Get lines: "
-    )
-    lines = [i for j in samples.before.to_numpy() for i in j]
-
-    # Train Doc2Vec model
-    model = svdd2v.train_d2v(lines, **kwargs)
-
-    # Test Most Similar
-    most_sim = model.dv.most_similar([model.infer_vector("memcpy".split())])
-    for i in most_sim:
-        print(lines[i[0]])
-    model.save(str(savedir / "d2v.model"))
 
 
 def bigvul(cache=True, sample=False, return_raw=False, splits="default", after_parse=True):
@@ -139,14 +48,7 @@ def bigvul(cache=True, sample=False, return_raw=False, splits="default", after_p
 
             md = pd.read_csv(svd.cache_dir() / "bigvul/bigvul_metadata.csv")
             md.groupby("project").count().sort_values("id")
-
-            #default_splits = svd.external_dir() / "bigvul_rand_splits.csv"
-            #if os.path.exists(default_splits):
-            #    splits = pd.read_csv(default_splits)
-            #    splits = splits.set_index("id").to_dict()["label"]
-            #    df["label"] = df.id.map(splits)
             
-            """
             def get_label(i):
                 if i < int(len(df) * 0.1):
                     return "val"
@@ -156,20 +58,6 @@ def bigvul(cache=True, sample=False, return_raw=False, splits="default", after_p
                     return "train"
             df["label"] = pd.Series(data=list(map(get_label, range(len(df)))), index=np.random.RandomState(seed=0).permutation(df.index))
             print("splits", df["label"].value_counts())
-            """
-
-            if "crossproject" in splits:
-                raise NotImplementedError(splits)
-                project = splits.split("_")[-1]
-                md = pd.read_csv(svd.cache_dir() / "bigvul/bigvul_metadata.csv")
-                nonproject = md[md.project != project].id.tolist()
-                trid, vaid = train_test_split(nonproject, test_size=0.1, random_state=1)
-                teid = md[md.project == project].id.tolist()
-                teid = {k: "test" for k in teid}
-                trid = {k: "train" for k in trid}
-                vaid = {k: "val" for k in vaid}
-                cross_project_splits = {**trid, **vaid, **teid}
-                df["label"] = df.id.map(cross_project_splits)
 
             return df
         except Exception as E:
@@ -269,7 +157,7 @@ def bigvul(cache=True, sample=False, return_raw=False, splits="default", after_p
     df = df[(df.vul == 0) | (df.id.isin(keep_vuln))].copy()
 
     # Make splits
-    df = train_val_test_split_df(df, "id", "vul")
+    # df = train_val_test_split_df(df, "id", "vul")
 
     keepcols = [
         "dataset",
@@ -295,9 +183,8 @@ def bigvul(cache=True, sample=False, return_raw=False, splits="default", after_p
     return df
 
 
-
 def check_validity(_id):
-    """Check whether sample with id=_id has node/edges.
+    """Check whether sample with id=_id can be loaded and has node/edges.
 
     Example:
     _id = 1320
@@ -329,7 +216,6 @@ def check_validity(_id):
     except Exception as E:
         print("valid exception", traceback.format_exc(), str(itempath(_id)))
         return False
-
 
 
 def itempath(_id):
@@ -379,6 +265,7 @@ def bigvul_filter(df, check_file=False, check_valid=False, vulonly=False, load_c
         df = df.drop(columns=["before", "after", "removed", "added", "diff"])
     return df
 
+
 def bigvul_partition(df, partition="train", undersample=True):
     """Filter to one partition of bigvul and rebalance function-wise"""
 
@@ -390,12 +277,8 @@ def bigvul_partition(df, partition="train", undersample=True):
         else:
             return "train"
     df["label"] = pd.Series(data=list(map(get_label, range(len(df)))), index=np.random.RandomState(seed=0).permutation(df.index))
-    # print("splits", df["label"].value_counts())
 
-    # breakpoint()
     df = df[df.label == partition]
-    # print("len(df)=", len(df))
-    # print("df head=", df.head())
 
     # Balance training set
     if partition == "train" or partition == "val" and undersample:
@@ -412,6 +295,7 @@ def bigvul_partition(df, partition="train", undersample=True):
     
     return df
 
+
 def abs_dataflow():
     """Load abstract dataflow information"""
     
@@ -425,6 +309,7 @@ def abs_dataflow():
     else:
         print("YOU SHOULD RUN abstract_dataflow.py")
     return abs_df, abs_df_hashes
+
 
 def dataflow_1g():
     """Load 1st generation dataflow information"""
@@ -441,9 +326,3 @@ def dataflow_1g():
     else:
         print("YOU SHOULD RUN dataflow_1g.py")
     return df
-
-def bigvul_cve():
-    """Return id to cve map."""
-    md = pd.read_csv(svd.cache_dir() / "bigvul/bigvul_metadata.csv")
-    ret = md[["id", "CVE ID"]]
-    return ret.set_index("id").to_dict()["CVE ID"]
