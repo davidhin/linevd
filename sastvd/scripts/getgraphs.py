@@ -73,7 +73,7 @@ def preprocess_whole_df_split(t):
     """
     i, split = t
     with open(f"hpc/logs/getgraphs_output_{i}.joernlog", "wb") as lf:
-        sess = svdjs.JoernSession(i, logfile=lf, clean=True)
+        sess = svdjs.JoernSession(f"getgraphs/{i}", logfile=lf, clean=True)
         sess.import_script("get_func_graph")
         try:
             fn = functools.partial(svdj.run_joern_sess, sess=sess, verbose=args.verbose, export_json=True, export_cpg=True)
@@ -122,6 +122,6 @@ if __name__ == "__main__":
         preprocess_whole_df_split((args.job_array_number, my_split))
     else:
         splits = np.array_split(df, args.num_jobs)
-        split_number = int(args.job_array_number) - 1
+        split_number = args.job_array_number
         df = splits[split_number]
         svd.dfmp(df, functools.partial(preprocess, fn=svdj.run_joern), ordr=False, workers=args.workers)
