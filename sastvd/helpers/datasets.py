@@ -314,10 +314,10 @@ def bigvul_partition(df, partition="train", undersample=True):
     return df
 
 
-def abs_dataflow():
+def abs_dataflow(sample=False):
     """Load abstract dataflow information"""
 
-    abs_df_file = svd.processed_dir() / f"bigvul/abstract_dataflow_hash_all.csv"
+    abs_df_file = svd.processed_dir() / f"bigvul/abstract_dataflow_hash_all{'_sample' if sample else ''}.csv"
     if abs_df_file.exists():
         abs_df = pd.read_csv(abs_df_file)
         abs_df["hash"] = abs_df["hash"].fillna(-1)
@@ -329,10 +329,10 @@ def abs_dataflow():
     return abs_df, abs_df_hashes
 
 
-def dataflow_1g():
+def dataflow_1g(sample=False):
     """Load 1st generation dataflow information"""
 
-    cache_file = svd.processed_dir() / f"bigvul/1g_dataflow_hash_all.csv"
+    cache_file = svd.processed_dir() / f"bigvul/1g_dataflow_hash_all{'_sample' if sample else ''}.csv"
     if cache_file.exists():
         df = pd.read_csv(
             cache_file,

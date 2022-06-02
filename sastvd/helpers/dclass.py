@@ -21,7 +21,6 @@ class BigVulDataset:
     def __init__(
         self,
         partition="train",
-        splits="default",
         check_file=True,
         check_valid=True,
         vulonly=False,
@@ -34,8 +33,9 @@ class BigVulDataset:
         """Init class."""
         # Get finished samples
         self.partition = partition
+        sample_mode = partition == "sample"
 
-        df = svdds.bigvul(splits=splits)
+        df = svdds.bigvul(sample=sample_mode)
         if sample != -1:
             df = df.sample(sample, random_state=0)
         # print("load", len(df))
@@ -54,7 +54,7 @@ class BigVulDataset:
 
         if "_ABS_DATAFLOW" in feat:
             try:
-                self.abs_df, self.abs_df_hashes = svdds.abs_dataflow()
+                self.abs_df, self.abs_df_hashes = svdds.abs_dataflow(sample_mode)
                 if "_filtertoabs" in feat:
                     filtered_file = (
                         svd.processed_dir()
@@ -89,7 +89,7 @@ class BigVulDataset:
 
         if "_1G_DATAFLOW" in feat:
             try:
-                self.df_1g = svdds.dataflow_1g()
+                self.df_1g = svdds.dataflow_1g(sample_mode)
                 # self.df_1g_max_idx = max(max(max(int(s) if s.isdigit() else -1 for s in l.split(",")) for l in self.df_1g[k]) for k in ["gen", "kill"])
                 # breakpoint()
                 nuniq_nodes = self.df_1g.groupby("graph_id")["node_id"].nunique()
@@ -116,7 +116,8 @@ class BigVulDataset:
             df = df[df["id"].isin(npd_idx)]
             print("CWE filter", len(df))
 
-        df = svdds.bigvul_partition(df, partition, undersample=undersample)
+        if not sample_mode:
+            df = svdds.bigvul_partition(df, partition, undersample=undersample)
         print(partition, len(df))
 
         self.df = df

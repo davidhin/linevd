@@ -15,7 +15,7 @@ from sastvd.linevd.utils import feature_extraction
 class BigVulDatasetLineVD(svddc.BigVulDataset):
     """IVDetect version of BigVul."""
 
-    def __init__(self, gtype="pdg", feat="all", cache_all=False, **kwargs):
+    def __init__(self, gtype="cfg", feat="all", cache_all=False, **kwargs):
         """Init."""
         self.graph_type = gtype
         self.feat = feat
