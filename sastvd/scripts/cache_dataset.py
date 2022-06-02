@@ -39,19 +39,6 @@ if __name__ == "__main__":
         "feat": "_ABS_DATAFLOW_datatypeonly"
     }
 
-    # if test:
-    #     max_df_dim = 223*2  # DEBUG: hardcoded
-    # else:
-    #     max_df_dim = 0
-    #     for split in ["train", "val", "test"]:
-    #         max_df_dim = lvd.BigVulDatasetLineVD(partition=split, **dataargs).get_max_dataflow_dim(max_df_dim)
-    #         print("max_df_dim", max_df_dim)
-
-    # dataargs["max_df_dim"] = max_df_dim
-
-    # Load all data
-    # breakpoint()
-    # nproc = 3 if test else 12
     nproc = 1 if test else 12
     with multiprocessing.Pool(nproc) as pool:
         for split in ["train", "val", "test"]:

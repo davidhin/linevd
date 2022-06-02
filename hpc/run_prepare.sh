@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -N 1
-#SBATCH -n 6
-#SBATCH --time=12:00:00
+#SBATCH -n 12
+#SBATCH --time=1-00:00:00
 #SBATCH --mem=16GB
 #SBATCH --err="hpc/logs/prepare.out"
 #SBATCH --output="hpc/logs/prepare.out"
@@ -9,8 +9,7 @@
 #SBATCH --mail-type=FAIL,END
 #SBATCH --job-name="prepare"
 
-# Setup Python Environment
-module load singularity
+source activate.sh
 
 # Start singularity instance
-singularity exec main.sif python -u sastvd/scripts/prepare.py
+python -u sastvd/scripts/prepare.py --global_workers 12

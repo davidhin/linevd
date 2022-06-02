@@ -183,7 +183,8 @@ def hashstr(s):
     return int(hashlib.sha1(s.encode("utf-8")).hexdigest(), 16) % (10 ** 8)
 
 
-def dfmp(df, function, columns=None, ordr=True, workers=1, cs=10, desc="Run: "):
+DFMP_WORKERS = 6
+def dfmp(df, function, columns=None, ordr=True, workers=DFMP_WORKERS, cs=10, desc="Run: "):
     """Parallel apply function on dataframe.
 
     Example:

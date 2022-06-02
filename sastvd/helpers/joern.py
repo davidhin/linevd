@@ -133,19 +133,13 @@ def run_joern_dataflow(sess, filepath: str, problem: str, verbose: int):
 
 def run_joern_sess(sess, filepath: str, verbose: int, export_json: bool, export_cpg: bool):
     """Extract graph using most recent Joern."""
-    try:
-        output = sess.import_code(filepath)
-        if verbose >= 4:
-            print(output)
-        output = sess.run_script("get_func_graph", params={
-            "filename": filepath,
-            "exportJson": export_json,
-            "exportCpg": export_cpg
-        })
-        if verbose >= 4:
-            print(output)
-    finally:
-        sess.delete()
+    output = sess.run_script("get_func_graph", params={
+        "filename": filepath,
+        "exportJson": export_json,
+        "exportCpg": export_cpg
+    }, import_first=False)
+    if verbose >= 4:
+        print(output)
 
 
 def run_joern(filepath: str, verbose: int):

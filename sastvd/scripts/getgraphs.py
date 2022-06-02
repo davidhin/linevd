@@ -11,7 +11,6 @@ import sastvd as svd
 import sastvd.helpers.datasets as svdd
 import sastvd.helpers.joern as svdj
 import sastvd.helpers.joern_session as svdjs
-import sastvd.helpers.sast as sast
 
 
 def write_file(row):
@@ -19,14 +18,6 @@ def write_file(row):
     savedir_after = svd.get_dir(svd.processed_dir() / row["dataset"] / "after")
 
     # Write C Files
-    if row["dataset"] == "sard":
-        savedir = svd.get_dir(svd.processed_dir() / row["dataset"] / "code")
-
-        fpath = savedir / f"{row['index']}.c"
-        if not fpath.exists():
-            with open(fpath, "w") as f:
-                f.write(row["code"])
-        return fpath
     if row["dataset"] == "bigvul":
         fpath1 = savedir_before / f"{row['id']}.c"
         with open(fpath1, "w") as f:
@@ -48,31 +39,20 @@ def preprocess(row, fn):
     preprocess(row)
     """
     try:
-
-        if row["dataset"] == "sard":
-            fpath = write_file(row)
-
-            # Run Joern on code
-            if not os.path.exists(f"{fpath}.edges.json") or args.test:
-                fn(filepath=fpath, verbose=args.verbose)
         if row["dataset"] == "bigvul":
             fpath1, fpath2 = write_file(row)
 
             # Run Joern on "before" code
-            if args.test or not (os.path.exists(f"{fpath1}.edges.json") or os.path.exists(f"{fpath1}.cpg.bin")):
+            if not os.path.exists(f"{fpath1}.edges.json"):
                 fn(filepath=fpath1, verbose=args.verbose)
+            elif args.verbose > 0:
+                print("skipping", fpath1)
 
             # Run Joern on "after" code
-            if len(row["diff"]) > 0 and (args.test or not (os.path.exists(f"{fpath2}.edges.json") or os.path.exists(f"{fpath2}.cpg.bin"))):
+            if len(row["diff"]) > 0 and not os.path.exists(f"{fpath2}.edges.json"):
                 fn(filepath=fpath2, verbose=args.verbose)
-
-            # Run SAST extraction
-            if args.run_sast:
-                fpath3 = savedir_before / f"{row['id']}.c.sast.pkl"
-                if not os.path.exists(fpath3):
-                    sast_before = sast.run_sast(row["before"])
-                    with open(fpath3, "wb") as f:
-                        pkl.dump(sast_before, f)
+            elif args.verbose > 0:
+                print("skipping", fpath2)
     except Exception:
         with open("failed_joern.txt", "a") as f:
             print(f"ERROR {row['id']}: {traceback.format_exc()}\ndata={row}", file=f)
@@ -92,46 +72,34 @@ def preprocess_whole_df_split(t):
     preprocess one split of the dataframe
     """
     i, split = t
-    sess = svdjs.JoernSession(i)
-    try:
-        fn = functools.partial(svdj.run_joern_sess, sess=sess, export_json=False, export_cpg=True)
-        items = split.to_dict("records")
-        for row in tqdm.tqdm(items, desc=f"(worker {i})", position=i):
-            preprocess(row, fn)
-    finally:
-        sess.close()
-
-
-def preprocess_whole_df(df):
-    """
-    preprocess entire dataframe with 1 split in each thread
-    """
-    splits = np.array_split(df, args.workers)
-    with Pool(processes=args.workers) as p:
-        for _ in tqdm.tqdm(p.imap_unordered(preprocess_whole_df_split, enumerate(splits, start=1)), desc=f"overall progress ({args.workers} workers)", position=0, total=len(splits)):
-            pass
-        # NOTE: single threaded run for cProfile
-        # for p in enumerate(splits, start=1):
-        #     preprocess_whole_df_split(p)
+    with open(f"hpc/logs/getgraphs_output_{i}.joernlog", "wb") as lf:
+        sess = svdjs.JoernSession(i, logfile=lf, clean=True)
+        sess.import_script("get_func_graph")
+        try:
+            fn = functools.partial(svdj.run_joern_sess, sess=sess, verbose=args.verbose, export_json=True, export_cpg=True)
+            items = split.to_dict("records")
+            for row in tqdm.tqdm(items, desc=f"(worker {i})"):
+                preprocess(row, fn)
+        finally:
+            sess.close()
 
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("dataset", choices=["bigvul", "sard"])
-    parser.add_argument("--job_array_number")
+    parser.add_argument("--job_array_number", type=int)
     parser.add_argument("--num_jobs", default=100, type=int)
     parser.add_argument("--workers", default=1, type=int)
     parser.add_argument("--run_sast", action="store_true")
-    parser.add_argument("--test", action="store_true")
-    parser.add_argument("--verbose", type=int, default=3)
+    parser.add_argument("--sample", action="store_true")
+    parser.add_argument("--sess", action="store_true")
+    parser.add_argument("--verbose", type=int, default=0)
     parser.add_argument("--file_only", action="store_true")
     args = parser.parse_args()
 
     if args.dataset == "bigvul":
-        df = svdd.bigvul(sample=args.test)
-    if args.dataset == "sard":
-        df = svds.sard()
+        df = svdd.bigvul(sample=args.sample)
 
     if args.file_only:
         def write_file_pair(row):
@@ -142,16 +110,18 @@ if __name__ == "__main__":
                 pass
 
     # Read Data
-    df = df.reset_index().iloc[::-1]
-    if args.test:
-        print("test - sampling 10 examples")
-        df = df.sample(10)
+    if args.sample:
         args.verbose = 4
     
-    if args.job_array_number is not None:
+    if args.job_array_number is None:
+        preprocess_whole_df_split(("all", df))
+    elif args.sess:
+        splits = np.array_split(df, args.num_jobs)
+        my_split = splits[args.job_array_number]
+        print("processing", my_split)
+        preprocess_whole_df_split((args.job_array_number, my_split))
+    else:
         splits = np.array_split(df, args.num_jobs)
         split_number = int(args.job_array_number) - 1
         df = splits[split_number]
         svd.dfmp(df, functools.partial(preprocess, fn=svdj.run_joern), ordr=False, workers=args.workers)
-    else:
-        preprocess_whole_df(df)

@@ -28,42 +28,23 @@ def remove_comments(text):
     return re.sub(pattern, replacer, text)
 
 
-def bigvul(cache=True, sample=False, return_raw=False, splits="default", after_parse=True):
-    """Read BigVul Data.
-
-    Args:
-        sample (bool): Only used for testing!
-        splits (str): default, crossproject-(linux|Chrome|Android|qemu)
-
-    EDGE CASE FIXING:
-    id = 177860 should not have comments in the before/after
+def bigvul(cache=True, sample=False):
+    """
+    Read BigVul dataset from CSV
     """
 
-    savedir = svd.get_dir(svd.cache_dir() / "minimal_datasets")
+    savefile = svd.get_dir(svd.cache_dir() / "minimal_datasets") / f"minimal_bigvul{'_sample' if sample else ''}.pq"
     if cache:
         try:
-            df = pd.read_parquet(
-                savedir / f"minimal_bigvul_{sample}.pq", engine="fastparquet"
-            ).dropna()
-
-            md = pd.read_csv(svd.cache_dir() / "bigvul/bigvul_metadata.csv")
-            md.groupby("project").count().sort_values("id")
+            df = pd.read_parquet(savefile, engine="fastparquet").dropna()
             
-            def get_label(i):
-                if i < int(len(df) * 0.1):
-                    return "val"
-                elif i < int(len(df) * 0.2):
-                    return "test"
-                else:
-                    return "train"
-            df["label"] = pd.Series(data=list(map(get_label, range(len(df)))), index=np.random.RandomState(seed=0).permutation(df.index))
-            print("splits", df["label"].value_counts())
-
             return df
-        except Exception as E:
-            print("bigvul exception", E)
+        except FileNotFoundError:
+            print(f"file {savefile} not found, loading from source")
+        except Exception:
+            print("bigvul exception, loading from source")
+            traceback.print_exc()
 
-            pass
     filename = "MSR_data_cleaned_SAMPLE.csv" if sample else "MSR_data_cleaned.csv"
     df = pd.read_csv(svd.external_dir() / filename, parse_dates=['Publish Date', 'Update Date'], dtype={
         'commit_id': str,
@@ -72,7 +53,6 @@ def bigvul(cache=True, sample=False, return_raw=False, splits="default", after_p
         'lang': str,
         'lines_after': str,
         'lines_before': str,
-
         'Unnamed: 0': int,
         'Access Gained': str,
         'Attack Origin': str,
@@ -85,10 +65,8 @@ def bigvul(cache=True, sample=False, return_raw=False, splits="default", after_p
         'Confidentiality': str,
         'Integrity': str,
         'Known Exploits': str,
-        # 'Publish Date': pd.datetime64,
         'Score': float,
         'Summary': str,
-        # 'Update Date': pd.datetime64,
         'Vulnerability Classification': str,
         'add_lines': int,
         'codeLink': str,
@@ -105,19 +83,15 @@ def bigvul(cache=True, sample=False, return_raw=False, splits="default", after_p
         'vul_func_with_fix': str,
     })
     df = df.rename(columns={"Unnamed: 0": "id"})
+    # df = df.set_index("id")
     df["dataset"] = "bigvul"
 
     # Remove comments
     df["func_before"] = svd.dfmp(df, remove_comments, "func_before", cs=500)
     df["func_after"] = svd.dfmp(df, remove_comments, "func_after", cs=500)
 
-    # Return raw (for testing)
-    if return_raw:
-        return df
-
     # Save codediffs
-    cols = ["func_before", "func_after", "id", "dataset"]
-    svd.dfmp(df, svdg._c2dhelper, columns=cols, ordr=False, cs=300)
+    svd.dfmp(df, svdg._c2dhelper, columns=["func_before", "func_after", "id", "dataset"], ordr=False, cs=300)
 
     # Assign info and save
     df["info"] = svd.dfmp(df, svdg.allfunc, cs=500)
@@ -153,33 +127,57 @@ def bigvul(cache=True, sample=False, return_raw=False, splits="default", after_p
     # Remove functions that are too short
     dfv = dfv[dfv.apply(lambda x: len(x.before.splitlines()) > 5, axis=1)]
     # Filter by post-processing filtering
-    keep_vuln = set(dfv.id.tolist())
-    df = df[(df.vul == 0) | (df.id.isin(keep_vuln))].copy()
+    keep_vuln = set(dfv["id"].tolist())
+    df = df[(df.vul == 0) | (df["id"].isin(keep_vuln))].copy()
+    # df = df.rename(columns={"id": "example_id"})
 
-    # Make splits
-    # df = train_val_test_split_df(df, "id", "vul")
+    # df = pd.concat((
+    #     df[df.vul == 0].rename(columns={"before": "code"}),
+    #     df[df.vul == 1].rename(columns={"before": "code"}),
+    #     df[df.vul == 1].rename(columns={"after": "code"}),
+    # )).reset_index(drop=True).reset_index().rename(columns={"index": "id"})
 
-    keepcols = [
-        "dataset",
+    minimal_cols = [
         "id",
-        "label",
+        # "example_id",
+        # "code",
+        "before",
+        "after",
         "removed",
         "added",
         "diff",
-        "before",
-        "after",
         "vul",
+        "dataset",
     ]
-    df_savedir = savedir / f"minimal_bigvul_{sample}.pq"
-    df[keepcols].to_parquet(
-        df_savedir,
+    df[minimal_cols].to_parquet(
+        savefile,
         object_encoding="json",
         index=0,
         compression="gzip",
         engine="fastparquet",
     )
-    metadata_cols = df.columns[:17].tolist() + ["project"]
-    df[metadata_cols].to_csv(svd.cache_dir() / "bigvul/bigvul_metadata.csv", index=0)
+    df[[
+        "id",
+        # "example_id",
+        "commit_id",
+        "vul",
+        "codeLink",
+        "commit_id",
+        "parentID",
+        "CVE ID",
+        "CVE Page",
+        "CWE ID",
+        "Publish Date",
+        "Update Date",
+        "file_name",
+        "files_changed",
+        "lang",
+        "project",
+        "project_after",
+        "project_before",
+        "add_lines",
+        "del_lines",
+    ]].to_csv(svd.cache_dir() / "bigvul/bigvul_metadata.csv", index=0)
     return df
 
 

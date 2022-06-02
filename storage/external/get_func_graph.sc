@@ -1,9 +1,17 @@
 import better.files.File
 
 @main def exec(filename: String, runOssDataflow: Boolean = true, exportJson: Boolean = true, exportCpg: Boolean = false, deleteAfter: Boolean = true) = {
-   importCode(filename)
-   if (runOssDataflow) {
-      run.ossdataflow
+   val cpgFile = File(filename + ".cpg.bin")
+   if (cpgFile.exists) {
+      println(s"Loading CPG from $cpgFile")
+      importCpg(cpgFile.toString)
+   }
+   else {
+      println(s"Exporting CPG to $cpgFile")
+      importCode(filename)
+      if (runOssDataflow) {
+         run.ossdataflow
+      }
    }
    if (exportCpg) {
       save
