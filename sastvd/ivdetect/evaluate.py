@@ -53,7 +53,7 @@ def helper(row):
 
 def get_dep_add_lines_bigvul(cache=True, sample=False):
     """Cache dependent added lines for bigvul."""
-    saved = svd.get_dir(svd.processed_dir() / "bigvul/eval") / "statement_labels.pkl"
+    saved = svd.get_dir(svd.processed_dir() / "bigvul/eval") / f"statement_labels{'_sample' if sample else ''}.pkl"
     if os.path.exists(saved) and cache:
         with open(saved, "rb") as f:
             return pkl.load(f)

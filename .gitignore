@@ -30,6 +30,7 @@ logs*
 joern
 joern-install.sh
 hpc/logs/*
+hpc/*_logs/*
 
 # project files
 .vscode

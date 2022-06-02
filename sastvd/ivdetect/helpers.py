@@ -10,11 +10,7 @@ import networkx as nx
 import pandas as pd
 import sastvd as svd
 import sastvd.helpers.dclass as svddc
-import sastvd.helpers.dl as dl
-import sastvd.helpers.glove as svdg
 import sastvd.helpers.joern as svdj
-import sastvd.helpers.tokenise as svdt
-import sastvd.ivdetect.treelstm as ivdts
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
