@@ -250,12 +250,12 @@ def get_trainer(config):
 
     if config["profile"]:
         callbacks.append(DeviceStatsMonitor())
-    if "tune_trial" in config:
-        callbacks.append(
-            PyTorchLightningPruningCallback(
-                config["tune_trial"], monitor=config["target_metric"]
-            )
-        )
+    # if "tune_trial" in config:
+    #     callbacks.append(
+    #         PyTorchLightningPruningCallback(
+    #             config["tune_trial"], monitor=config["target_metric"]
+    #         )
+    #     )
 
     # profiler = pl.profiler.AdvancedProfiler(filename="profile.txt")
 

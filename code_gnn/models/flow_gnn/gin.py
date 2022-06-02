@@ -12,7 +12,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from code_gnn.globals import all_aggregate_functions
 from code_gnn.models.base_module import BaseModule
-from code_gnn.models.embedding_ids import node_type_map
 from code_gnn.models.flow_gnn.ginconv import MyGINConv
 from code_gnn.models.flow_gnn.mlp import MLP
 from dgl.nn.pytorch.glob import AvgPooling, MaxPooling, SumPooling
@@ -86,8 +85,8 @@ class FlowGNNModule(BaseModule):
         self.linears_prediction = torch.nn.ModuleList()
 
         additional_element_size = 0
-        if self.hparams.node_type_separate:
-            additional_element_size = len(node_type_map)
+        # if self.hparams.node_type_separate:
+        #     additional_element_size = len(node_type_map)
 
         if self.hparams.label_style == "node":
             for layer in range(num_layers):
