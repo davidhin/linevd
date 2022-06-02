@@ -1,23 +1,20 @@
 # %%
-import subprocess
 from pathlib import Path
-import time
-import logging
-import signal
 import sys
 import pexpect
 import traceback
-import pytest
 import shutil
 
 import re
+
 
 def shesc(sometext):
     """
     Delete ANSI escape sequences from string
     """
     # 7-bit C1 ANSI sequences
-    ansi_escape = re.compile(r'''
+    ansi_escape = re.compile(
+        r"""
         \x1B  # ESC
         (?:   # 7-bit C1 Fe (except CSI)
             [@-Z\\-_]
@@ -27,12 +24,14 @@ def shesc(sometext):
             [ -/]*  # Intermediate bytes
             [@-~]   # Final byte
         )
-    ''', re.VERBOSE)
-    return ansi_escape.sub('', sometext)
+    """,
+        re.VERBOSE,
+    )
+    return ansi_escape.sub("", sometext)
 
 
 class JoernSession:
-    def __init__(self, worker_id: int=0, logfile=None, clean=False):
+    def __init__(self, worker_id: int = 0, logfile=None, clean=False):
         self.proc = pexpect.spawn("joern --nocolors", timeout=600, logfile=logfile)
         self.read_until_prompt()
 
@@ -41,17 +40,17 @@ class JoernSession:
             self.switch_workspace(workspace)
         else:
             workspace = "workspace"
-        
+
         workspace_dir = Path(workspace)
         if clean and workspace_dir.exists():
             shutil.rmtree(workspace_dir)
-            
+
     def read_until_prompt(self, zonk_line=False, timeout=-1):
         pattern = "joern>"
         if zonk_line:
             pattern += ".*\n"
         out = self.proc.expect(pattern, timeout=timeout)
-        return shesc(self.proc.before.decode()).strip('\r')
+        return shesc(self.proc.before.decode()).strip("\r")
 
     def close(self, force=True):
         self.proc.timeout = 5
@@ -59,12 +58,12 @@ class JoernSession:
             self.proc.sendline("exit")
             self.proc.sendline("y")
             self.proc.expect(pexpect.EOF)
-            return shesc(self.proc.before.decode().strip('\r')).strip()
+            return shesc(self.proc.before.decode().strip("\r")).strip()
         except pexpect.exceptions.TIMEOUT:
             print("could not exit cleanly. terminating with force")
             self.proc.terminate(force)
-            return shesc(self.proc.before.decode().strip('\r')).strip()
-    
+            return shesc(self.proc.before.decode().strip("\r")).strip()
+
     def send_line(self, cmd: str):
         self.proc.sendline(cmd)
         self.read_until_prompt(zonk_line=True)  # Skip the echoed prompt "joern>"
@@ -72,7 +71,7 @@ class JoernSession:
     """
     Joern commands
     """
-    
+
     def run_command(self, command, timeout=-1):
         self.send_line(command)
         return self.read_until_prompt(timeout=timeout).strip()
@@ -91,24 +90,27 @@ class JoernSession:
 
         def get_str_repr(k, v):
             if isinstance(v, str) or isinstance(v, Path):
-                return str(k) + "=\"" + str(v) + "\""
+                return str(k) + '="' + str(v) + '"'
             elif isinstance(v, bool):
                 return str(k) + "=" + str(v).lower()
             else:
-                raise NotImplementedError(str(k) + ": " + str(v) + " (" + str(type(v)) + ")")
+                raise NotImplementedError(
+                    str(k) + ": " + str(v) + " (" + str(type(v)) + ")"
+                )
+
         params_str = ", ".join(get_str_repr(k, v) for k, v in params.items())
         return self.run_command(script + ".exec(" + params_str + ")", timeout=timeout)
 
     def switch_workspace(self, filepath: str):
-        return self.run_command("switchWorkspace(\"" + filepath  + "\")")
+        return self.run_command('switchWorkspace("' + filepath + '")')
 
     def import_code(self, filepath: str):
-        return self.run_command("importCode(\"" + filepath + "\")")
+        return self.run_command('importCode("' + filepath + '")')
 
     def import_cpg(self, filepath: str):
         cpgpath = filepath + ".cpg.bin"
         if Path(cpgpath).exists():
-            return self.run_command("importCpg(\"" + cpgpath + "\")")
+            return self.run_command('importCpg("' + cpgpath + '")')
         else:
             print("cpg missing, import code", filepath)
             ret = self.import_code(filepath)
@@ -126,7 +128,7 @@ class JoernSession:
     #         "exportCpg": True,
     #     })
     #     return out1 + "\n" + out2
-        
+
     def delete(self):
         return self.run_command(f"delete")
 
@@ -138,10 +140,13 @@ class JoernSession:
         cpg_path = Path(project_path) / "cpg.bin"
         return cpg_path
 
+
 # @pytest.mark.skip
 def test_close():
     sess = JoernSession(logfile=sys.stdout.buffer)
-    sess.send_line("""for (i <- 1 to 1000) {println(s"iteration $i"); Thread.sleep(1000);}""")  # this will time out ordinarily if it is not canceled
+    sess.send_line(
+        """for (i <- 1 to 1000) {println(s"iteration $i"); Thread.sleep(1000);}"""
+    )  # this will time out ordinarily if it is not canceled
     sess.close()
 
 
@@ -167,6 +172,7 @@ def test_interaction():
     finally:
         sess.close()
 
+
 def test_worker():
     sess1 = JoernSession(worker_id=1, logfile=sys.stdout.buffer)
     sess2 = JoernSession(worker_id=2, logfile=sys.stdout.buffer)
@@ -187,7 +193,10 @@ def test_script():
     sess = JoernSession(logfile=sys.stdout.buffer)
     try:
         sess.import_code("x42/c/X42.c")
-        sess.run_script("get_dataflow_output", params={"filename": "x42/c/X42.c", "problem": "reachingdef"})
+        sess.run_script(
+            "get_dataflow_output",
+            params={"filename": "x42/c/X42.c", "problem": "reachingdef"},
+        )
         sess.delete()
     finally:
         sess.close()

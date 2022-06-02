@@ -76,7 +76,13 @@ def preprocess_whole_df_split(t):
         sess = svdjs.JoernSession(f"getgraphs/{i}", logfile=lf, clean=True)
         sess.import_script("get_func_graph")
         try:
-            fn = functools.partial(svdj.run_joern_sess, sess=sess, verbose=args.verbose, export_json=True, export_cpg=True)
+            fn = functools.partial(
+                svdj.run_joern_sess,
+                sess=sess,
+                verbose=args.verbose,
+                export_json=True,
+                export_cpg=True,
+            )
             items = split.to_dict("records")
             for row in tqdm.tqdm(items, desc=f"(worker {i})"):
                 preprocess(row, fn)
@@ -86,6 +92,7 @@ def preprocess_whole_df_split(t):
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("dataset", choices=["bigvul", "sard"])
     parser.add_argument("--job_array_number", type=int)
@@ -102,17 +109,21 @@ if __name__ == "__main__":
         df = svdd.bigvul(sample=args.sample)
 
     if args.file_only:
+
         def write_file_pair(row):
             i, row = t
             write_file(row)
+
         with Pool(args.workers) as pool:
-            for _ in tqdm.tqdm(pool.imap_unordered(write_file, df.iterrows()), total=len(df)):
+            for _ in tqdm.tqdm(
+                pool.imap_unordered(write_file, df.iterrows()), total=len(df)
+            ):
                 pass
 
     # Read Data
     if args.sample:
         args.verbose = 4
-    
+
     if args.job_array_number is None:
         preprocess_whole_df_split(("all", df))
     elif args.sess:
@@ -124,4 +135,9 @@ if __name__ == "__main__":
         splits = np.array_split(df, args.num_jobs)
         split_number = args.job_array_number
         df = splits[split_number]
-        svd.dfmp(df, functools.partial(preprocess, fn=svdj.run_joern), ordr=False, workers=args.workers)
+        svd.dfmp(
+            df,
+            functools.partial(preprocess, fn=svdj.run_joern),
+            ordr=False,
+            workers=args.workers,
+        )

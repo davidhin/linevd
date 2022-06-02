@@ -22,7 +22,15 @@ def ne_groupnodes(n, e):
     return nl, el
 
 
-def feature_extraction(_id, graph_type="cfgcdg", return_nodes=False, return_node_ids=False, return_iddict=False, group=True, return_node_types=False):
+def feature_extraction(
+    _id,
+    graph_type="cfgcdg",
+    return_nodes=False,
+    return_node_ids=False,
+    return_iddict=False,
+    group=True,
+    return_node_types=False,
+):
     """Extract graph feature (basic).
 
     _id = svddc.svdds.itempath(177775)
@@ -70,7 +78,13 @@ def feature_extraction(_id, graph_type="cfgcdg", return_nodes=False, return_node
     else:
         n.code = "</s>" + " " + n.code
 
-    ret = [n.code.tolist(), n.lineNumber.tolist(), e.innode.tolist(), e.outnode.tolist(), etypes]
+    ret = [
+        n.code.tolist(),
+        n.lineNumber.tolist(),
+        e.innode.tolist(),
+        e.outnode.tolist(),
+        etypes,
+    ]
     if return_node_ids:
         ret.append(n.nodeId.tolist())
     if return_node_types:

@@ -1,4 +1,3 @@
-
 import os
 from glob import glob
 
@@ -68,7 +67,12 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
             # print("load from file")
             return g
         code, lineno, ei, eo, et, nids, ntypes, iddict = feature_extraction(
-            svddc.svdds.itempath(_id), self.graph_type, return_node_ids=True, return_iddict=True, group=False, return_node_types=True,
+            svddc.svdds.itempath(_id),
+            self.graph_type,
+            return_node_ids=True,
+            return_iddict=True,
+            group=False,
+            return_node_types=True,
         )
 
         if _id in self.lines:
@@ -81,13 +85,16 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
 
         # Get dataflow features
         if "_1G_DATAFLOW" in self.feat:
+
             def get_dataflow_1g_features(_id):
-                dgl_feat = th.zeros((g.number_of_nodes(), self.df_1g_max_idx*2))
+                dgl_feat = th.zeros((g.number_of_nodes(), self.df_1g_max_idx * 2))
 
                 nids_to_1g_df = self.df_1g.groupby("graph_id").get_group(_id)
                 node_id_dgl = nids_to_1g_df["node_id"].map(iddict)
                 # all_nids = [i for i in node_id_dgl.dropna().astype(int).tolist() if i in iddict.values()]
-                all_nids = node_id_dgl.dropna().astype(int).sort_values().unique().tolist()
+                all_nids = (
+                    node_id_dgl.dropna().astype(int).sort_values().unique().tolist()
+                )
                 nids_gen = dict(zip(node_id_dgl, nids_to_1g_df["gen"]))
                 nids_kill = dict(zip(node_id_dgl, nids_to_1g_df["kill"]))
                 for nid in range(len(dgl_feat)):
@@ -98,32 +105,38 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
                             dgl_feat[nid, all_nids.index(iddict[i])] = 1
                     for i in [int(s) for s in sorted(kill_f.split(",")) if s.isdigit()]:
                         if i in iddict and iddict[i] in all_nids:
-                            dgl_feat[nid, self.df_1g_max_idx+all_nids.index(iddict[i])] = 1
+                            dgl_feat[
+                                nid, self.df_1g_max_idx + all_nids.index(iddict[i])
+                            ] = 1
                 return dgl_feat
+
             g.ndata["_1G_DATAFLOW"] = get_dataflow_1g_features(_id)
-        
+
         if "_ABS_DATAFLOW" in self.feat:
+
             def get_abs_dataflow_features(_id):
                 dgl_feat = th.zeros((g.number_of_nodes(), len(self.abs_df_hashes)))
 
                 nids_to_abs_df = self.abs_df[self.abs_df["graph_id"] == _id]
-                nids_to_abs_df = nids_to_abs_df.set_index(nids_to_abs_df["node_id"].map(iddict))
+                nids_to_abs_df = nids_to_abs_df.set_index(
+                    nids_to_abs_df["node_id"].map(iddict)
+                )
                 for nid in range(len(dgl_feat)):
                     f = nids_to_abs_df["hash"].get(nid, None)
                     dgl_feat[nid, self.abs_df_hashes.index(f)] = 1
                 return dgl_feat
-            g.ndata["_ABS_DATAFLOW"] = get_abs_dataflow_features(_id)
 
+            g.ndata["_ABS_DATAFLOW"] = get_abs_dataflow_features(_id)
 
         g.ndata["_FVULN"] = g.ndata["_VULN"].max().repeat((g.number_of_nodes()))
         g.edata["_ETYPE"] = th.Tensor(et).long()
-        #emb_path = svd.cache_dir() / f"codebert_method_level/{_id}.pt"
-        #g.ndata["_FUNC_EMB"] = th.load(emb_path).repeat((g.number_of_nodes(), 1))
+        # emb_path = svd.cache_dir() / f"codebert_method_level/{_id}.pt"
+        # g.ndata["_FUNC_EMB"] = th.load(emb_path).repeat((g.number_of_nodes(), 1))
         g = dgl.add_self_loop(g)
         save_graphs(str(savedir), [g])
         # print("compute")
         return g
-        
+
     def cache_items(self, codebert):
         """Cache all items."""
         for i in tqdm(self.df.sample(len(self.df)).id.tolist(), desc="cache_items"):

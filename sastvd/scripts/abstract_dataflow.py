@@ -25,6 +25,7 @@ sample = False
 
 # %% Extract dataflow features from CPG
 
+
 def is_decl(n_attr):
     if n_attr["_label"] in ("LOCAL",):
         return True
@@ -35,6 +36,7 @@ def is_decl(n_attr):
         return True
     else:
         return False
+
 
 def get_dataflow_features(_id):
     try:
@@ -90,7 +92,7 @@ def get_dataflow_features(_id):
             var_attr = cpg.nodes[v]
             if verbose:
                 print("recursing", v, var_attr)
-            
+
             name_idx = {
                 "<operator>.indirectIndexAccess": 1,
                 "<operator>.indirectFieldAccess": 1,
@@ -139,7 +141,6 @@ def get_dataflow_features(_id):
             verbose = decl in [
                 # gid 401
                 # 1000129,
-
                 # gid 1273
                 # 1000336,
                 # 1000259,
@@ -200,6 +201,7 @@ def get_dataflow_features(_id):
     except Exception:
         print("graph error", _id, traceback.format_exc())
 
+
 """
 Getting types from full project
 1. Load example source code (function)
@@ -248,6 +250,7 @@ joern/joern-cli/c2cpg.sh php-src/ext/pcre/php_pcre.h \
 But we don't want to have to give these. For now, just parse the whole project without DEFINEs
 and get the type decls that we can.
 """
+
 
 def test_get_dataflow_features():
     # NOTE: this code is needed to get the commit ID/URL from the metadata
@@ -354,6 +357,7 @@ a: guess we don't know
     feat = get_dataflow_features(my_id)
     print(feat)
 
+
 # %% Get all abstract dataflow info
 def get_dataflow_features_df():
     sample = False
@@ -374,13 +378,19 @@ def get_dataflow_features_df():
 
     else:
         dataflow_df = pd.read_csv(csv_file)
-    
+
     dataflow_df["node_id"] = dataflow_df["node_id"].astype(int)
-    dataflow_df = dataflow_df[["graph_id", "node_id", "datatype", "operator", "api", "literal"]]
+    dataflow_df = dataflow_df[
+        ["graph_id", "node_id", "datatype", "operator", "api", "literal"]
+    ]
 
     dataflow_df["datatype"] = dataflow_df["datatype"].apply(
-        lambda dt: dt if pd.isna(dt) else re.sub(r"\s+", r" ", re.sub(r"^const ", r"", re.sub(r"\s*\[.*\]", r"[]", dt))).strip()
-        )
+        lambda dt: dt
+        if pd.isna(dt)
+        else re.sub(
+            r"\s+", r" ", re.sub(r"^const ", r"", re.sub(r"\s*\[.*\]", r"[]", dt))
+        ).strip()
+    )
     dataflow_df.to_csv("abstract_dataflow_fixed.csv")
 
     print(dataflow_df)
@@ -391,38 +401,71 @@ def get_dataflow_features_df():
 
     return dataflow_df
 
+
 from sastvd.scripts.get_repos import extract_repo
 
 checkout_dir = Path("repos/checkout")
+
+
 def expand_struct_datatypes(df):
     save_file = Path("bigvul_metadata_with_commit_id_slim_with_subtypes.csv")
     if save_file.exists():
         df = pd.read_csv(save_file)
-        df["datatype_subtypes"] = df["datatype_subtypes"].apply(lambda st: json.loads(st))
+        df["datatype_subtypes"] = df["datatype_subtypes"].apply(
+            lambda st: json.loads(st)
+        )
     else:
         md_df = pd.read_csv("bigvul_metadata_with_commit_id_slim.csv")
         print("original", md_df)
         md_df["repo"] = md_df["codeLink"].apply(extract_repo)
         print("repo", md_df)
-        md_df["cpgpath"] = md_df.apply(lambda row: checkout_dir/(row["repo"].replace("://", "__").replace("/", "__") + "__" + row["commit_id"] + ".cpg.bin"), axis=1)
+        md_df["cpgpath"] = md_df.apply(
+            lambda row: checkout_dir
+            / (
+                row["repo"].replace("://", "__").replace("/", "__")
+                + "__"
+                + row["commit_id"]
+                + ".cpg.bin"
+            ),
+            axis=1,
+        )
         md_df = md_df[md_df["cpgpath"].apply(lambda p: p is not None and p.exists())]
         print("filter", md_df)
         df = pd.merge(df, md_df, left_on="graph_id", right_on="id")
         print("merge", df)
-        df = df.drop_duplicates(subset=["repo", "commit_id", "datatype"]).sort_values("cpgpath")
+        df = df.drop_duplicates(subset=["repo", "commit_id", "datatype"]).sort_values(
+            "cpgpath"
+        )
         print("dedup", df)
 
-        df = (
-            df[["node_id","graph_id","project_x","codeLink","repo","commit_id","cpgpath","datatype","operator","api","literal"]]
-            .rename(columns={"project_x": "project"})
-            )
+        df = df[
+            [
+                "node_id",
+                "graph_id",
+                "project_x",
+                "codeLink",
+                "repo",
+                "commit_id",
+                "cpgpath",
+                "datatype",
+                "operator",
+                "api",
+                "literal",
+            ]
+        ].rename(columns={"project_x": "project"})
 
         # df = df.head(50)  # NOTE: debug
         df["datatype_subtypes"] = pd.NA
 
-        df["datatype"] = df["datatype"].apply(lambda dt: dt if pd.isna(dt) else re.sub(r"^const ", r"", re.sub(r"\s+\[.*\]", r"", dt)))
-        
-        sess = svdjs.JoernSession("datatype", logfile=open("output_datatype_test.txt", "wb"))
+        df["datatype"] = df["datatype"].apply(
+            lambda dt: dt
+            if pd.isna(dt)
+            else re.sub(r"^const ", r"", re.sub(r"\s+\[.*\]", r"", dt))
+        )
+
+        sess = svdjs.JoernSession(
+            "datatype", logfile=open("output_datatype_test.txt", "wb")
+        )
         sess.import_script("get_type")
         try:
             for cpgpath, group in tqdm.tqdm(df.groupby("cpgpath"), desc="load types"):
@@ -432,7 +475,15 @@ def expand_struct_datatypes(df):
                     dts = group["datatype"].dropna().unique()
                     # breakpoint()
                     dt_to_subtypes = svdj.run_joern_gettype(sess, str(cpgpath), dts)
-                    print("cpg", cpgpath, "extracted subtypes for", len(dt_to_subtypes), "/", len(group), "datatypes")
+                    print(
+                        "cpg",
+                        cpgpath,
+                        "extracted subtypes for",
+                        len(dt_to_subtypes),
+                        "/",
+                        len(group),
+                        "datatypes",
+                    )
                     for i, row in group.iterrows():
                         dt = row["datatype"]
                         if dt in dt_to_subtypes:
@@ -444,30 +495,48 @@ def expand_struct_datatypes(df):
                             print("id", i, "-", dt, "has no subtypes")
                 except pexpect.exceptions.EOF:
                     sess.close()
-                    sess = svdjs.JoernSession("datatype", logfile=open("output_datatype_test.txt", "ab"))
+                    sess = svdjs.JoernSession(
+                        "datatype", logfile=open("output_datatype_test.txt", "ab")
+                    )
                     sess.import_script("get_type")
         finally:
             sess.close()
-        
+
         df = df.dropna(subset=["datatype_subtypes"])
-        df["datatype_subtypes_str"] = df["datatype_subtypes"].apply(lambda st: ", ".join(sorted(st)))
+        df["datatype_subtypes_str"] = df["datatype_subtypes"].apply(
+            lambda st: ", ".join(sorted(st))
+        )
         tdf = df.copy()
-        tdf["datatype_subtypes"] = tdf["datatype_subtypes"].apply(lambda st: json.dumps(st))
+        tdf["datatype_subtypes"] = tdf["datatype_subtypes"].apply(
+            lambda st: json.dumps(st)
+        )
         tdf.to_csv(save_file)
     return df
+
 
 def get_expanded_df():
     dataflow_df = get_dataflow_features_df()
     print("dataflow_df", len(dataflow_df))
     expanded_dataflow_df = expand_struct_datatypes(dataflow_df)
     print("expanded_dataflow_df", len(expanded_dataflow_df))
-    merge_df = pd.merge(dataflow_df, expanded_dataflow_df[["node_id", "datatype", "datatype_subtypes_str"]], how="left", on=("node_id", "datatype"))
+    merge_df = pd.merge(
+        dataflow_df,
+        expanded_dataflow_df[["node_id", "datatype", "datatype_subtypes_str"]],
+        how="left",
+        on=("node_id", "datatype"),
+    )
     print("merge_df", len(dataflow_df))
     # breakpoint()
     print(merge_df["datatype"])
-    merge_df["datatype"] = merge_df.apply(lambda row: row["datatype_subtypes_str"] if not pd.isna(row["datatype_subtypes_str"]) else row["datatype"], axis=1)
+    merge_df["datatype"] = merge_df.apply(
+        lambda row: row["datatype_subtypes_str"]
+        if not pd.isna(row["datatype_subtypes_str"])
+        else row["datatype"],
+        axis=1,
+    )
     print(merge_df["datatype"])
     return merge_df
+
 
 if __name__ == "__main__":
     dataflow_df = get_dataflow_features_df()
@@ -580,7 +649,7 @@ if __name__ == "__main__":
     # print(df)
     # df["is_decl"] = df.apply(is_decl, axis=1)
     # df = df[df["is_decl"]]
-    
+
     # how_many_select = 10
     # select = {
     #     "datatype": df["datatype"].value_counts().nlargest(how_many_select).index.tolist(),
@@ -670,6 +739,7 @@ Output from first run:
 
 # %% Generate hash value for each node
 
+
 def to_hash(row, select):
     items = []
     for key in select:
@@ -678,20 +748,37 @@ def to_hash(row, select):
     # TODO: pad digits?
 
     # combine
-    return " ".join(map(str,items))
-    
+    return " ".join(map(str, items))
+
+
 if __name__ == "__main__":
     missing = []
     all_df = None
     split_df = svddc.BigVulDataset(partition="train", **dataargs).df
     split_df = pd.merge(split_df, dataflow_df, left_on="id", right_on="graph_id")
-    portions = [10, 50, 100, 250, 500, 750, 1000, 1500, 2000, len(split_df[select_key].drop_duplicates())]
-    for portion in tqdm.tqdm(portions, desc="measuring train coverage for various portions..."):
+    portions = [
+        10,
+        50,
+        100,
+        250,
+        500,
+        750,
+        1000,
+        1500,
+        2000,
+        len(split_df[select_key].drop_duplicates()),
+    ]
+    for portion in tqdm.tqdm(
+        portions, desc="measuring train coverage for various portions..."
+    ):
         select = {
             select_key: datatype_vc.nlargest(portion).index.sort_values().tolist(),
         }
         split_na = split_df.apply(functools.partial(to_hash, select=select), axis=1)
-        missing.append((len(split_df) - split_na.replace("<NA>", pd.NA).isna().sum()) / len(split_df))
+        missing.append(
+            (len(split_df) - split_na.replace("<NA>", pd.NA).isna().sum())
+            / len(split_df)
+        )
     portions[-1] = f"{portions[-1]} (all values)"
     sns.barplot(x=portions, y=missing)
     # sns.scatterplot(portions, missing)
@@ -713,10 +800,20 @@ if __name__ == "__main__":
     for split in ("train", "val", "test"):
         split_df = svddc.BigVulDataset(partition=split, **dataargs).df
         split_df = pd.merge(split_df, dataflow_df, left_on="id", right_on="graph_id")
-        split_df["hash"] = split_df.apply(to_hash, axis=1, select=select).replace("<NA>", pd.NA)
-        split_df = split_df[["graph_id", "node_id", "hash"]].sort_values(by=["graph_id", "node_id"]).reset_index(drop=True)
+        split_df["hash"] = split_df.apply(to_hash, axis=1, select=select).replace(
+            "<NA>", pd.NA
+        )
+        split_df = (
+            split_df[["graph_id", "node_id", "hash"]]
+            .sort_values(by=["graph_id", "node_id"])
+            .reset_index(drop=True)
+        )
         split_df["node_id"] = split_df["node_id"].astype(int)
-        print(split, len(split_df), split_df["hash"].value_counts(dropna=False, normalize=True))
+        print(
+            split,
+            len(split_df),
+            split_df["hash"].value_counts(dropna=False, normalize=True),
+        )
         # split_df.to_csv(f"abstract_dataflow_hash_all.csv")
         if all_df is None:
             all_df = split_df
@@ -735,6 +832,7 @@ if __name__ == "__main__":
 
 # %% generate frequency graphs
 
+
 def generate_frequency_graphs():
     test = svddc.BigVulDataset(partition="test", **dataargs)
     test_df = test.df
@@ -744,7 +842,9 @@ def generate_frequency_graphs():
     for i, portion in enumerate(range(10, 101, 10)):
         portion = portion / 100
         number = int(len(datatype_vc) * portion)
-        print("ITERATION", i, "portion", portion, "number", number, "/", len(datatype_vc))
+        print(
+            "ITERATION", i, "portion", portion, "number", number, "/", len(datatype_vc)
+        )
         select = {
             select_key: datatype_vc.nlargest(number).index.sort_values().tolist(),
         }
@@ -752,7 +852,9 @@ def generate_frequency_graphs():
             print(k, len(select[k]), "items selected")
             print("headdd", list(select[k])[:10])
         # print(test_df)
-        test_df["hash"] = test_df.apply(to_hash, select=select, axis=1).replace("<NA>", pd.NA)
+        test_df["hash"] = test_df.apply(to_hash, select=select, axis=1).replace(
+            "<NA>", pd.NA
+        )
         print(test_df["hash"])
         # breakpoint()
         test_df["has_hash"] = ~test_df["hash"].isna()
@@ -763,8 +865,14 @@ def generate_frequency_graphs():
         # print(hhvc_true)
     print(hhvc_true)
     # sns.barplot(x=hhvc_true.keys(), y=hhvc_true.values())
-    plt.bar([str(int(k * 100)) + "% (" + str(int(len(datatype_vc) * k)) + ")" for k in hhvc_true.keys()], hhvc_true.values())
-    plt.axhline(y=len(test_df), color='r', linestyle='-')
+    plt.bar(
+        [
+            str(int(k * 100)) + "% (" + str(int(len(datatype_vc) * k)) + ")"
+            for k in hhvc_true.keys()
+        ],
+        hhvc_true.values(),
+    )
+    plt.axhline(y=len(test_df), color="r", linestyle="-")
     plt.xlabel("portion of hashes from training dataset")
     plt.ylabel("number of hashed test examples")
     plt.xticks(rotation=45)
@@ -772,11 +880,14 @@ def generate_frequency_graphs():
     plt.tight_layout()
     plt.savefig("has_hash_test_portions.png")
     plt.close()
-# %% 
+
+
+# %%
 
 if __name__ == "__main__":
     generate_frequency_graphs()
     exit()
+
 
 def generate_dataset_old():
     # hashes = sorted(df["hash"].unique().tolist())
@@ -795,7 +906,7 @@ def generate_dataset_old():
         print("extract", i, split_df["has_hash"].value_counts())
 
         # mask = split_df["hash"] == "-1"
-        # tail_prob = (mask).sum() / 
+        # tail_prob = (mask).sum() /
         # print(f"tail prob {i}: {tail_prob}")
         # prob = split_df["hash"].value_counts(normalize=True)
         # prob['<UNKNOWN>'] = tail_prob
@@ -804,7 +915,7 @@ def generate_dataset_old():
         # # percentages_map = prob.to_dict()
         # # split_df["has_hash_percent"] = split_df["hash"].map(percentages_map)
         # # print(split_df["has_hash_percent"])
-        
+
         # # split_df["hash_index"] = split_df["hash"].apply(lambda h: hashes.index(h) if h in hashes else -1)
         # # split_df.hist(column="hash_index")
         # plt.xticks(rotation=25)

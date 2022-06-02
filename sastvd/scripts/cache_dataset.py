@@ -13,6 +13,7 @@ test = False
 
 storage_dir = Path("storage/processed/bigvul")
 
+
 def do_one(ds, max_df_dim, split, dataargs, t):
     printed = 0
     i, ids = t
@@ -22,13 +23,28 @@ def do_one(ds, max_df_dim, split, dataargs, t):
         try:
             g = ds.item(_id, max_dataflow_dim=max_df_dim)
             if j != 0 and j % log_every == 0:
-                print("do_one", i, j, datetime.now(), "got graph", g, g.ndata["_ABS_DATAFLOW"][:, 1:].sum().item(), g.ndata["_ABS_DATAFLOW"][:, 2:].sum().item())
+                print(
+                    "do_one",
+                    i,
+                    j,
+                    datetime.now(),
+                    "got graph",
+                    g,
+                    g.ndata["_ABS_DATAFLOW"][:, 1:].sum().item(),
+                    g.ndata["_ABS_DATAFLOW"][:, 2:].sum().item(),
+                )
             if test and printed < 5:
-                print("got graph", g, g.ndata["_ABS_DATAFLOW"][:, 1:].sum().item(), g.ndata["_ABS_DATAFLOW"][:, 2:].sum().item())
+                print(
+                    "got graph",
+                    g,
+                    g.ndata["_ABS_DATAFLOW"][:, 1:].sum().item(),
+                    g.ndata["_ABS_DATAFLOW"][:, 2:].sum().item(),
+                )
                 print(g.ndata["_ABS_DATAFLOW"])
                 printed += 1
         except Exception as E:
             print("exception", traceback.format_exc())
+
 
 if __name__ == "__main__":
 
@@ -36,7 +52,7 @@ if __name__ == "__main__":
         "sample": 100 if test else -1,
         "gtype": "cfg",
         "splits": "default",
-        "feat": "_ABS_DATAFLOW_datatypeonly"
+        "feat": "_ABS_DATAFLOW_datatypeonly",
     }
 
     nproc = 1 if test else 12
@@ -50,5 +66,5 @@ if __name__ == "__main__":
             splits = np.array_split(ids, nproc)
             for _ in pool.imap_unordered(fn, enumerate(splits)):
                 pass
-            
+
             # do_one((0, ids))

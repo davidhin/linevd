@@ -10,13 +10,15 @@ import tqdm
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning import seed_everything
-from pytorch_lightning.callbacks import (DeviceStatsMonitor, EarlyStopping,
-                                         ModelCheckpoint)
+from pytorch_lightning.callbacks import (
+    DeviceStatsMonitor,
+    EarlyStopping,
+    ModelCheckpoint,
+)
 from pytorch_lightning.loggers import TensorBoardLogger
 from sastvd.linevd import BigVulDatasetLineVDDataModule
 
-from code_gnn.globals import (all_datasets, all_models, project_root_dir,
-                              seed_all)
+from code_gnn.globals import all_datasets, all_models, project_root_dir, seed_all
 from code_gnn.models import model_class_dict
 from code_gnn.models.base_module import BaseModule
 from code_gnn.models.periodic_checkpoint import PeriodicModelCheckpoint
@@ -41,7 +43,7 @@ def train_single_model(config):
         splits="default",
         # feat="all",
         feat=config["feat"],
-        #load_code=config["dataset_only"],
+        # load_code=config["dataset_only"],
         cache_all=config["cache_all"],
         undersample=not config["no_undersample_graphs"],
         filter_cwe=config["filter_cwe"],
@@ -58,17 +60,31 @@ def train_single_model(config):
             portions = []
             for d in tqdm.tqdm(ds, desc=ds.partition):
                 sums.append(d.ndata[config["feat"]].sum())
-                sums_no1.append(d.ndata[config["feat"]][:,1:].sum())
-                portions.append(d.ndata[config["feat"]][:,1:].sum() / d.number_of_nodes())
+                sums_no1.append(d.ndata[config["feat"]][:, 1:].sum())
+                portions.append(
+                    d.ndata[config["feat"]][:, 1:].sum() / d.number_of_nodes()
+                )
             sums_df = pd.DataFrame(sums)
             sums_no1_df = pd.DataFrame(sums_no1)
             portions_df = pd.DataFrame(portions)
             print(ds.partition, "sums_df", sums_df.describe())
             print(ds.partition, "sums_no1_df", sums_no1_df.describe())
             print(ds.partition, "portions_df", portions_df.describe())
-            all_sums = sums_df if all_sums is None else pd.concat((all_sums, sums_df), ignore_index=True)
-            all_sums_no1 = sums_no1_df if all_sums_no1 is None else pd.concat((all_sums_no1, sums_no1_df), ignore_index=True)
-            all_portions = portions_df if all_portions is None else pd.concat((all_portions, portions_df), ignore_index=True)
+            all_sums = (
+                sums_df
+                if all_sums is None
+                else pd.concat((all_sums, sums_df), ignore_index=True)
+            )
+            all_sums_no1 = (
+                sums_no1_df
+                if all_sums_no1 is None
+                else pd.concat((all_sums_no1, sums_no1_df), ignore_index=True)
+            )
+            all_portions = (
+                portions_df
+                if all_portions is None
+                else pd.concat((all_portions, portions_df), ignore_index=True)
+            )
         print("all_sums", all_sums.describe())
         print("all_sums_no1", all_sums_no1.describe())
         print("all_portions", all_portions.describe())
@@ -87,7 +103,7 @@ def train_single_model(config):
         config["input_dim"] = data.train[0].ndata[featname].shape[1]
         print("shape", data.train[0].ndata[featname].shape)
         print("sum", data.train[0].ndata[featname].sum())
-        print("sum no 1st dim", data.train[0].ndata[featname][:,1:].sum())
+        print("sum no 1st dim", data.train[0].ndata[featname][:, 1:].sum())
     except Exception:
         print("error logging first example")
         traceback.print_exc()
@@ -122,23 +138,28 @@ def train_single_model(config):
     #         f.write("\n".join(blacklist))
     #     return
 
-    
     model = config["model_class"](**config)
     if not config["skip_train"]:
         trainer.fit(model, datamodule=data)
     if config["evaluation"]:
         if config["resume_from_checkpoint"]:
             logger.info("loading checkpoint %s", config["resume_from_checkpoint"])
-            trainer.test(model=model, datamodule=data, ckpt_path=config["resume_from_checkpoint"])
+            trainer.test(
+                model=model, datamodule=data, ckpt_path=config["resume_from_checkpoint"]
+            )
         elif config["take_checkpoint"] == "best":
             ckpt = trainer.checkpoint_callback.best_model_path
             logger.info("loading checkpoint %s", ckpt)
             trainer.test(model=model, datamodule=data, ckpt_path=ckpt)
         else:
             ckpts = list(config["base_dir"].glob("checkpoints/periodical-*.ckpt"))
-            logger.info("unsorted: %s", str([int(str(fp.name).split("-")[1]) for fp in ckpts]))
+            logger.info(
+                "unsorted: %s", str([int(str(fp.name).split("-")[1]) for fp in ckpts])
+            )
             ckpts = sorted(ckpts, key=lambda fp: int(str(fp.name).split("-")[1]))
-            logger.info("sorted: %s", str([int(str(fp.name).split("-")[1]) for fp in ckpts]))
+            logger.info(
+                "sorted: %s", str([int(str(fp.name).split("-")[1]) for fp in ckpts])
+            )
             for ckpt in ckpts:
                 logger.info("loading checkpoint %s", ckpt)
                 trainer.test(model=model, datamodule=data, ckpt_path=ckpt)
@@ -150,24 +171,24 @@ def get_trainer(config):
     # Fixed by following example https://gist.github.com/Crissman/9cea7f22939a8816081f31afb1c8ab03
     if config["tune"]:
         base_dir = (
-                project_root_dir
-                / "logs_tune"
-                / (config["unique_id"] + config["log_suffix"])
-                / f'trial_{config["tune_trial"].number}'
+            project_root_dir
+            / "logs_tune"
+            / (config["unique_id"] + config["log_suffix"])
+            / f'trial_{config["tune_trial"].number}'
         )
     elif config["n_folds"] > 1:
         base_dir = (
-                project_root_dir
-                / "logs_crossval"
-                / (config["unique_id"] + config["log_suffix"])
-                / f'fold_{config["fold_idx"]}'
+            project_root_dir
+            / "logs_crossval"
+            / (config["unique_id"] + config["log_suffix"])
+            / f'fold_{config["fold_idx"]}'
         )
     elif config["debug_overfit"]:
         base_dir = (
-                project_root_dir
-                / "logs"
-                / (config["unique_id"] + config["log_suffix"])
-                / 'overfit_batch'
+            project_root_dir
+            / "logs"
+            / (config["unique_id"] + config["log_suffix"])
+            / "overfit_batch"
         )
     # elif config["evaluation"]:
     #     base_dir = (
@@ -179,30 +200,34 @@ def get_trainer(config):
     #     assert config["resume_from_checkpoint"] is not None
     else:
         base_dir = (
-                project_root_dir
-                / "logs"
-                / (config["unique_id"] + config["log_suffix"])
-                / 'default'
+            project_root_dir
+            / "logs"
+            / (config["unique_id"] + config["log_suffix"])
+            / "default"
         )
     config["base_dir"] = base_dir
 
     if base_dir.exists():
         if config["clean"]:
             if config["resume_from_checkpoint"] is not None or config["evaluation"]:
-                logger.warning(f'Told to clean {base_dir}, but also to load. Skipping --clean.')
+                logger.warning(
+                    f"Told to clean {base_dir}, but also to load. Skipping --clean."
+                )
             else:
-                logger.info(f'Cleaning old results from {base_dir}...')
+                logger.info(f"Cleaning old results from {base_dir}...")
                 shutil.rmtree(base_dir)
         elif config["resume_from_checkpoint"] is None:
-            raise NotImplementedError(f'Please clear old results from {base_dir}')
+            raise NotImplementedError(f"Please clear old results from {base_dir}")
 
-    ckpt_dir = base_dir / 'checkpoints'
-    logger.info(f'Checkpointing to {ckpt_dir}')
+    ckpt_dir = base_dir / "checkpoints"
+    logger.info(f"Checkpointing to {ckpt_dir}")
     checkpoint_callback = ModelCheckpoint(
         dirpath=str(ckpt_dir),
-        filename='performance-{epoch:02d}-{step:02d}-{' + config["target_metric"] + ':02f}',
+        filename="performance-{epoch:02d}-{step:02d}-{"
+        + config["target_metric"]
+        + ":02f}",
         monitor=config["target_metric"],
-        mode='min',
+        mode="min",
         save_last=True,
         # verbose=True,
     )
@@ -213,7 +238,7 @@ def get_trainer(config):
     )
     callbacks.append(checkpoint_callback)
 
-    tb_logger = TensorBoardLogger(str(base_dir), version='', name='')
+    tb_logger = TensorBoardLogger(str(base_dir), version="", name="")
 
     if config["patience"] is not None:
         early_stopping_callback = EarlyStopping(
@@ -226,15 +251,21 @@ def get_trainer(config):
     if config["profile"]:
         callbacks.append(DeviceStatsMonitor())
     if "tune_trial" in config:
-        callbacks.append(PyTorchLightningPruningCallback(config["tune_trial"], monitor=config["target_metric"]))
+        callbacks.append(
+            PyTorchLightningPruningCallback(
+                config["tune_trial"], monitor=config["target_metric"]
+            )
+        )
 
     # profiler = pl.profiler.AdvancedProfiler(filename="profile.txt")
-    
+
     trainer = pl.Trainer(
         gpus=1 if config["cuda"] else 0,
         num_sanity_val_steps=0 if config["tune"] else 2,
         overfit_batches=1 if config["debug_overfit"] else 0,
-        limit_train_batches=config["debug_train_batches"] if config["debug_train_batches"] else 1.0,
+        limit_train_batches=config["debug_train_batches"]
+        if config["debug_train_batches"]
+        else 1.0,
         # https://forums.pytorchlightning.ai/t/validation-sanity-check/174/6
         detect_anomaly=True,
         callbacks=callbacks,
@@ -250,11 +281,11 @@ def get_trainer(config):
 
 
 def main(config):
-    logger.info(f'config={config}')
+    logger.info(f"config={config}")
     seed_all(config["seed"])
 
     config["cuda"] = torch.cuda.is_available()
-    logger.info(f'gpus={torch.cuda.is_available()}, {torch.cuda.device_count()}')
+    logger.info(f"gpus={torch.cuda.is_available()}, {torch.cuda.device_count()}")
 
     seed_everything(config["seed"], workers=True)
     if config["tune"]:
@@ -273,62 +304,132 @@ def log_results(study):
         logger.info("\t{}: {}".format(key, value))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     logging.basicConfig(
         level=logging.DEBUG,
         format="%(asctime)s [%(levelname)s] %(message)s",
-        handlers=[
-            logging.StreamHandler()
-        ]
+        handlers=[logging.StreamHandler()],
     )
 
-    parser = argparse.ArgumentParser(add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(
+        add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
     # model
-    parser.add_argument("--model", choices=all_models,
-                        help='short ID for the model type to train',
-                        required=True)
+    parser.add_argument(
+        "--model",
+        choices=all_models,
+        help="short ID for the model type to train",
+        required=True,
+    )
     # dataset
-    parser.add_argument("--dataset", choices=all_datasets,
-                        required=True,
-                        help='short ID for the dataset to train on')
-    parser.add_argument("--feat", required=True, help='node features to use')
-    parser.add_argument("--node_limit", type=int, help='upper limit to the number of nodes in a graph')
-    parser.add_argument("--graph_limit", type=int, help='upper limit to the number of graphs to parse')
-    parser.add_argument("--filter", type=str, help='filter data to a certain persuasion', default='')
-    parser.add_argument("--label_style", type=str, help='use node or graph labels', default='graph')
-    parser.add_argument("--debug_train_batches", type=int, help='debug mode - train with n batches')
-    parser.add_argument("--undersample_factor", type=float, help='factor to undersample majority class')
-    parser.add_argument("--cache_all", action="store_true", help='cache all items in memory')
+    parser.add_argument(
+        "--dataset",
+        choices=all_datasets,
+        required=True,
+        help="short ID for the dataset to train on",
+    )
+    parser.add_argument("--feat", required=True, help="node features to use")
+    parser.add_argument(
+        "--node_limit", type=int, help="upper limit to the number of nodes in a graph"
+    )
+    parser.add_argument(
+        "--graph_limit", type=int, help="upper limit to the number of graphs to parse"
+    )
+    parser.add_argument(
+        "--filter", type=str, help="filter data to a certain persuasion", default=""
+    )
+    parser.add_argument(
+        "--label_style", type=str, help="use node or graph labels", default="graph"
+    )
+    parser.add_argument(
+        "--debug_train_batches", type=int, help="debug mode - train with n batches"
+    )
+    parser.add_argument(
+        "--undersample_factor", type=float, help="factor to undersample majority class"
+    )
+    parser.add_argument(
+        "--cache_all", action="store_true", help="cache all items in memory"
+    )
     # logging and reproducibility
-    parser.add_argument("--seed", type=int, default=0, help='random seed')
-    parser.add_argument("--log_suffix", type=str, default='', help='suffix to append after log directory')
-    parser.add_argument("-h", '--help', action='store_true', help='print this help message')
-    parser.add_argument("--version", type=str, default=None, help='version ID to use for logging')
+    parser.add_argument("--seed", type=int, default=0, help="random seed")
+    parser.add_argument(
+        "--log_suffix",
+        type=str,
+        default="",
+        help="suffix to append after log directory",
+    )
+    parser.add_argument(
+        "-h", "--help", action="store_true", help="print this help message"
+    )
+    parser.add_argument(
+        "--version", type=str, default=None, help="version ID to use for logging"
+    )
     # different run modes
-    parser.add_argument("--dataset_only", action='store_true', help='only load the dataset, then exit')
+    parser.add_argument(
+        "--dataset_only", action="store_true", help="only load the dataset, then exit"
+    )
     # parser.add_argument("--check_mode", action='store_true', help='check the dataset, then exit')
-    parser.add_argument("--profile", action='store_true',
-                        help='run training under the profiler and report results at the end')
+    parser.add_argument(
+        "--profile",
+        action="store_true",
+        help="run training under the profiler and report results at the end",
+    )
     # tuning options
-    parser.add_argument("--tune", action='store_true', help='tune hyperparameters')
-    parser.add_argument("--resume", action='store_true', help='resume previous tune progress')
-    parser.add_argument("--n_trials", type=int, default=50, help='how many trials to tune')
-    parser.add_argument("--tune_timeout", type=int, default=60 * 60 * 24, help='time limit for tuning')
+    parser.add_argument("--tune", action="store_true", help="tune hyperparameters")
+    parser.add_argument(
+        "--resume", action="store_true", help="resume previous tune progress"
+    )
+    parser.add_argument(
+        "--n_trials", type=int, default=50, help="how many trials to tune"
+    )
+    parser.add_argument(
+        "--tune_timeout", type=int, default=60 * 60 * 24, help="time limit for tuning"
+    )
     # training options
-    parser.add_argument("--skip_train", action='store_true', help='skip training')
-    parser.add_argument("--evaluation", action='store_true', help='do evaluation on test set')
-    parser.add_argument("--no_undersample_graphs", action='store_true', help='undersample graphs as in LineVD')
-    parser.add_argument("--debug_overfit", action='store_true', help='debug mode - overfit one batch')
-    parser.add_argument("--clean", action='store_true', help='clean old outputs')
-    parser.add_argument("--batch_size", type=int, default=64, help='number of items to load in a batch')
-    parser.add_argument("--filter_cwe", nargs="+", help='CWE to filter examples')
-    parser.add_argument("--target_metric", type=str, default='valid/loss', help='metric to optimize for')
-    parser.add_argument("--take_checkpoint", type=str, default='best', help='how to select checkpoint for evaluation')
-    parser.add_argument("--resume_from_checkpoint", type=str, help='checkpoint file to resume from')
-    parser.add_argument("--n_folds", type=int, default=1, help='number of cross-validation folds to run.')
-    parser.add_argument("--max_epochs", type=int, default=250, help='max number of epochs to run.')
-    parser.add_argument("--patience", type=int, help='patience value to use for early stopping. Omit to disable early stopping.')
-    parser.add_argument("--roc_every", type=int, help='print ROC curve every n epochs.')
+    parser.add_argument("--skip_train", action="store_true", help="skip training")
+    parser.add_argument(
+        "--evaluation", action="store_true", help="do evaluation on test set"
+    )
+    parser.add_argument(
+        "--no_undersample_graphs",
+        action="store_true",
+        help="undersample graphs as in LineVD",
+    )
+    parser.add_argument(
+        "--debug_overfit", action="store_true", help="debug mode - overfit one batch"
+    )
+    parser.add_argument("--clean", action="store_true", help="clean old outputs")
+    parser.add_argument(
+        "--batch_size", type=int, default=64, help="number of items to load in a batch"
+    )
+    parser.add_argument("--filter_cwe", nargs="+", help="CWE to filter examples")
+    parser.add_argument(
+        "--target_metric", type=str, default="valid/loss", help="metric to optimize for"
+    )
+    parser.add_argument(
+        "--take_checkpoint",
+        type=str,
+        default="best",
+        help="how to select checkpoint for evaluation",
+    )
+    parser.add_argument(
+        "--resume_from_checkpoint", type=str, help="checkpoint file to resume from"
+    )
+    parser.add_argument(
+        "--n_folds",
+        type=int,
+        default=1,
+        help="number of cross-validation folds to run.",
+    )
+    parser.add_argument(
+        "--max_epochs", type=int, default=250, help="max number of epochs to run."
+    )
+    parser.add_argument(
+        "--patience",
+        type=int,
+        help="patience value to use for early stopping. Omit to disable early stopping.",
+    )
+    parser.add_argument("--roc_every", type=int, help="print ROC curve every n epochs.")
 
     args, _ = parser.parse_known_args()
 
@@ -340,19 +441,50 @@ if __name__ == '__main__':
     args.model_class = model_class_dict[args.model]
 
     # args.unique_id = '_'.join(map(str, (args.model, args.dataset, args.label_style, args.feat, args.node_limit, args.graph_limit, args.no_undersample_graphs, args.undersample_factor, args.filter, f"{args.learning_rate:f}".rstrip("0").rstrip("."), f"{args.weight_decay:f}".rstrip("0").rstrip("."), args.batch_size)))
-    args.unique_id = '_'.join(map(str, (args.model, args.dataset, args.label_style, args.feat, args.node_limit, args.graph_limit, "noundersample" if args.no_undersample_graphs else "undersample", args.undersample_factor, args.filter, f"{args.learning_rate:f}".rstrip("0").rstrip("."), f"{args.weight_decay:f}".rstrip("0").rstrip("."), args.batch_size)))
+    args.unique_id = "_".join(
+        map(
+            str,
+            (
+                args.model,
+                args.dataset,
+                args.label_style,
+                args.feat,
+                args.node_limit,
+                args.graph_limit,
+                "noundersample" if args.no_undersample_graphs else "undersample",
+                args.undersample_factor,
+                args.filter,
+                f"{args.learning_rate:f}".rstrip("0").rstrip("."),
+                f"{args.weight_decay:f}".rstrip("0").rstrip("."),
+                args.batch_size,
+            ),
+        )
+    )
     if args.filter_cwe:
-        args.unique_id += '_filter_' + '_'.join(args.filter_cwe)
-    if args.model == 'devign':
-        args.unique_id += '_' + '_'.join(map(str, (args.window_size, args.graph_embed_size, args.num_layers)))
+        args.unique_id += "_filter_" + "_".join(args.filter_cwe)
+    if args.model == "devign":
+        args.unique_id += "_" + "_".join(
+            map(str, (args.window_size, args.graph_embed_size, args.num_layers))
+        )
     else:
-        args.unique_id += '_' + '_'.join(
-            map(str, (args.num_layers, args.num_mlp_layers, args.hidden_dim, args.learn_eps,
-                      args.final_dropout, args.graph_pooling_type, args.neighbor_pooling_type)))
+        args.unique_id += "_" + "_".join(
+            map(
+                str,
+                (
+                    args.num_layers,
+                    args.num_mlp_layers,
+                    args.hidden_dim,
+                    args.learn_eps,
+                    args.final_dropout,
+                    args.graph_pooling_type,
+                    args.neighbor_pooling_type,
+                ),
+            )
+        )
     if args.debug_overfit:
-        args.unique_id += '_debug_overfit'
+        args.unique_id += "_debug_overfit"
 
-    with open('ran_main.py_log.txt', 'a') as f:
+    with open("ran_main.py_log.txt", "a") as f:
         f.write(f'{datetime.now()} {" ".join(sys.argv)}\n')
 
     if args.help:

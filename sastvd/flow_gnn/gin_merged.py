@@ -41,11 +41,20 @@ class FlowGNNLineVDModule:
     FlowGNN
     """
 
-    def __init__(self, input_dim, num_layers, num_mlp_layers, hidden_dim,
-                 final_dropout, learn_eps, graph_pooling_type,
-                 neighbor_pooling_type, **kwargs):
+    def __init__(
+        self,
+        input_dim,
+        num_layers,
+        num_mlp_layers,
+        hidden_dim,
+        final_dropout,
+        learn_eps,
+        graph_pooling_type,
+        neighbor_pooling_type,
+        **kwargs,
+    ):
         super().__init__()
-            
+
         self.loss_fn = BCELoss()
 
         self.save_hyperparameters()
@@ -66,7 +75,8 @@ class FlowGNNLineVDModule:
                 mlp = MLP(num_mlp_layers, hidden_dim, hidden_dim, hidden_dim)
 
             self.ginlayers.append(
-                MyGINConv(ApplyNodeFunc(mlp), neighbor_pooling_type, 0, self.learn_eps))
+                MyGINConv(ApplyNodeFunc(mlp), neighbor_pooling_type, 0, self.learn_eps)
+            )
             self.batch_norms.append(nn.BatchNorm1d(hidden_dim))
 
         # Linear function for graph poolings of output of each layer
@@ -77,7 +87,7 @@ class FlowGNNLineVDModule:
         if self.hparams.node_type_separate:
             additional_element_size = len(node_type_map)
 
-        if self.hparams.label_style == 'node':
+        if self.hparams.label_style == "node":
             for layer in range(num_layers):
                 i = hidden_dim
                 o = hidden_dim
@@ -85,24 +95,25 @@ class FlowGNNLineVDModule:
                     i = hidden_dim + additional_element_size
                 if layer == num_layers - 1:
                     o = output_dim
-                self.linears_prediction.append(
-                    nn.Linear(i, o))
+                self.linears_prediction.append(nn.Linear(i, o))
         else:
             for layer in range(num_layers):
                 if layer == 0:
                     self.linears_prediction.append(
-                        nn.Linear(input_dim + additional_element_size, output_dim))
+                        nn.Linear(input_dim + additional_element_size, output_dim)
+                    )
                 else:
                     self.linears_prediction.append(
-                        nn.Linear(hidden_dim + additional_element_size, output_dim))
+                        nn.Linear(hidden_dim + additional_element_size, output_dim)
+                    )
 
         self.drop = nn.Dropout(final_dropout)
 
-        if graph_pooling_type == 'sum':
+        if graph_pooling_type == "sum":
             self.pool = SumPooling()
-        elif graph_pooling_type == 'mean':
+        elif graph_pooling_type == "mean":
             self.pool = AvgPooling()
-        elif graph_pooling_type == 'max':
+        elif graph_pooling_type == "max":
             self.pool = MaxPooling()
         else:
             raise NotImplementedError
@@ -114,19 +125,48 @@ class FlowGNNLineVDModule:
         parser.add_argument("--learning_rate", type=float, default=1e-3)
         parser.add_argument("--weight_decay", type=float, default=0)
         # FlowGNN
-        parser.add_argument("--num_layers", type=int, default=5, help='number of GIN layers to use')
-        parser.add_argument("--num_mlp_layers", type=int, default=2,
-                            help='number of layers to use in each GIN layer\'s MLP')
-        parser.add_argument("--hidden_dim", type=int, default=32, help='width of the GIN hidden layers')
-        parser.add_argument("--learn_eps", type=bool, default=False,
-                            help='whether or not to learn a weight for the epsilon value')
-        parser.add_argument("--final_dropout", type=float, default=0.5,
-                            help='probability to use for the final dropout layer')
-        parser.add_argument("--graph_pooling_type", type=str, default='sum', help='GIN graph pooling operator to use')
-        parser.add_argument("--neighbor_pooling_type", type=str, default='sum', choices=all_aggregate_functions,
-                            help='GIN neighbor pooling operator to use')
-        parser.add_argument("--node_type_separate", action='store_true',
-                            help='attach node type separately from data flow features')
+        parser.add_argument(
+            "--num_layers", type=int, default=5, help="number of GIN layers to use"
+        )
+        parser.add_argument(
+            "--num_mlp_layers",
+            type=int,
+            default=2,
+            help="number of layers to use in each GIN layer's MLP",
+        )
+        parser.add_argument(
+            "--hidden_dim", type=int, default=32, help="width of the GIN hidden layers"
+        )
+        parser.add_argument(
+            "--learn_eps",
+            type=bool,
+            default=False,
+            help="whether or not to learn a weight for the epsilon value",
+        )
+        parser.add_argument(
+            "--final_dropout",
+            type=float,
+            default=0.5,
+            help="probability to use for the final dropout layer",
+        )
+        parser.add_argument(
+            "--graph_pooling_type",
+            type=str,
+            default="sum",
+            help="GIN graph pooling operator to use",
+        )
+        parser.add_argument(
+            "--neighbor_pooling_type",
+            type=str,
+            default="sum",
+            choices=all_aggregate_functions,
+            help="GIN neighbor pooling operator to use",
+        )
+        parser.add_argument(
+            "--node_type_separate",
+            action="store_true",
+            help="attach node type separately from data flow features",
+        )
         return parent_parser
 
     def reset_parameters(self):
@@ -134,7 +174,7 @@ class FlowGNNLineVDModule:
         pass
 
     def forward(self, g):
-        h = g.ndata['h']
+        h = g.ndata["h"]
         # list of hidden representation at each layer (including input)
         hidden_rep = [h]
 
@@ -144,7 +184,7 @@ class FlowGNNLineVDModule:
             h = F.relu(h)
             hidden_rep.append(h)
 
-        if self.hparams.label_style == 'node':
+        if self.hparams.label_style == "node":
             # GIN paper page 3:
             # For node classification, the node representation h_v^K
             # of the final iteration is used for prediction.
@@ -153,7 +193,7 @@ class FlowGNNLineVDModule:
                 # if result.shape[0] != g.ndata['node_type'].shape[0]:
                 #     logger.debug(f'{result.shape=} {result=}')
                 #     logger.debug(f"{g.ndata['node_type'].shape=} {g.ndata['node_type']=}")
-                result = torch.cat((result, g.ndata['node_type']), dim=1)
+                result = torch.cat((result, g.ndata["node_type"]), dim=1)
             for fc in self.linears_prediction:
                 result = fc(result)
             result = torch.sigmoid(result).squeeze(dim=-1)
@@ -162,13 +202,13 @@ class FlowGNNLineVDModule:
 
             # perform pooling over all nodes in each graph in every layer
             for i, h in enumerate(hidden_rep):
-                logger.warning('NOT WORKING, UNDER CONSTRUCTION...')
+                logger.warning("NOT WORKING, UNDER CONSTRUCTION...")
                 # logger.debug(f'{h.shape=} {h=}')
                 if self.hparams.node_type_separate:
                     # if h.shape[0] != g.ndata['node_type'].shape[0]:
                     #     logger.debug(f'{h.shape=} {h=}')
                     #     logger.debug(f"{g.ndata['node_type'].shape=} {g.ndata['node_type']=}")
-                    h = torch.cat((h, g.ndata['node_type']), dim=1)
+                    h = torch.cat((h, g.ndata["node_type"]), dim=1)
                     # TODO: we want to pass this through a linear layer so that the one-hot gets picked up.
                 h = self.pool(g, h)
                 fc_out = self.linears_prediction[i](h)
@@ -177,22 +217,26 @@ class FlowGNNLineVDModule:
             result = torch.sigmoid(score_over_layer).squeeze(dim=-1)
 
         return result
-    
+
     """
     base
     """
 
     def configure_optimizers(self):
-        return Adam(self.parameters(), lr=self.hparams.learning_rate, weight_decay=self.hparams.weight_decay)
+        return Adam(
+            self.parameters(),
+            lr=self.hparams.learning_rate,
+            weight_decay=self.hparams.weight_decay,
+        )
 
     def log_ranking_metrics(self, name, all_label, all_out, batch_num_nodes):
         all_graph_metrics = []
         prefix = 0
         for nn in batch_num_nodes:
-            graph_out = all_out[prefix:prefix + nn]
+            graph_out = all_out[prefix : prefix + nn]
             # graph_rank = [i for i, x in sorted(enumerate(graph_out), key=lambda x: x[1], reverse=True)]
             # # print(graph_rank)
-            graph_label = all_label[prefix:prefix + nn]
+            graph_label = all_label[prefix : prefix + nn]
             graph_metrics = rank_metr(graph_out, graph_label)
             all_graph_metrics.append(graph_metrics)
         keys = all_graph_metrics[0].keys()
@@ -202,13 +246,21 @@ class FlowGNNLineVDModule:
                 agg_metrics[k].append(d[k])
         mean_metrics = {k: np.average(v) for k, v in agg_metrics.items()}
         for k in keys:
-            self.logger.experiment.add_scalar(name + '/rank/' + k.replace("@", "_"), mean_metrics[k], self.current_epoch)
+            self.logger.experiment.add_scalar(
+                name + "/rank/" + k.replace("@", "_"),
+                mean_metrics[k],
+                self.current_epoch,
+            )
 
     def do_log(self, name, outputs):
         if any("loss" in o for o in outputs):
             all_loss = [o["loss"].item() for o in outputs]
-            self.logger.experiment.add_scalar(name + '/avg_epoch_loss', np.average(all_loss), self.current_epoch)
-            self.logger.experiment.add_scalar(name + '/total_epoch_loss', sum(all_loss), self.current_epoch)
+            self.logger.experiment.add_scalar(
+                name + "/avg_epoch_loss", np.average(all_loss), self.current_epoch
+            )
+            self.logger.experiment.add_scalar(
+                name + "/total_epoch_loss", sum(all_loss), self.current_epoch
+            )
 
         # collate outputs
         all_out = torch.cat([o["out"] for o in outputs]).float().cpu()
@@ -221,13 +273,19 @@ class FlowGNNLineVDModule:
         prec = precision_score(all_pred, all_label, zero_division=0)
         rec = recall_score(all_pred, all_label, zero_division=0)
         f1 = f1_score(all_pred, all_label, zero_division=0)
-        self.logger.experiment.add_scalar(name + '/class/acc', acc, self.current_epoch)
-        self.logger.experiment.add_scalar(name + '/class/prec', prec, self.current_epoch)
-        self.logger.experiment.add_scalar(name + '/class/rec', rec, self.current_epoch)
-        self.logger.experiment.add_scalar(name + '/class/f1', f1, self.current_epoch)
+        self.logger.experiment.add_scalar(name + "/class/acc", acc, self.current_epoch)
+        self.logger.experiment.add_scalar(
+            name + "/class/prec", prec, self.current_epoch
+        )
+        self.logger.experiment.add_scalar(name + "/class/rec", rec, self.current_epoch)
+        self.logger.experiment.add_scalar(name + "/class/f1", f1, self.current_epoch)
 
-        self.logger.experiment.add_scalar(name + '/meta/proportion_label', np.average(all_label), self.current_epoch)
-        self.logger.experiment.add_scalar(name + '/meta/proportion_pred', np.average(all_pred), self.current_epoch)
+        self.logger.experiment.add_scalar(
+            name + "/meta/proportion_label", np.average(all_label), self.current_epoch
+        )
+        self.logger.experiment.add_scalar(
+            name + "/meta/proportion_pred", np.average(all_pred), self.current_epoch
+        )
         # self.logger.experiment.add_image(
         #     name + '/meta/predictions',
         #     np.expand_dims(np.stack((all_pred, all_label)), axis=0),
@@ -236,17 +294,19 @@ class FlowGNNLineVDModule:
 
         if any("loss_dim" in o for o in outputs):
             loss_percent = sum(o["loss_dim"] for o in outputs) / len(all_pred)
-            self.logger.experiment.add_scalar(name + '/percent_sampled', loss_percent, self.current_epoch)
+            self.logger.experiment.add_scalar(
+                name + "/percent_sampled", loss_percent, self.current_epoch
+            )
 
         # ranking metrics
         self.log_ranking_metrics(name, all_label, all_out, batch_num_nodes)
 
     def get_label(self, batch):
-        if self.hparams.label_style == 'node':
-            label = batch.ndata['node_label']
-        elif self.hparams.label_style == 'graph':
+        if self.hparams.label_style == "node":
+            label = batch.ndata["node_label"]
+        elif self.hparams.label_style == "graph":
             graphs = dgl.unbatch(batch, batch.batch_num_nodes())
-            label = torch.stack([g.ndata['graph_label'][0] for g in graphs])
+            label = torch.stack([g.ndata["graph_label"][0] for g in graphs])
         else:
             raise NotImplementedError(self.hparams.label_style)
         return label.float()
@@ -254,13 +314,19 @@ class FlowGNNLineVDModule:
     def training_step(self, batch, batch_idx):
         label = self.get_label(batch)
         out = self.forward(batch)
-        self.logger.experiment.add_scalar('train/meta/original_label_proportion', torch.mean(label))
-        self.logger.experiment.add_scalar('train/meta/original_label_len', label.shape[0])
+        self.logger.experiment.add_scalar(
+            "train/meta/original_label_proportion", torch.mean(label)
+        )
+        self.logger.experiment.add_scalar(
+            "train/meta/original_label_len", label.shape[0]
+        )
         # out_for_loss = out
-        if self.hparams.label_style == 'node':
+        if self.hparams.label_style == "node":
             if self.hparams.undersample_factor is not None:
                 vuln_indices = label.nonzero().squeeze().tolist()
-                num_indices_to_sample = round(len(vuln_indices) * self.hparams.undersample_factor)
+                num_indices_to_sample = round(
+                    len(vuln_indices) * self.hparams.undersample_factor
+                )
                 nonvuln_indices = (label == 0).nonzero().squeeze().tolist()
                 nonvuln_indices = random.sample(nonvuln_indices, num_indices_to_sample)
                 # unif = -label_for_loss + 1
@@ -269,11 +335,16 @@ class FlowGNNLineVDModule:
                 indices = vuln_indices + nonvuln_indices
                 out = out[indices]
                 label = label[indices]
-        self.logger.experiment.add_scalar('train/meta/undersampled_label_proportion', torch.mean(label))
-        self.logger.experiment.add_scalar('train/meta/undersampled_label_len', label.shape[0])
+        self.logger.experiment.add_scalar(
+            "train/meta/undersampled_label_proportion", torch.mean(label)
+        )
+        self.logger.experiment.add_scalar(
+            "train/meta/undersampled_label_len", label.shape[0]
+        )
         loss = self.loss_fn(out, label)
         return {
-            "loss": loss, "loss_dim": len(out),
+            "loss": loss,
+            "loss_dim": len(out),
             "out": out.detach(),
             "batch_num_nodes": batch.batch_num_nodes().detach(),
             "label": label,
@@ -284,14 +355,24 @@ class FlowGNNLineVDModule:
         # logger.info(f'val label {label.sum().item()}')
         out = self.forward(batch)
         pred = torch.gt(out, 0.5)
-        self.log('valid/f1', torch.tensor(f1_score(pred.int().cpu(), label.int().cpu(), zero_division=0)), logger=False,
-                 batch_size=batch.batch_size)
-        self.log('valid/acc', torch.tensor(accuracy_score(pred.int().cpu(), label.int().cpu())), logger=False,
-                 batch_size=batch.batch_size)
+        self.log(
+            "valid/f1",
+            torch.tensor(
+                f1_score(pred.int().cpu(), label.int().cpu(), zero_division=0)
+            ),
+            logger=False,
+            batch_size=batch.batch_size,
+        )
+        self.log(
+            "valid/acc",
+            torch.tensor(accuracy_score(pred.int().cpu(), label.int().cpu())),
+            logger=False,
+            batch_size=batch.batch_size,
+        )
         return {
             "out": out.detach(),
             "batch_num_nodes": batch.batch_num_nodes().detach(),
-            "label": label
+            "label": label,
         }
 
     def test_step(self, batch, batch_idx):
@@ -300,44 +381,46 @@ class FlowGNNLineVDModule:
         return {
             "out": out.detach(),
             "batch_num_nodes": batch.batch_num_nodes().detach(),
-            "label": label
+            "label": label,
         }
 
     def training_epoch_end(self, outputs):
-        self.do_log('train', outputs)
+        self.do_log("train", outputs)
 
     def validation_epoch_end(self, outputs):
         if self.hparams.roc_every is not None and (
-                self.current_epoch == 0 or
-                (self.current_epoch != 1 and ((self.current_epoch - 1) % self.hparams.roc_every == 0))
+            self.current_epoch == 0
+            or (
+                self.current_epoch != 1
+                and ((self.current_epoch - 1) % self.hparams.roc_every == 0)
+            )
         ):
             all_label = torch.cat([o["label"] for o in outputs]).cpu().numpy()
             all_out = torch.cat([o["out"] for o in outputs]).cpu().numpy()
             fpr, tpr, thresholds = roc_curve(all_label, all_out)
-            logger.info(f'ROC curve thresholds {thresholds}')
+            logger.info(f"ROC curve thresholds {thresholds}")
             plt.close()
-            plt.plot(fpr, tpr, marker='.', label='ROC')
-            plt.plot([0, 1], [0, 1], linestyle='--', label='Baseline')
+            plt.plot(fpr, tpr, marker=".", label="ROC")
+            plt.plot([0, 1], [0, 1], linestyle="--", label="Baseline")
             plt.xlim(0.0, 1.0)
             plt.ylim(0.0, 1.0)
-            plt.xlabel('FPR')
-            plt.ylabel('TPR')
+            plt.xlabel("FPR")
+            plt.ylabel("TPR")
             plt.legend()
-            plt.title(f'ROC curve epoch {self.current_epoch}')
-            filename = f'img_{self.current_epoch}.png'
-            logger.info(f'Log ROC curve to {filename}')
+            plt.title(f"ROC curve epoch {self.current_epoch}")
+            filename = f"img_{self.current_epoch}.png"
+            logger.info(f"Log ROC curve to {filename}")
             plt.savefig(filename)
             plt.show()
 
-        self.do_log('valid', outputs)
+        self.do_log("valid", outputs)
 
     def test_epoch_end(self, outputs):
-        self.do_log('test', outputs)
+        self.do_log("test", outputs)
 
     """
     linevd
     """
-    
 
     def forward(self, g, test=False, e_weights=[], feat_override=""):
         """Forward pass.

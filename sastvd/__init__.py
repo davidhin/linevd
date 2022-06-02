@@ -17,6 +17,7 @@ from tqdm import tqdm
 def print_memory_mb():
     try:
         import psutil
+
         return psutil.Process().memory_info().rss / (1024 * 1024)
     except ImportError as e:
         print("Error getting memory profile: {ex}".format(ex=e))
@@ -119,7 +120,9 @@ def gitmessage():
     return "_".join(m.lower().split())
 
 
-def subprocess_cmd(command: str, verbose: int = 0, force_shell: bool = False, check_diff: bool = False):
+def subprocess_cmd(
+    command: str, verbose: int = 0, force_shell: bool = False, check_diff: bool = False
+):
     """Run command line process.
 
     Example:
@@ -131,14 +134,20 @@ def subprocess_cmd(command: str, verbose: int = 0, force_shell: bool = False, ch
     if singularity != "true" and not force_shell:
         command = f"singularity exec {project_dir() / 'main.sif'} " + command
     process = subprocess.Popen(
-        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True,
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        shell=True,
     )
     output = process.communicate()
     if verbose > 1:
         debug(output[0].decode())
         debug(output[1].decode())
     if check_diff:
-        assert process.returncode in (1, 0), f"git exited with code {process.returncode}"
+        assert process.returncode in (
+            1,
+            0,
+        ), f"git exited with code {process.returncode}"
     return output
 
 
@@ -180,11 +189,15 @@ def get_run_id(args=None):
 
 def hashstr(s):
     """Hash a string."""
-    return int(hashlib.sha1(s.encode("utf-8")).hexdigest(), 16) % (10 ** 8)
+    return int(hashlib.sha1(s.encode("utf-8")).hexdigest(), 16) % (10**8)
 
 
 DFMP_WORKERS = 6
-def dfmp(df, function, columns=None, ordr=True, workers=DFMP_WORKERS, cs=10, desc="Run: "):
+
+
+def dfmp(
+    df, function, columns=None, ordr=True, workers=DFMP_WORKERS, cs=10, desc="Run: "
+):
     """Parallel apply function on dataframe.
 
     Example:

@@ -43,7 +43,6 @@ all_assignment_types = (
     "<operator>.postIncrement",
     "<operator>.postDecrement",
     "<operator>.assignment",
-    
     "<operator>.assignmentOr",
     "<operator>.assignmentAnd",
     "<operator>.assignmentXor",
@@ -51,6 +50,7 @@ all_assignment_types = (
     "<operator>.assignmentLogicalShiftRight",
     "<operator>.assignmentShiftLeft",
 )
+
 
 def is_decl(n_attr):
     # NOTE: this is local variable declarationsm
@@ -60,6 +60,7 @@ def is_decl(n_attr):
 
     # https://github.com/joernio/joern/blob/15e241d3174ecba9e977a399793c9c6a1249d819/semanticcpg/src/main/scala/io/shiftleft/semanticcpg/language/operatorextension/package.scala
     return n_attr["_label"] == "CALL" and n_attr["name"] in all_assignment_types
+
 
 def get_dataflow_features(graph_id, raise_all=False, verbose=False):
     try:
@@ -74,7 +75,7 @@ def get_dataflow_features(graph_id, raise_all=False, verbose=False):
             v_attr = cpg.nodes[v]
             if verbose:
                 print("recursing", v, v_attr)
-            
+
             name_idx = {
                 "<operator>.indirectIndexAccess": 1,
                 "<operator>.indirectFieldAccess": 1,
@@ -93,9 +94,7 @@ def get_dataflow_features(graph_id, raise_all=False, verbose=False):
             elif v_attr["_label"] == "CALL":
                 if v_attr["name"] in name_idx.keys():
                     # TODO: Get field data type, not struct data type
-                    args = {
-                        cpg.nodes[s]["order"]: s for s in arg_graph.successors(v)
-                    }
+                    args = {cpg.nodes[s]["order"]: s for s in arg_graph.successors(v)}
                     arg = args[name_idx[v_attr["name"]]]
                     arg_attr = cpg.nodes[arg]
                     if verbose:
@@ -122,16 +121,16 @@ def get_dataflow_features(graph_id, raise_all=False, verbose=False):
 
             if decl_attr["_label"] == "LOCAL":
                 return decl, decl_attr["typeFullName"]
-            elif decl_attr["_label"] == "CALL" and decl_attr["name"] in all_assignment_types + ("<operator>.cast",):
-                args = {
-                    cpg.nodes[s]["order"]: s for s in arg_graph.successors(decl)
-                }
+            elif decl_attr["_label"] == "CALL" and decl_attr[
+                "name"
+            ] in all_assignment_types + ("<operator>.cast",):
+                args = {cpg.nodes[s]["order"]: s for s in arg_graph.successors(decl)}
                 return recurse_datatype(args[1])
             else:
                 raise NotImplementedError(
                     f"""get_raw_datatype did not handle {decl} {decl_attr}"""
                 )
-        
+
         def grab_declfeats(node_id):
             fields = []
             try:
@@ -144,12 +143,20 @@ def get_dataflow_features(graph_id, raise_all=False, verbose=False):
                 # this avoids an issue where some variable definitions descend to
                 # method definitions (probably by mistake), shown in graph 3.
                 my_ast = ast.copy()
-                my_ast.remove_nodes_from([n for n, attr in ast.nodes(data=True) if attr["_label"] == "METHOD"])
+                my_ast.remove_nodes_from(
+                    [
+                        n
+                        for n, attr in ast.nodes(data=True)
+                        if attr["_label"] == "METHOD"
+                    ]
+                )
 
                 to_search = nx.descendants(my_ast, node_id)
                 for n in to_search:
                     if verbose:
-                        print(f"{node_id} desc {n} {code.get(n, None)} {names.get(n, None)} {nx.shortest_path(ast, node_id, n)}")
+                        print(
+                            f"{node_id} desc {n} {code.get(n, None)} {names.get(n, None)} {nx.shortest_path(ast, node_id, n)}"
+                        )
                     if labels[n] == "LITERAL":
                         fields.append(("literal", n, code.get(n, pd.NA)))
                     if labels[n] == "CALL":
@@ -166,17 +173,25 @@ def get_dataflow_features(graph_id, raise_all=False, verbose=False):
                     raise
             return fields
 
-        nx.set_node_attributes(ast, {n: f"{n}: {attr['code']}" for n, attr in ast.nodes(data=True)}, "label")
+        nx.set_node_attributes(
+            ast,
+            {n: f"{n}: {attr['code']}" for n, attr in ast.nodes(data=True)},
+            "label",
+        )
         A = nx.drawing.nx_agraph.to_agraph(ast)
-        A.layout('dot')
-        A.draw('abcd.png')
+        A.layout("dot")
+        A.draw("abcd.png")
 
         n = n.rename(columns={"id": "node_id"})
         n["graph_id"] = graph_id
-        decls = n[n["node_id"].isin(n for n, attr in cpg.nodes(data=True) if is_decl(attr))].copy()
+        decls = n[
+            n["node_id"].isin(n for n, attr in cpg.nodes(data=True) if is_decl(attr))
+        ].copy()
         decls["fields"] = decls["node_id"].apply(grab_declfeats)
         decls = decls.explode("fields")
-        decls["subkey"], decls["subkey_node_id"], decls["subkey_text"] = zip(*decls["fields"])
+        decls["subkey"], decls["subkey_node_id"], decls["subkey_text"] = zip(
+            *decls["fields"]
+        )
         return decls
     except Exception:
         print("graph error", graph_id, traceback.format_exc())
@@ -186,7 +201,9 @@ def get_dataflow_features(graph_id, raise_all=False, verbose=False):
 
 # Get all abstract dataflow info
 def get_dataflow_features_df():
-    csv_file = svd.cache_dir() / f"bigvul/abstract_dataflow{'_sample' if sample else ''}.csv"
+    csv_file = (
+        svd.cache_dir() / f"bigvul/abstract_dataflow{'_sample' if sample else ''}.csv"
+    )
     if csv_file.exists() and args.cache:
         dataflow_df = pd.read_csv(csv_file)
     else:
@@ -194,36 +211,55 @@ def get_dataflow_features_df():
         all_df = svdds.bigvul(sample=args.sample)
         with Pool(args.workers) as pool:
             for decls_df in tqdm.tqdm(
-                pool.imap(functools.partial(get_dataflow_features, raise_all=args.sample, verbose=args.verbose), all_df.id),
+                pool.imap(
+                    functools.partial(
+                        get_dataflow_features,
+                        raise_all=args.sample,
+                        verbose=args.verbose,
+                    ),
+                    all_df.id,
+                ),
                 total=len(all_df),
                 desc="get abstract dataflow features",
             ):
                 dataflow_df = pd.concat([dataflow_df, decls_df], ignore_index=True)
-                
-        dataflow_df = dataflow_df[["graph_id", "node_id", "subkey", "subkey_node_id", "subkey_text"]]
+
+        dataflow_df = dataflow_df[
+            ["graph_id", "node_id", "subkey", "subkey_node_id", "subkey_text"]
+        ]
 
         dataflow_df.to_csv(csv_file)
-    
+
     dataflow_df.to_csv("abstract_dataflow_fixed.csv")
 
     return dataflow_df
 
+
 def cleanup_datatype(df):
     """Assign datatype to cleaned-up version"""
-    df.loc[df["subkey"] == "datatype", "subkey_text"] = dataflow_df["subkey_text"].apply(
-        lambda dt: dt if pd.isna(dt) else re.sub(r"\s+", r" ", re.sub(r"^const ", r"", re.sub(r"\s*\[.*\]", r"[]", dt))).strip()
+    df.loc[df["subkey"] == "datatype", "subkey_text"] = dataflow_df[
+        "subkey_text"
+    ].apply(
+        lambda dt: dt
+        if pd.isna(dt)
+        else re.sub(
+            r"\s+", r" ", re.sub(r"^const ", r"", re.sub(r"\s*\[.*\]", r"[]", dt))
+        ).strip()
     )
 
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Abstract dataflow')
-    parser.add_argument('--sample', action='store_true', help='Extract sample only')
-    parser.add_argument('--verbose', action='store_true', help='Verbose output')
-    parser.add_argument('--cache', action='store_true')
-    parser.add_argument('--no-cache', dest='cache', action='store_false')
+    parser = argparse.ArgumentParser(description="Abstract dataflow")
+    parser.add_argument("--sample", action="store_true", help="Extract sample only")
+    parser.add_argument("--verbose", action="store_true", help="Verbose output")
+    parser.add_argument("--cache", action="store_true")
+    parser.add_argument("--no-cache", dest="cache", action="store_false")
     parser.set_defaults(cache=True)
-    parser.add_argument('--workers', type=int, default=6, help='How many workers to use')
+    parser.add_argument(
+        "--workers", type=int, default=6, help="How many workers to use"
+    )
     args = parser.parse_args()
-    
+
     dataflow_df = get_dataflow_features_df()
     print("dataflow_df", dataflow_df)
     print("dataflow_df counts", dataflow_df.value_counts("subkey"))
@@ -336,7 +372,7 @@ if __name__ == "__main__":
     # print(df)
     # df["is_decl"] = df.apply(is_decl, axis=1)
     # df = df[df["is_decl"]]
-    
+
     # how_many_select = 10
     # select = {
     #     "datatype": df["datatype"].value_counts().nlargest(how_many_select).index.tolist(),
@@ -426,6 +462,7 @@ Output from first run:
 
 # %% Generate hash value for each node
 
+
 def to_hash(row, select):
     items = []
     for key in select:
@@ -434,20 +471,37 @@ def to_hash(row, select):
     # TODO: pad digits?
 
     # combine
-    return " ".join(map(str,items))
-    
+    return " ".join(map(str, items))
+
+
 if __name__ == "__main__":
     missing = []
     all_df = None
     split_df = svddc.BigVulDataset(partition="train", **dataargs).df
     split_df = pd.merge(split_df, dataflow_df, left_on="id", right_on="graph_id")
-    portions = [10, 50, 100, 250, 500, 750, 1000, 1500, 2000, len(split_df[select_key].drop_duplicates())]
-    for portion in tqdm.tqdm(portions, desc="measuring train coverage for various portions..."):
+    portions = [
+        10,
+        50,
+        100,
+        250,
+        500,
+        750,
+        1000,
+        1500,
+        2000,
+        len(split_df[select_key].drop_duplicates()),
+    ]
+    for portion in tqdm.tqdm(
+        portions, desc="measuring train coverage for various portions..."
+    ):
         select = {
             select_key: datatype_vc.nlargest(portion).index.sort_values().tolist(),
         }
         split_na = split_df.apply(functools.partial(to_hash, select=select), axis=1)
-        missing.append((len(split_df) - split_na.replace("<NA>", pd.NA).isna().sum()) / len(split_df))
+        missing.append(
+            (len(split_df) - split_na.replace("<NA>", pd.NA).isna().sum())
+            / len(split_df)
+        )
     portions[-1] = f"{portions[-1]} (all values)"
     sns.barplot(x=portions, y=missing)
     # sns.scatterplot(portions, missing)
@@ -469,10 +523,20 @@ if __name__ == "__main__":
     for split in ("train", "val", "test"):
         split_df = svddc.BigVulDataset(partition=split, **dataargs).df
         split_df = pd.merge(split_df, dataflow_df, left_on="id", right_on="graph_id")
-        split_df["hash"] = split_df.apply(to_hash, axis=1, select=select).replace("<NA>", pd.NA)
-        split_df = split_df[["graph_id", "node_id", "hash"]].sort_values(by=["graph_id", "node_id"]).reset_index(drop=True)
+        split_df["hash"] = split_df.apply(to_hash, axis=1, select=select).replace(
+            "<NA>", pd.NA
+        )
+        split_df = (
+            split_df[["graph_id", "node_id", "hash"]]
+            .sort_values(by=["graph_id", "node_id"])
+            .reset_index(drop=True)
+        )
         split_df["node_id"] = split_df["node_id"].astype(int)
-        print(split, len(split_df), split_df["hash"].value_counts(dropna=False, normalize=True))
+        print(
+            split,
+            len(split_df),
+            split_df["hash"].value_counts(dropna=False, normalize=True),
+        )
         # split_df.to_csv(f"abstract_dataflow_hash_all.csv")
         if all_df is None:
             all_df = split_df
@@ -491,6 +555,7 @@ if __name__ == "__main__":
 
 # %% generate frequency graphs
 
+
 def generate_frequency_graphs():
     test = svddc.BigVulDataset(partition="test", **dataargs)
     test_df = test.df
@@ -500,7 +565,9 @@ def generate_frequency_graphs():
     for i, portion in enumerate(range(10, 101, 10)):
         portion = portion / 100
         number = int(len(datatype_vc) * portion)
-        print("ITERATION", i, "portion", portion, "number", number, "/", len(datatype_vc))
+        print(
+            "ITERATION", i, "portion", portion, "number", number, "/", len(datatype_vc)
+        )
         select = {
             select_key: datatype_vc.nlargest(number).index.sort_values().tolist(),
         }
@@ -508,7 +575,9 @@ def generate_frequency_graphs():
             print(k, len(select[k]), "items selected")
             print("headdd", list(select[k])[:10])
         # print(test_df)
-        test_df["hash"] = test_df.apply(to_hash, select=select, axis=1).replace("<NA>", pd.NA)
+        test_df["hash"] = test_df.apply(to_hash, select=select, axis=1).replace(
+            "<NA>", pd.NA
+        )
         print(test_df["hash"])
         # breakpoint()
         test_df["has_hash"] = ~test_df["hash"].isna()
@@ -519,8 +588,14 @@ def generate_frequency_graphs():
         # print(hhvc_true)
     print(hhvc_true)
     # sns.barplot(x=hhvc_true.keys(), y=hhvc_true.values())
-    plt.bar([str(int(k * 100)) + "% (" + str(int(len(datatype_vc) * k)) + ")" for k in hhvc_true.keys()], hhvc_true.values())
-    plt.axhline(y=len(test_df), color='r', linestyle='-')
+    plt.bar(
+        [
+            str(int(k * 100)) + "% (" + str(int(len(datatype_vc) * k)) + ")"
+            for k in hhvc_true.keys()
+        ],
+        hhvc_true.values(),
+    )
+    plt.axhline(y=len(test_df), color="r", linestyle="-")
     plt.xlabel("portion of hashes from training dataset")
     plt.ylabel("number of hashed test examples")
     plt.xticks(rotation=45)
@@ -528,11 +603,14 @@ def generate_frequency_graphs():
     plt.tight_layout()
     plt.savefig("has_hash_test_portions.png")
     plt.close()
-# %% 
+
+
+# %%
 
 if __name__ == "__main__":
     generate_frequency_graphs()
     exit()
+
 
 def generate_dataset_old():
     # hashes = sorted(df["hash"].unique().tolist())
@@ -551,7 +629,7 @@ def generate_dataset_old():
         print("extract", i, split_df["has_hash"].value_counts())
 
         # mask = split_df["hash"] == "-1"
-        # tail_prob = (mask).sum() / 
+        # tail_prob = (mask).sum() /
         # print(f"tail prob {i}: {tail_prob}")
         # prob = split_df["hash"].value_counts(normalize=True)
         # prob['<UNKNOWN>'] = tail_prob
@@ -560,7 +638,7 @@ def generate_dataset_old():
         # # percentages_map = prob.to_dict()
         # # split_df["has_hash_percent"] = split_df["hash"].map(percentages_map)
         # # print(split_df["has_hash_percent"])
-        
+
         # # split_df["hash_index"] = split_df["hash"].apply(lambda h: hashes.index(h) if h in hashes else -1)
         # # split_df.hist(column="hash_index")
         # plt.xticks(rotation=25)

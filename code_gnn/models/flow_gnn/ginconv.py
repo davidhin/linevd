@@ -1,5 +1,6 @@
 """Torch Module for Graph Isomorphism Network layer"""
 import dgl.function as fn
+
 # pylint: disable= no-member, arguments-differ, invalid-name
 import torch as th
 from dgl.utils import expand_as_pair
@@ -70,31 +71,27 @@ class MyGINConv(nn.Module):
             0.5266, -0.4465]], grad_fn=<AddmmBackward>)
     """
 
-    def __init__(self,
-                 apply_func,
-                 aggregator_type,
-                 init_eps=0,
-                 learn_eps=False):
+    def __init__(self, apply_func, aggregator_type, init_eps=0, learn_eps=False):
         super(MyGINConv, self).__init__()
         self.apply_func = apply_func
         self._aggregator_type = aggregator_type
-        if aggregator_type == 'sum':
+        if aggregator_type == "sum":
             self._reducer = fn.sum
-        elif aggregator_type == 'max':
+        elif aggregator_type == "max":
             self._reducer = fn.max
-        elif aggregator_type == 'mean':
+        elif aggregator_type == "mean":
             self._reducer = fn.mean
-        elif aggregator_type == 'bitwise_union_simple':
-            self._reducer = dgl_union_factory('simple')
-        elif aggregator_type == 'bitwise_union_relu':
-            self._reducer = dgl_union_factory('relu')
+        elif aggregator_type == "bitwise_union_simple":
+            self._reducer = dgl_union_factory("simple")
+        elif aggregator_type == "bitwise_union_relu":
+            self._reducer = dgl_union_factory("relu")
         else:
-            raise KeyError('Aggregator type {} not recognized.'.format(aggregator_type))
+            raise KeyError("Aggregator type {} not recognized.".format(aggregator_type))
         # to specify whether eps is trainable or not.
         if learn_eps:
             self.eps = th.nn.Parameter(th.FloatTensor([init_eps]))
         else:
-            self.register_buffer('eps', th.FloatTensor([init_eps]))
+            self.register_buffer("eps", th.FloatTensor([init_eps]))
 
     def forward(self, graph, feat, edge_weight=None):
         r"""
@@ -127,16 +124,16 @@ class MyGINConv(nn.Module):
             as input dimensionality.
         """
         with graph.local_scope():
-            aggregate_fn = fn.copy_src('h', 'm')
+            aggregate_fn = fn.copy_src("h", "m")
             if edge_weight is not None:
                 assert edge_weight.shape[0] == graph.number_of_edges()
-                graph.edata['_edge_weight'] = edge_weight
-                aggregate_fn = fn.u_mul_e('h', '_edge_weight', 'm')
+                graph.edata["_edge_weight"] = edge_weight
+                aggregate_fn = fn.u_mul_e("h", "_edge_weight", "m")
 
             feat_src, feat_dst = expand_as_pair(feat, graph)
-            graph.srcdata['h'] = feat_src
-            graph.update_all(aggregate_fn, self._reducer('m', 'neigh'))
-            rst = (1 + self.eps) * feat_dst + graph.dstdata['neigh']
+            graph.srcdata["h"] = feat_src
+            graph.update_all(aggregate_fn, self._reducer("m", "neigh"))
+            rst = (1 + self.eps) * feat_dst + graph.dstdata["neigh"]
             if self.apply_func is not None:
                 rst = self.apply_func(rst)
             return rst

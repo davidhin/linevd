@@ -33,11 +33,14 @@ def bigvul(cache=True, sample=False):
     Read BigVul dataset from CSV
     """
 
-    savefile = svd.get_dir(svd.cache_dir() / "minimal_datasets") / f"minimal_bigvul{'_sample' if sample else ''}.pq"
+    savefile = (
+        svd.get_dir(svd.cache_dir() / "minimal_datasets")
+        / f"minimal_bigvul{'_sample' if sample else ''}.pq"
+    )
     if cache:
         try:
             df = pd.read_parquet(savefile, engine="fastparquet").dropna()
-            
+
             return df
         except FileNotFoundError:
             print(f"file {savefile} not found, loading from source")
@@ -46,42 +49,46 @@ def bigvul(cache=True, sample=False):
             traceback.print_exc()
 
     filename = "MSR_data_cleaned_SAMPLE.csv" if sample else "MSR_data_cleaned.csv"
-    df = pd.read_csv(svd.external_dir() / filename, parse_dates=['Publish Date', 'Update Date'], dtype={
-        'commit_id': str,
-        'del_lines': int,
-        'file_name': str,
-        'lang': str,
-        'lines_after': str,
-        'lines_before': str,
-        'Unnamed: 0': int,
-        'Access Gained': str,
-        'Attack Origin': str,
-        'Authentication Required': str,
-        'Availability': str,
-        'CVE ID': str,
-        'CVE Page': str,
-        'CWE ID': str,
-        'Complexity': str,
-        'Confidentiality': str,
-        'Integrity': str,
-        'Known Exploits': str,
-        'Score': float,
-        'Summary': str,
-        'Vulnerability Classification': str,
-        'add_lines': int,
-        'codeLink': str,
-        'commit_message': str,
-        'files_changed': str,
-        'func_after': str,
-        'func_before': str,
-        'parentID': str,
-        'patch': str,
-        'project': str,
-        'project_after': str,
-        'project_before': str,
-        'vul': int,
-        'vul_func_with_fix': str,
-    })
+    df = pd.read_csv(
+        svd.external_dir() / filename,
+        parse_dates=["Publish Date", "Update Date"],
+        dtype={
+            "commit_id": str,
+            "del_lines": int,
+            "file_name": str,
+            "lang": str,
+            "lines_after": str,
+            "lines_before": str,
+            "Unnamed: 0": int,
+            "Access Gained": str,
+            "Attack Origin": str,
+            "Authentication Required": str,
+            "Availability": str,
+            "CVE ID": str,
+            "CVE Page": str,
+            "CWE ID": str,
+            "Complexity": str,
+            "Confidentiality": str,
+            "Integrity": str,
+            "Known Exploits": str,
+            "Score": float,
+            "Summary": str,
+            "Vulnerability Classification": str,
+            "add_lines": int,
+            "codeLink": str,
+            "commit_message": str,
+            "files_changed": str,
+            "func_after": str,
+            "func_before": str,
+            "parentID": str,
+            "patch": str,
+            "project": str,
+            "project_after": str,
+            "project_before": str,
+            "vul": int,
+            "vul_func_with_fix": str,
+        },
+    )
     df = df.rename(columns={"Unnamed: 0": "id"})
     # df = df.set_index("id")
     df["dataset"] = "bigvul"
@@ -91,7 +98,13 @@ def bigvul(cache=True, sample=False):
     df["func_after"] = svd.dfmp(df, remove_comments, "func_after", cs=500)
 
     # Save codediffs
-    svd.dfmp(df, svdg._c2dhelper, columns=["func_before", "func_after", "id", "dataset"], ordr=False, cs=300)
+    svd.dfmp(
+        df,
+        svdg._c2dhelper,
+        columns=["func_before", "func_after", "id", "dataset"],
+        ordr=False,
+        cs=300,
+    )
 
     # Assign info and save
     df["info"] = svd.dfmp(df, svdg.allfunc, cs=500)
@@ -156,28 +169,30 @@ def bigvul(cache=True, sample=False):
         compression="gzip",
         engine="fastparquet",
     )
-    df[[
-        "id",
-        # "example_id",
-        "commit_id",
-        "vul",
-        "codeLink",
-        "commit_id",
-        "parentID",
-        "CVE ID",
-        "CVE Page",
-        "CWE ID",
-        "Publish Date",
-        "Update Date",
-        "file_name",
-        "files_changed",
-        "lang",
-        "project",
-        "project_after",
-        "project_before",
-        "add_lines",
-        "del_lines",
-    ]].to_csv(svd.cache_dir() / "bigvul/bigvul_metadata.csv", index=0)
+    df[
+        [
+            "id",
+            # "example_id",
+            "commit_id",
+            "vul",
+            "codeLink",
+            "commit_id",
+            "parentID",
+            "CVE ID",
+            "CVE Page",
+            "CWE ID",
+            "Publish Date",
+            "Update Date",
+            "file_name",
+            "files_changed",
+            "lang",
+            "project",
+            "project_after",
+            "project_before",
+            "add_lines",
+            "del_lines",
+        ]
+    ].to_csv(svd.cache_dir() / "bigvul/bigvul_metadata.csv", index=0)
     return df
 
 
@@ -190,7 +205,7 @@ def check_validity(_id):
         nodes = json.load(f)
     """
     import sastvd.helpers.joern as svdj
-    
+
     valid = 0
     try:
         svdj.get_node_edges(itempath(_id))
@@ -221,7 +236,9 @@ def itempath(_id):
     return svd.processed_dir() / f"bigvul/before/{_id}.c"
 
 
-def bigvul_filter(df, check_file=False, check_valid=False, vulonly=False, load_code=False, sample=-1):
+def bigvul_filter(
+    df, check_file=False, check_valid=False, vulonly=False, load_code=False, sample=-1
+):
     """Filter dataset based on various considerations for training"""
 
     # Small sample (for debugging):
@@ -249,8 +266,7 @@ def bigvul_filter(df, check_file=False, check_valid=False, vulonly=False, load_c
             valid_cache_df = pd.read_csv(valid_cache, index_col=0)
         else:
             valid = svd.dfmp(
-                df, check_validity, "id", desc="Validate Samples: ",
-                workers=6
+                df, check_validity, "id", desc="Validate Samples: ", workers=6
             )
             df_id = df.id
             valid_cache_df = pd.DataFrame({"id": df_id, "valid": valid}, index=df.index)
@@ -274,7 +290,11 @@ def bigvul_partition(df, partition="train", undersample=True):
             return "test"
         else:
             return "train"
-    df["label"] = pd.Series(data=list(map(get_label, range(len(df)))), index=np.random.RandomState(seed=0).permutation(df.index))
+
+    df["label"] = pd.Series(
+        data=list(map(get_label, range(len(df)))),
+        index=np.random.RandomState(seed=0).permutation(df.index),
+    )
 
     df = df[df.label == partition]
 
@@ -290,13 +310,13 @@ def bigvul_partition(df, partition="train", undersample=True):
         nonvul = df[df.vul == 0]
         nonvul = nonvul.sample(min(len(nonvul), len(vul) * 20), random_state=0)
         df = pd.concat([vul, nonvul])
-    
+
     return df
 
 
 def abs_dataflow():
     """Load abstract dataflow information"""
-    
+
     abs_df_file = svd.processed_dir() / f"bigvul/abstract_dataflow_hash_all.csv"
     if abs_df_file.exists():
         abs_df = pd.read_csv(abs_df_file)
@@ -311,16 +331,19 @@ def abs_dataflow():
 
 def dataflow_1g():
     """Load 1st generation dataflow information"""
-    
+
     cache_file = svd.processed_dir() / f"bigvul/1g_dataflow_hash_all.csv"
     if cache_file.exists():
-        df = pd.read_csv(cache_file, converters={
-            "graph_id": int,
-            "node_id": int,
-            "func": str,
-            "gen": str,
-            "kill": str,
-        })
+        df = pd.read_csv(
+            cache_file,
+            converters={
+                "graph_id": int,
+                "node_id": int,
+                "func": str,
+                "gen": str,
+                "kill": str,
+            },
+        )
     else:
         print("YOU SHOULD RUN dataflow_1g.py")
     return df

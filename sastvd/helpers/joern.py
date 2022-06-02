@@ -1,6 +1,7 @@
 import json
 import random
 import shutil
+
 # from graphviz import Digraph
 import traceback
 from collections import defaultdict
@@ -91,7 +92,11 @@ def run_joern_gettype(sess, cpgpath: str, datatypes, cache):
                 try:
                     typepath = Path(f"{cpgpath}_types_{datatype}.txt")
                     if not cache or not typepath.exists():
-                        sess.run_script("get_type", params={"rootType": datatype, "outFile": str(typepath)}, import_first=False)
+                        sess.run_script(
+                            "get_type",
+                            params={"rootType": datatype, "outFile": str(typepath)},
+                            import_first=False,
+                        )
                     datatype_to_paths[datatype] = typepath
                 except pexpect.exceptions.EOF:
                     raise
@@ -99,18 +104,20 @@ def run_joern_gettype(sess, cpgpath: str, datatypes, cache):
                     print("error", datatype, traceback.format_exc())
         finally:
             sess.delete()
-        
+
         print("output to", typepath)
+
         def get_subtypes(typepath):
             if typepath is None:
                 return None
             with open(typepath) as f:
                 return list(f.read().splitlines())
+
     except pexpect.exceptions.EOF:
         raise
     except Exception:
         print("error", cpgpath, datatypes, traceback.format_exc())
-        
+
     datatype_to_subtypes = {}
     for k, v in datatype_to_paths.items():
         try:
@@ -126,25 +133,35 @@ def run_joern_dataflow(sess, filepath: str, problem: str, verbose: int):
     """Extract graph using most recent Joern."""
     try:
         sess.import_code(filepath)
-        sess.run_script("get_dataflow_output", params={"filename": filepath, "problem": problem})
+        sess.run_script(
+            "get_dataflow_output", params={"filename": filepath, "problem": problem}
+        )
     finally:
         sess.delete()
 
 
-def run_joern_sess(sess, filepath: str, verbose: int, export_json: bool, export_cpg: bool):
+def run_joern_sess(
+    sess, filepath: str, verbose: int, export_json: bool, export_cpg: bool
+):
     """Extract graph using most recent Joern."""
-    output = sess.run_script("get_func_graph", params={
-        "filename": filepath,
-        "exportJson": export_json,
-        "exportCpg": export_cpg
-    }, import_first=False)
+    output = sess.run_script(
+        "get_func_graph",
+        params={
+            "filename": filepath,
+            "exportJson": export_json,
+            "exportCpg": export_cpg,
+        },
+        import_first=False,
+    )
     if verbose >= 4:
         print(output)
 
 
 def run_joern(filepath: str, verbose: int):
     """Extract graph using most recent Joern."""
-    script_file = (svd.external_dir() / "get_func_graph.scala").resolve().relative_to(Path.cwd())
+    script_file = (
+        (svd.external_dir() / "get_func_graph.scala").resolve().relative_to(Path.cwd())
+    )
     filename = svd.external_dir() / filepath
     params = f"filename={filename}"
     command = f"joern --script {script_file} --params='{params}'"
@@ -175,19 +192,32 @@ def get_node_edges(filepath: str, verbose=0):
 
     with open(str(outfile) + ".nodes.json", "r") as f:
         nodes = json.load(f)
-        keepcols = ["id", "_label", "name", "code", "lineNumber", "columnNumber", "lineNumberEnd", "columnNumberEnd", "controlStructureType", "order", "fullName", "typeFullName"]
+        keepcols = [
+            "id",
+            "_label",
+            "name",
+            "code",
+            "lineNumber",
+            "columnNumber",
+            "lineNumberEnd",
+            "columnNumberEnd",
+            "controlStructureType",
+            "order",
+            "fullName",
+            "typeFullName",
+        ]
         nodes = pd.DataFrame.from_records(nodes, columns=keepcols)
-        #if "controlStructureType" not in nodes.columns:
+        # if "controlStructureType" not in nodes.columns:
         #    nodes["controlStructureType"] = ""
         nodes = nodes.fillna("")
         try:
-            #actual_keepcols = []
-            #for col in keepcols:
+            # actual_keepcols = []
+            # for col in keepcols:
             #    if col in nodes.columns:
             #        actual_keepcols.append(col)
             #    else:
             #        print("warn:", col, "not in columns", nodes.columns)
-            #keepcols = actual_keepcols
+            # keepcols = actual_keepcols
             nodes = nodes[keepcols]
         except Exception as E:
             if verbose > 1:
@@ -250,17 +280,31 @@ def get_node_edges(filepath: str, verbose=0):
             lineNum = linemap[e.innode]
             node_label = f"TYPE_{lineNum}: {typemap[int(e.outnode.split('_')[0])]}"
             nodes = pd.concat(
-                (nodes, pd.DataFrame({"id": e.outnode, "node_label": node_label, "lineNumber": lineNum}, index=[0])),
+                (
+                    nodes,
+                    pd.DataFrame(
+                        {
+                            "id": e.outnode,
+                            "node_label": node_label,
+                            "lineNumber": lineNum,
+                        },
+                        index=[0],
+                    ),
+                ),
                 ignore_index=True,
             )
-            
+
     # moved some stuff from ne_groupnodes to here
-    nodes["nodeId"] = nodes.id  # id column is later overwritten to lineNumer, so saving it here
-    nodes.lineNumber = pd.to_numeric(nodes.lineNumber, errors='coerce').fillna(-1).astype(int)
+    nodes[
+        "nodeId"
+    ] = nodes.id  # id column is later overwritten to lineNumer, so saving it here
+    nodes.lineNumber = (
+        pd.to_numeric(nodes.lineNumber, errors="coerce").fillna(-1).astype(int)
+    )
     nodes = nodes.sort_values(by="code", key=lambda x: x.str.len(), ascending=False)
     nodes = drop_lone_nodes(nodes, edges)
     edges = edges.drop_duplicates(subset=["innode", "outnode", "etype"])
-    
+
     # breakpoint()
     # TODO: test if this is necessary... check in_line and innode to see which one is float
     # if "innode" in edges.columns:

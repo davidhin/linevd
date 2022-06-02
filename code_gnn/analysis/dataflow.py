@@ -9,10 +9,11 @@ import dataclasses
 def get_edge_subgraph(cpg, graph_etype):
     filtered_edges = [
         (u, v, k)
-        for u, v, k, etype in cpg.edges(keys=True, data='type')
+        for u, v, k, etype in cpg.edges(keys=True, data="type")
         if etype == graph_etype
-        ]
+    ]
     return cpg.edge_subgraph(edges=filtered_edges)
+
 
 """
 # Operators from https://github.com/joernio/joern/blob/master/joern-cli/src/main/resources/default.semantics
@@ -82,6 +83,7 @@ mod_ops = assignment_ops + inc_dec_ops
 mod_ops += [op.replace("<operator>", "<operators>") for op in assignment_ops]
 mod_ops += [op.replace("<operator>", "<operators>") for op in inc_dec_ops]
 
+
 @dataclasses.dataclass
 class VariableDefinition:
     v: str
@@ -101,19 +103,25 @@ class VariableDefinition:
 class ReachingDefinitions:
     def __init__(self, cpg):
         self.cpg = cpg
-        self.cfg = get_edge_subgraph(cpg, 'CFG')
-        self.ast = get_edge_subgraph(cpg, 'AST')
-        self.argument = get_edge_subgraph(cpg, 'ARGUMENT')
+        self.cfg = get_edge_subgraph(cpg, "CFG")
+        self.ast = get_edge_subgraph(cpg, "AST")
+        self.argument = get_edge_subgraph(cpg, "ARGUMENT")
 
         # Collect domain in constructor and index into it
         # instead of creating VariableDefinition during analysis
         self.gen_set = {}
         for node, attr in self.cpg.nodes(data=True):
-            if attr['name'] in mod_ops:
-                self.gen_set[node] = {VariableDefinition(self.get_assigned_variable(node), node, self.cpg.nodes[node]["code"])}
+            if attr["name"] in mod_ops:
+                self.gen_set[node] = {
+                    VariableDefinition(
+                        self.get_assigned_variable(node),
+                        node,
+                        self.cpg.nodes[node]["code"],
+                    )
+                }
             else:
                 self.gen_set[node] = set()
-    
+
     @property
     def domain(self):
         return set().union(*self.gen_set.values())
@@ -122,7 +130,10 @@ class ReachingDefinitions:
         """Get the name of the variable assigned in the node, if any"""
         if node in self.ast.nodes:
             if self.cpg.nodes[node]["name"] in mod_ops:
-                children = sorted(self.argument.successors(node), key=lambda n: self.cpg.nodes[n]["order"])
+                children = sorted(
+                    self.argument.successors(node),
+                    key=lambda n: self.cpg.nodes[n]["order"],
+                )
                 if len(children) > 0:
                     return self.ast.nodes[children[0]]["code"]
         return None
@@ -155,17 +166,20 @@ class ReachingDefinitions:
             for p in self.cfg.predecessors(n):
                 in_reachingdefs[n] = in_reachingdefs[n].union(out_reachingdefs[p])
 
-            new_out_reaching_defs = self.gen(n).union((in_reachingdefs[n].difference(self.kill(n, in_reachingdefs[n]))))
+            new_out_reaching_defs = self.gen(n).union(
+                (in_reachingdefs[n].difference(self.kill(n, in_reachingdefs[n])))
+            )
             if new_out_reaching_defs != out_reachingdefs[n]:
                 for s in self.cfg.successors(n):
                     worklist.append(s)
             out_reachingdefs[n] = new_out_reaching_defs
 
         return in_reachingdefs
-    
+
     def __str__(self):
         domain = self.domain
         return f"{len(domain)} defs: {str([d.code for d in domain])}"
+
 
 def print_program(cpg):
     for p in sorted(cpg.nodes(data=True), key=lambda p: p[1].get("id", -1)):
@@ -195,7 +209,7 @@ def get_cpg(_id, return_n_e=False):
     e.outnode = e.outnode.astype(int)
     n = svdj.drop_lone_nodes(n, e)
     e = e.drop_duplicates(subset=["innode", "outnode", "etype"])
-    
+
     # e = svdj.rdg(e, "dataflow")
     n = svdj.drop_lone_nodes(n, e)
 
@@ -207,8 +221,29 @@ def get_cpg(_id, return_n_e=False):
 
     # Extract CFG with code
     cpg = nx.MultiDiGraph()
-    cpg.add_nodes_from(nodes.apply(lambda n: (n.id, {'lineNumber': n.lineNumber if isinstance(n.lineNumber, (int, float)) else None, 'code': n.code, 'name': n["name"], '_label': n._label, 'order': int(n.order) if isinstance(n.order, (int, float)) else None, 'typeFullName': n.typeFullName}), axis=1))
-    cpg.add_edges_from(edges.apply(lambda e: (e.outnode, e.innode, {'type': e.etype}), axis=1))
+    cpg.add_nodes_from(
+        nodes.apply(
+            lambda n: (
+                n.id,
+                {
+                    "lineNumber": n.lineNumber
+                    if isinstance(n.lineNumber, (int, float))
+                    else None,
+                    "code": n.code,
+                    "name": n["name"],
+                    "_label": n._label,
+                    "order": int(n.order)
+                    if isinstance(n.order, (int, float))
+                    else None,
+                    "typeFullName": n.typeFullName,
+                },
+            ),
+            axis=1,
+        )
+    )
+    cpg.add_edges_from(
+        edges.apply(lambda e: (e.outnode, e.innode, {"type": e.etype}), axis=1)
+    )
 
     if return_n_e:
         return cpg, n, e
@@ -227,6 +262,7 @@ def test_weird_assignment_operators():
     print(problem)
     assert len(problem.domain) == 12
 
+
 def test_get_cpg():
     cpg = get_cpg(svddc.svdds.itempath(0))
     print(cpg)
@@ -236,16 +272,16 @@ def test_get_cpg():
     gas = problem.get_assigned_variable(1000107)
     print("should get variable", gas)
     assert gas is not None
-    
+
     gas2 = problem.get_assigned_variable(1000129)
     print("should not get variable", gas2)
     assert gas2 is None
-    
+
     gen = problem.gen(1000107)
     print("should gen", gen)
     assert len(gen) == 1
-    assert list(gen)[0].v == 'schemaFlagsEx'
-    
+    assert list(gen)[0].v == "schemaFlagsEx"
+
     gen = problem.gen(1000129)
     print("should not gen", gen)
     assert len(gen) == 0
@@ -254,7 +290,12 @@ def test_get_cpg():
     print("should kill itself", kill)
     assert len(kill) == 1
 
-    kill2 = problem.kill(1000107, problem.gen(1000107).union({VariableDefinition('schemaFlagsEx', -1, 'schemaFlagsEx = foo()')}))
+    kill2 = problem.kill(
+        1000107,
+        problem.gen(1000107).union(
+            {VariableDefinition("schemaFlagsEx", -1, "schemaFlagsEx = foo()")}
+        ),
+    )
     print("should kill itself and any others", kill2)
     assert len(kill2) == 2
 
@@ -265,7 +306,13 @@ def test_get_cpg():
     # This is only a simple test case which doesn't reassign any variables,
     # so we expect that every node has RD only from the nodes on previous lines.
     # Does not hold for all programs.
-    nodes_and_counts = [(cpg.nodes[n], len(d)) for n, d in rd.items() if cpg.nodes[n]["_label"] != "METHOD_RETURN"]
-    nodes_and_counts_by_lineno = sorted(nodes_and_counts, key=lambda p: p[0]["lineNumber"])
+    nodes_and_counts = [
+        (cpg.nodes[n], len(d))
+        for n, d in rd.items()
+        if cpg.nodes[n]["_label"] != "METHOD_RETURN"
+    ]
+    nodes_and_counts_by_lineno = sorted(
+        nodes_and_counts, key=lambda p: p[0]["lineNumber"]
+    )
     counts = [c for n, c in nodes_and_counts_by_lineno]
     assert counts == sorted(counts)
