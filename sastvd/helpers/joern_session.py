@@ -105,7 +105,7 @@ class JoernSession:
         return self.run_command('switchWorkspace("' + filepath + '")')
 
     def import_code(self, filepath: str):
-        return self.run_command('importCode("' + filepath + '")')
+        return self.run_command('importCode("' + str(filepath) + '")')
 
     def import_cpg(self, filepath: str):
         cpgpath = filepath + ".cpg.bin"
