@@ -33,33 +33,19 @@ def toJson(query: Any): String = query match {
             else {
                 println(s"Exporting CPG to $cpgFile")
                 importCode.c(filename)
-                run.ossdataflow
-                save
-                File(project.path + "/cpg.bin").copyTo(cpgFile)
             }
 
-            val nodeFile = File(filename + ".nodes.json")
-            val edgeFile = File(filename + ".edges.json")
-            if (!nodeFile.exists || !cache) {
-                cpg.graph.V.map(node=>node).toJson |> nodeFile.toString
-                cpg.graph.E.map(node=>List(node.inNode.id, node.outNode.id, node.label, node.propertiesMap.get("VARIABLE"))).toJson |> edgeFile.toString
-            }
-
-            val methods = cpg.method.filter(m => m.filename != "<empty>" && m.name != "<global>").l
-            methods.foreach(m => {
-                val methodDataflowFile = File(s"${filename}.dataflow.${m.name}.json")
-                if (!methodDataflowFile.exists || !cache) {
-                    val problem = ReachingDefProblem.create(m)
-                    val transferFunction = problem.transferFunction.asInstanceOf[ReachingDefTransferFunction]
-                    val numberToNode = problem.flowGraph.asInstanceOf[ReachingDefFlowGraph].numberToNode
-                    val df = HashMap(
-                        "gen" -> transferFunction.gen.map(kv => (kv._1.id.toString, kv._2.toList.sorted.map(numberToNode).map(_.id).filter(transferFunction.gen.keySet.map(_.id).contains))).toSeq.sortBy(_._1).toMap,
-                        "kill" -> transferFunction.kill.map(kv => (kv._1.id.toString, kv._2.toList.sorted.map(numberToNode).map(_.id).filter(transferFunction.gen.keySet.map(_.id).contains))).toSeq.sortBy(_._1).toMap
-                    )
-                    toJson(df) |> methodDataflowFile.toString
-                }
-            })
-            toJson(methods.map(_.name)) |> s"${filename}.dataflow.summary.json"
+            val method2df = cpg.method.filter(m => m.filename != "<empty>" && m.name != "<global>").map(m => {
+                val problem = ReachingDefProblem.create(m);
+                val transferFunction = problem.transferFunction.asInstanceOf[ReachingDefTransferFunction];
+                val numberToNode = problem.flowGraph.asInstanceOf[ReachingDefFlowGraph].numberToNode;
+                val df = HashMap(
+                    "gen" -> transferFunction.gen.map(kv => (kv._1.id.toString, kv._2.toList.sorted.map(numberToNode).map(_.id))).toSeq.sortBy(_._1).toMap,
+                    "kill" -> transferFunction.kill.map(kv => (kv._1.id.toString, kv._2.toList.sorted.map(numberToNode).map(_.id))).toSeq.sortBy(_._1).toMap
+                );
+                (m.name, df)
+            }).toMap
+            toJson(method2df) |> s"${filename}.dataflow.json"
             println("Done exporting dataflow")
         }
         catch {
