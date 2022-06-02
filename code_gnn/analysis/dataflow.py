@@ -1,6 +1,7 @@
 import networkx as nx
 
 import sastvd.helpers.joern as svdj
+import sastvd.helpers.datasets as svdds
 import sastvd.helpers.dclass as svddc
 import dataclasses
 
@@ -171,8 +172,20 @@ def print_program(cpg):
         if "code" in p[1]:
             print(str(p[1]["lineNumber"]) + ": " + p[1]["code"])
 
-def get_cpg(id_itempath):
-    n, e = svdj.get_node_edges(id_itempath)
+
+def sub(cpg, etype):
+    return nx.edge_subgraph(
+        cpg,
+        (
+            (u, v, k)
+            for u, v, k, attr in cpg.edges(keys=True, data=True)
+            if attr["type"] == etype
+        ),
+    )
+
+
+def get_cpg(_id, return_n_e=False):
+    n, e = svdj.get_node_edges(svdds.itempath(_id))
 
     # inline parts of this function to clean up nodes without grouping by lineno
     # n, e = svd.ne_groupnodes(n, e)
@@ -197,7 +210,10 @@ def get_cpg(id_itempath):
     cpg.add_nodes_from(nodes.apply(lambda n: (n.id, {'lineNumber': n.lineNumber if isinstance(n.lineNumber, (int, float)) else None, 'code': n.code, 'name': n["name"], '_label': n._label, 'order': int(n.order) if isinstance(n.order, (int, float)) else None, 'typeFullName': n.typeFullName}), axis=1))
     cpg.add_edges_from(edges.apply(lambda e: (e.outnode, e.innode, {'type': e.etype}), axis=1))
 
-    return cpg
+    if return_n_e:
+        return cpg, n, e
+    else:
+        return cpg
 
 
 def test_weird_assignment_operators():

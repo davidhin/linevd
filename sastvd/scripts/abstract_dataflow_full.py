@@ -1,5 +1,10 @@
-# %%
+"""
+Extract abstract dataflow features from graphs
+"""
+
+import argparse
 import functools
+import itertools
 import sys
 
 sys.path.append("/home/benjis/benjis/weile-lab/linevd")
@@ -15,6 +20,7 @@ import sastvd.helpers.datasets as svdds
 import sastvd.helpers.dclass as svddc
 import sastvd.helpers.joern as svdj
 import sastvd.helpers.joern_session as svdjs
+import sastvd as svd
 import seaborn as sns
 import tqdm
 from matplotlib import pyplot as plt
@@ -23,73 +29,51 @@ import pexpect
 
 sample = False
 
-# %% Extract dataflow features from CPG
+# Extract dataflow features from CPG
+
+all_assignment_types = (
+    "<operator>.assignmentDivision",
+    "<operator>.assignmentExponentiation",
+    "<operator>.assignmentPlus",
+    "<operator>.assignmentMinus",
+    "<operator>.assignmentModulo",
+    "<operator>.assignmentMultiplication",
+    "<operator>.preIncrement",
+    "<operator>.preDecrement",
+    "<operator>.postIncrement",
+    "<operator>.postDecrement",
+    "<operator>.assignment",
+    
+    "<operator>.assignmentOr",
+    "<operator>.assignmentAnd",
+    "<operator>.assignmentXor",
+    "<operator>.assignmentArithmeticShiftRight",
+    "<operator>.assignmentLogicalShiftRight",
+    "<operator>.assignmentShiftLeft",
+)
 
 def is_decl(n_attr):
-    if n_attr["_label"] in ("LOCAL",):
-        return True
-    elif n_attr["_label"] == "CALL" and n_attr["name"] in (
-        "<operator>.assignment",
-        "<operator>.postIncrement",
-    ):
-        return True
-    else:
-        return False
+    # NOTE: this is local variable declarationsm
+    # which are not considered definitions in formal DFA setting.
+    # if n_attr["_label"] in ("LOCAL",):
+    #     return True
 
-def get_dataflow_features(_id):
+    # https://github.com/joernio/joern/blob/15e241d3174ecba9e977a399793c9c6a1249d819/semanticcpg/src/main/scala/io/shiftleft/semanticcpg/language/operatorextension/package.scala
+    return n_attr["_label"] == "CALL" and n_attr["name"] in all_assignment_types
+
+def get_dataflow_features(graph_id, raise_all=False, verbose=False):
     try:
-        itempath = svdds.itempath(_id)
-        # print(_id, itempath)
-        cpg = dataflow.get_cpg(itempath)
-        # print(cpg)
+        cpg, n, e = dataflow.get_cpg(graph_id, return_n_e=True)
+        ast = dataflow.sub(cpg, "AST")
+        arg_graph = dataflow.sub(cpg, "ARGUMENT")
+        labels = nx.get_node_attributes(cpg, "_label")
+        code = nx.get_node_attributes(cpg, "code")
+        names = nx.get_node_attributes(cpg, "name")
 
-        """
-        Get features from definitions
-        - Data type: most common k in training dataset
-            - Pointer or not
-        - Variable name: exclude
-        - API call: stdlib (from master list) or OTHER
-            - [IBM Docs](https://www.ibm.com/docs/en/i/7.1?topic=extensions-standard-c-library-functions-table-by-name)
-            - [The ANSI C Standard Library](https://www.csse.uwa.edu.au/programming/ansic-library.html)
-        - Constant: most common k in training dataset
-        - Operator: fixed set
-        """
-
-        ast = nx.edge_subgraph(
-            cpg,
-            (
-                (u, v, k)
-                for u, v, k, attr in cpg.edges(keys=True, data=True)
-                if attr["type"] == "AST"
-            ),
-        )
-        arg_graph = nx.edge_subgraph(
-            cpg,
-            (
-                (u, v, k)
-                for u, v, k, attr in cpg.edges(keys=True, data=True)
-                if attr["type"] == "ARGUMENT"
-            ),
-        )
-
-        def get_subkey(n_attr):
-            if n_attr["_label"] == "LITERAL":
-                assert n_attr["code"]
-                return "literal", n_attr["code"]
-            elif n_attr["_label"] == "CALL":
-                # handle operator
-                m = re.match(r"<operator>\.(.*)", n_attr["name"])
-                if m:
-                    return "operator", m.group(1)
-                # handle API call
-                else:
-                    # TODO: May have to use methodFullName
-                    return "api", n_attr["name"]
-
-        def recurse_datatype(v, verbose=False):
-            var_attr = cpg.nodes[v]
+        def recurse_datatype(v):
+            v_attr = cpg.nodes[v]
             if verbose:
-                print("recursing", v, var_attr)
+                print("recursing", v, v_attr)
             
             name_idx = {
                 "<operator>.indirectIndexAccess": 1,
@@ -102,377 +86,149 @@ def get_dataflow_features(_id):
                 "<operator>.preDecrement": 1,
                 "<operator>.addressOf": 1,
                 "<operator>.cast": 2,
+                "<operator>.addition": 1,
             }
-            # blacklist = ["PS", "bgp_attr_extra_get", "STACK_OF"]
-            if var_attr["_label"] == "IDENTIFIER":
-                return var_attr["typeFullName"]
-            elif var_attr["_label"] == "CALL":
-                if var_attr["name"] in name_idx.keys():
+            if v_attr["_label"] == "IDENTIFIER":
+                return v, v_attr["typeFullName"]
+            elif v_attr["_label"] == "CALL":
+                if v_attr["name"] in name_idx.keys():
                     # TODO: Get field data type, not struct data type
-                    index_args = {
+                    args = {
                         cpg.nodes[s]["order"]: s for s in arg_graph.successors(v)
                     }
-                    index = index_args[name_idx[var_attr["name"]]]
-                    index_attr = cpg.nodes[index]
+                    arg = args[name_idx[v_attr["name"]]]
+                    arg_attr = cpg.nodes[arg]
                     if verbose:
-                        print("index", index, index_attr)
-                    if index_attr["_label"] == "IDENTIFIER":
-                        return index_attr["typeFullName"]
-                    elif index_attr["_label"] == "CALL":
-                        return recurse_datatype(index, verbose)
+                        print("index", arg, arg_attr)
+                        if v_attr["name"] == "<operator>.addition":
+                            print("addition debug", v, v_attr, arg, arg_attr)
+                    if arg_attr["_label"] == "IDENTIFIER":
+                        return arg, arg_attr["typeFullName"]
+                    elif arg_attr["_label"] == "CALL":
+                        return recurse_datatype(arg)
                     else:
                         raise NotImplementedError(
-                            f"recurse_datatype index could not handle {v} {var_attr} -> {index} {index_attr}"
+                            f"recurse_datatype index could not handle {v} {v_attr} -> {arg} {arg_attr}"
                         )
-                # elif var_attr["name"] in blacklist:
-                else:
-                    print(f"""{_id} blacklisted {var_attr["name"]} {v} {var_attr}""")
-                    return "N/A"
             raise NotImplementedError(
-                f"recurse_datatype var could not handle {v} {var_attr}"
+                f"recurse_datatype var could not handle {v} {v_attr}"
             )
 
         def get_raw_datatype(decl):
             decl_attr = cpg.nodes[decl]
 
-            # NOTE: debug
-            verbose = decl in [
-                # gid 401
-                # 1000129,
-
-                # gid 1273
-                # 1000336,
-                # 1000259,
-                # 1000213,
-            ]
-
             if verbose:
                 print("parent", decl, decl_attr)
+
             if decl_attr["_label"] == "LOCAL":
-                return decl_attr["typeFullName"]
-            elif decl_attr["_label"] == "CALL":
-                if decl_attr["name"] in (
-                    "<operator>.assignment",
-                    "<operator>.postIncrement",
-                    "<operator>.cast",
-                ):
-                    args = {
-                        cpg.nodes[s]["order"]: s for s in arg_graph.successors(decl)
-                    }
-                    return recurse_datatype(args[1], verbose)
+                return decl, decl_attr["typeFullName"]
+            elif decl_attr["_label"] == "CALL" and decl_attr["name"] in all_assignment_types + ("<operator>.cast",):
+                args = {
+                    cpg.nodes[s]["order"]: s for s in arg_graph.successors(decl)
+                }
+                return recurse_datatype(args[1])
             else:
                 raise NotImplementedError(
                     f"""get_raw_datatype did not handle {decl} {decl_attr}"""
                 )
-
-        def get_datatype(n_attr):
-            dt = get_raw_datatype(n_attr)
-            # print("raw datatype:", dt)
-            # if dt == "":
-            #     pass  # decompose into component data types
-            return dt
-
-        features = {}
-        decls = [n for n, attr in cpg.nodes(data=True) if is_decl(attr)]
-        for decl in decls:
-            subkeys = [("node_id", decl)]
+        
+        def grab_declfeats(node_id):
+            fields = []
             try:
-                datatype = get_datatype(decl)
-                # print(decl, "output datatype:", datatype)
-                if datatype is not None:
-                    subkeys.append(("datatype", datatype))
+                ret = get_raw_datatype(node_id)
+                if ret is not None:
+                    child_id, child_datatype = ret
+                    fields.append(("datatype", child_id, child_datatype))
 
-                ast_children = nx.descendants(ast, decl)
-                for n, attr in cpg.nodes(data=True):
-                    if n in ast_children:
-                        subkey = get_subkey(attr)
-                        if subkey is not None:
-                            subkeys.append(subkey)
+                # create a copy of the AST with method definitions excluded.
+                # this avoids an issue where some variable definitions descend to
+                # method definitions (probably by mistake), shown in graph 3.
+                my_ast = ast.copy()
+                my_ast.remove_nodes_from([n for n, attr in ast.nodes(data=True) if attr["_label"] == "METHOD"])
+
+                to_search = nx.descendants(my_ast, node_id)
+                for n in to_search:
+                    if verbose:
+                        print(f"{node_id} desc {n} {code.get(n, None)} {names.get(n, None)} {nx.shortest_path(ast, node_id, n)}")
+                    if labels[n] == "LITERAL":
+                        fields.append(("literal", n, code.get(n, pd.NA)))
+                    if labels[n] == "CALL":
+                        if m := re.match(r"<operator>\.(.*)", names[n]):
+                            operator_name = m.group(1)
+                            if operator_name not in ("indirection",):
+                                fields.append(("operator", n, operator_name))
+                        # handle API call
+                        else:
+                            fields.append(("api", n, names[n]))
             except Exception:
-                print("node error", decl, traceback.format_exc())
-            subkeys = dict(subkeys)
-            features[decl] = subkeys
+                print("node error", node_id, traceback.format_exc())
+                if raise_all:
+                    raise
+            return fields
 
-        feats_df = pd.DataFrame(list(features.values()))
-        # feats_df["node_id"] = feats_df["node_id"].astype(int)
-        feats_df["graph_id"] = _id
-        return feats_df
+        nx.set_node_attributes(ast, {n: f"{n}: {attr['code']}" for n, attr in ast.nodes(data=True)}, "label")
+        A = nx.drawing.nx_agraph.to_agraph(ast)
+        A.layout('dot')
+        A.draw('abcd.png')
+
+        n = n.rename(columns={"id": "node_id"})
+        n["graph_id"] = graph_id
+        decls = n[n["node_id"].isin(n for n, attr in cpg.nodes(data=True) if is_decl(attr))].copy()
+        decls["fields"] = decls["node_id"].apply(grab_declfeats)
+        decls = decls.explode("fields")
+        decls["subkey"], decls["subkey_node_id"], decls["subkey_text"] = zip(*decls["fields"])
+        return decls
     except Exception:
-        print("graph error", _id, traceback.format_exc())
-
-"""
-Getting types from full project
-1. Load example source code (function)
-2. Locate full project - assume already downloaded
-3. Parse full project with Joern
-4. For function in code:
-  a. Locate function in CPG
-  b. Locate all definitions
-  c. Locate all types in definition
-  d. Recursively gather all field types
+        print("graph error", graph_id, traceback.format_exc())
+        if raise_all:
+            raise
 
 
-## get_type.sc gets the leaf types of a type you give it.
-Potential issues left:
-- [x] Types may not be selected correctly if they are typedef'd to an anonymous type.
-- For types which are aliased to an anonymous type, we select the anonymous type
-    based on the index of anonymous types in the same file, sorted by index.
-    This might not be correct.
-- Function pointer types are represented as external TypeDecls in Joern, but should be decomposed to their parameter/return types.
-
-## DEFINE problem
-
-Without providing the correct DEFINEs to Joern, they will not be included in the CPG. For example:
-
-#if HAVE_PCRE || HAVE_BUNDLED_PCRE
-/// ...code...
-typedef struct {
-    pcre *re;
-    pcre_extra *extra;
-    int preg_options;
-#if HAVE_SETLOCALE
-    char *locale;
-    unsigned const char *tables;
-#endif
-    int compile_options;
-    int refcount;
-} pcre_cache_entry; // <--- not included in CPG
-/// ...code...
-
-This can be fixed by providing DEFINEs:
-
-joern/joern-cli/c2cpg.sh php-src/ext/pcre/php_pcre.h \
-    --output php_pcre_HAVE_PCRE_1.h.cpg.bin.zip \
-    --define HAVE_PCRE=1
-
-But we don't want to have to give these. For now, just parse the whole project without DEFINEs
-and get the type decls that we can.
-"""
-
-def test_get_dataflow_features():
-    # NOTE: this code is needed to get the commit ID/URL from the metadata
-    row = df.iloc[0]
-    my_id = row.id
-    print("id:", my_id)
-    print("row:", row)
-
-    """
-Here is what the types look like in nodes.json:
-    {
-        "name": "zval *",
-        "fullName": "zval *",
-        "typeDeclFullName": "zval *",
-        "id": 115,
-        "_label": "TYPE"
-    },
-    {
-        "name": "zval * *",
-        "fullName": "zval * *",
-        "typeDeclFullName": "zval * *",
-        "id": 116,
-        "_label": "TYPE"
-    },
-
-In order to load the member types of struct types, we have to load the entire project.
-Try with example ID 177737.
-Attributes:
-    sastvd/scripts/abstract_dataflow.py id: 177737
-    row: idx                                                                               0
-    dataset                                                                      bigvul
-    id                                                                           177737
-    label                                                                         train
-    vul_x                                                                             1
-    Access Gained_x                                                                None
-    Attack Origin_x                                                              Remote
-    Authentication Required_x                                              Not required
-    Availability_x                                                              Partial
-    CVE ID_x                                                              CVE-2015-8382
-    CVE Page_x                            https://www.cvedetails.com/cve/CVE-2015-8382/
-    CWE ID_x                                                                    CWE-119
-    Complexity_x                                                                    Low
-    Confidentiality_x                                                           Partial
-    Integrity_x                                                                    None
-    Known Exploits_x                                                                NaN
-    Publish Date_x                                                           2015-12-01
-    Score_x                                                                         6.4
-    Summary_x                         The match function in pcre_exec.c in PCRE befo...
-    Update Date_x                                                            2016-12-27
-    Vulnerability Classification_x                                   DoS Overflow +Info
-    project_x                                                                       php
-    Access Gained_y                                                                None
-    Attack Origin_y                                                              Remote
-    Authentication Required_y                                              Not required
-    Availability_y                                                              Partial
-    CVE ID_y                                                              CVE-2015-8382
-    CVE Page_y                            https://www.cvedetails.com/cve/CVE-2015-8382/
-    CWE ID_y                                                                    CWE-119
-    Complexity_y                                                                    Low
-    Confidentiality_y                                                           Partial
-    Integrity_y                                                                    None
-    Known Exploits_y                                                                NaN
-    Publish Date_y                                                           2015-12-01
-    Score_y                                                                         6.4
-    Summary_y                         The match function in pcre_exec.c in PCRE befo...
-    Update Date_y                                                            2016-12-27
-    Vulnerability Classification_y                                   DoS Overflow +Info
-    add_lines                                                                         1
-    codeLink                          https://git.php.net/?p=php-src.git;a=commit;h=...
-    commit_id                                  c351b47ce85a3a147cfa801fa9f0149ab4160834
-    commit_message                                                                  NaN
-    del_lines                                                                         0
-    file_name                                                                       NaN
-    files_changed                                                                   NaN
-    func_after                        PHPAPI void php_pcre_match_impl(pcre_cache_ent...
-    func_before                       PHPAPI void php_pcre_match_impl(pcre_cache_ent...
-    lang                                                                              C
-    lines_after                              memset(offsets, 0, size_offsets*sizeof(...
-    lines_before                                                                    NaN
-    parentID                                   1a2ec3fc60e428c47fd59c9dd7966c71ca44024d
-    patch                             @@ -640,7 +640,7 @@ PHPAPI void php_pcre_match...
-    project_y                                                                       php
-    project_after                     https://git.php.net/?p=php-src.git;a=blob;f=ex...
-    project_before                    https://git.php.net/?p=php-src.git;a=blob;f=ex...
-    vul_y                                                                             1
-    vul_func_with_fix                 PHPAPI void php_pcre_match_impl(pcre_cache_ent...
-    Name: 0, dtype: object
-
-Try to run this:
-    importCode("php-src", "php-src_c351b47ce85a3a147cfa801fa9f0149ab4160834")
-First run ran out of memory.
-
-After load, try to query all types in project.
-q: How to link types in project to types in code fragment? Node ids are not connected.
-a: Just match by strings. Type names should be unique.
-  If there are major problems with this, then also maybe match the function name
-  of the code fragment and back-match the type name.
-
-q: How to know if a variable type is a struct in the first place? We would have to parse
-  all the code in all the projects to get all type definitions.
-a: guess we don't know
-    """
-
-    feat = get_dataflow_features(my_id)
-    print(feat)
-
-# %% Get all abstract dataflow info
+# Get all abstract dataflow info
 def get_dataflow_features_df():
-    sample = False
-    csv_file = Path(f"abstract_dataflow{'_sample' if sample else ''}.csv")
-    if not csv_file.exists():
+    csv_file = svd.cache_dir() / f"bigvul/abstract_dataflow{'_sample' if sample else ''}.csv"
+    if csv_file.exists() and args.cache:
+        dataflow_df = pd.read_csv(csv_file)
+    else:
         dataflow_df = pd.DataFrame()
-        all_df = svdds.bigvul()
-        if sample:
-            all_df = all_df.head(25)  # sample portion
-        with Pool(16) as pool:
-            for feats_df in tqdm.tqdm(
-                pool.imap(get_dataflow_features, all_df.id),
+        all_df = svdds.bigvul(sample=args.sample)
+        with Pool(args.workers) as pool:
+            for decls_df in tqdm.tqdm(
+                pool.imap(functools.partial(get_dataflow_features, raise_all=args.sample, verbose=args.verbose), all_df.id),
                 total=len(all_df),
                 desc="get abstract dataflow features",
             ):
-                dataflow_df = pd.concat([dataflow_df, feats_df], ignore_index=True)
+                dataflow_df = pd.concat([dataflow_df, decls_df], ignore_index=True)
+                
+        dataflow_df = dataflow_df[["graph_id", "node_id", "subkey", "subkey_node_id", "subkey_text"]]
+
         dataflow_df.to_csv(csv_file)
-
-    else:
-        dataflow_df = pd.read_csv(csv_file)
     
-    dataflow_df["node_id"] = dataflow_df["node_id"].astype(int)
-    dataflow_df = dataflow_df[["graph_id", "node_id", "datatype", "operator", "api", "literal"]]
-
-    dataflow_df["datatype"] = dataflow_df["datatype"].apply(
-        lambda dt: dt if pd.isna(dt) else re.sub(r"\s+", r" ", re.sub(r"^const ", r"", re.sub(r"\s*\[.*\]", r"[]", dt))).strip()
-        )
     dataflow_df.to_csv("abstract_dataflow_fixed.csv")
-
-    print(dataflow_df)
-    print(dataflow_df.value_counts("datatype"))
-    print(dataflow_df.value_counts("literal"))
-    print(dataflow_df.value_counts("api"))
-    print(dataflow_df.value_counts("operator"))
 
     return dataflow_df
 
-from sastvd.scripts.get_repos import extract_repo
-
-checkout_dir = Path("repos/checkout")
-def expand_struct_datatypes(df):
-    save_file = Path("bigvul_metadata_with_commit_id_slim_with_subtypes.csv")
-    if save_file.exists():
-        df = pd.read_csv(save_file)
-        df["datatype_subtypes"] = df["datatype_subtypes"].apply(lambda st: json.loads(st))
-    else:
-        md_df = pd.read_csv("bigvul_metadata_with_commit_id_slim.csv")
-        print("original", md_df)
-        md_df["repo"] = md_df["codeLink"].apply(extract_repo)
-        print("repo", md_df)
-        md_df["cpgpath"] = md_df.apply(lambda row: checkout_dir/(row["repo"].replace("://", "__").replace("/", "__") + "__" + row["commit_id"] + ".cpg.bin"), axis=1)
-        md_df = md_df[md_df["cpgpath"].apply(lambda p: p is not None and p.exists())]
-        print("filter", md_df)
-        df = pd.merge(df, md_df, left_on="graph_id", right_on="id")
-        print("merge", df)
-        df = df.drop_duplicates(subset=["repo", "commit_id", "datatype"]).sort_values("cpgpath")
-        print("dedup", df)
-
-        df = (
-            df[["node_id","graph_id","project_x","codeLink","repo","commit_id","cpgpath","datatype","operator","api","literal"]]
-            .rename(columns={"project_x": "project"})
-            )
-
-        # df = df.head(50)  # NOTE: debug
-        df["datatype_subtypes"] = pd.NA
-
-        df["datatype"] = df["datatype"].apply(lambda dt: dt if pd.isna(dt) else re.sub(r"^const ", r"", re.sub(r"\s+\[.*\]", r"", dt)))
-        
-        sess = svdjs.JoernSession("datatype", logfile=open("output_datatype_test.txt", "wb"))
-        sess.import_script("get_type")
-        try:
-            for cpgpath, group in tqdm.tqdm(df.groupby("cpgpath"), desc="load types"):
-                if not sess.proc.isalive():
-                    raise Exception("process is no longer alive")
-                try:
-                    dts = group["datatype"].dropna().unique()
-                    # breakpoint()
-                    dt_to_subtypes = svdj.run_joern_gettype(sess, str(cpgpath), dts)
-                    print("cpg", cpgpath, "extracted subtypes for", len(dt_to_subtypes), "/", len(group), "datatypes")
-                    for i, row in group.iterrows():
-                        dt = row["datatype"]
-                        if dt in dt_to_subtypes:
-                            subtypes = dt_to_subtypes[dt]
-                            print("id", i, "-", dt, "=", subtypes)
-                            if len(subtypes) > 0:
-                                df.at[i, "datatype_subtypes"] = subtypes
-                        else:
-                            print("id", i, "-", dt, "has no subtypes")
-                except pexpect.exceptions.EOF:
-                    sess.close()
-                    sess = svdjs.JoernSession("datatype", logfile=open("output_datatype_test.txt", "ab"))
-                    sess.import_script("get_type")
-        finally:
-            sess.close()
-        
-        df = df.dropna(subset=["datatype_subtypes"])
-        df["datatype_subtypes_str"] = df["datatype_subtypes"].apply(lambda st: ", ".join(sorted(st)))
-        tdf = df.copy()
-        tdf["datatype_subtypes"] = tdf["datatype_subtypes"].apply(lambda st: json.dumps(st))
-        tdf.to_csv(save_file)
-    return df
-
-def get_expanded_df():
-    dataflow_df = get_dataflow_features_df()
-    print("dataflow_df", len(dataflow_df))
-    expanded_dataflow_df = expand_struct_datatypes(dataflow_df)
-    print("expanded_dataflow_df", len(expanded_dataflow_df))
-    merge_df = pd.merge(dataflow_df, expanded_dataflow_df[["node_id", "datatype", "datatype_subtypes_str"]], how="left", on=("node_id", "datatype"))
-    print("merge_df", len(dataflow_df))
-    # breakpoint()
-    print(merge_df["datatype"])
-    merge_df["datatype"] = merge_df.apply(lambda row: row["datatype_subtypes_str"] if not pd.isna(row["datatype_subtypes_str"]) else row["datatype"], axis=1)
-    print(merge_df["datatype"])
-    return merge_df
+def cleanup_datatype(df):
+    """Assign datatype to cleaned-up version"""
+    df.loc[df["subkey"] == "datatype", "subkey_text"] = dataflow_df["subkey_text"].apply(
+        lambda dt: dt if pd.isna(dt) else re.sub(r"\s+", r" ", re.sub(r"^const ", r"", re.sub(r"\s*\[.*\]", r"[]", dt))).strip()
+    )
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Abstract dataflow')
+    parser.add_argument('--sample', action='store_true', help='Extract sample only')
+    parser.add_argument('--verbose', action='store_true', help='Verbose output')
+    parser.add_argument('--cache', action='store_true')
+    parser.add_argument('--no-cache', dest='cache', action='store_false')
+    parser.set_defaults(cache=True)
+    parser.add_argument('--workers', type=int, default=6, help='How many workers to use')
+    args = parser.parse_args()
+    
     dataflow_df = get_dataflow_features_df()
-    # dataflow_df = get_expanded_df()
     print("dataflow_df", dataflow_df)
+    print("dataflow_df counts", dataflow_df.value_counts("subkey"))
+    print("dataflow_df na", dataflow_df[dataflow_df["subkey_text"].isna()])
+    exit()
 
 # def extract_nan_values():
 #     dataflow_df = get_dataflow_features_df()
