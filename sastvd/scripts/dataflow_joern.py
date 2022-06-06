@@ -22,11 +22,12 @@ def get_dataflow_for_graph_split(worker_id, filepaths):
     try:
         sess.import_script("get_dataflow_output")
         for fp in tqdm.tqdm(filepaths, desc="export dataflow"):
-            sess.run_script(
-                "get_dataflow_output",
-                params={"filename": fp, "cache": False},
-                import_first=False,
-            )
+            if not Path(str(fp) + ".dataflow.json").exists():
+                sess.run_script(
+                    "get_dataflow_output",
+                    params={"filename": fp, "cache": False},
+                    import_first=False,
+                )
     finally:
         sess.close()
 
@@ -43,6 +44,10 @@ if __name__ == "__main__":
     df = svdds.bigvul(sample=args.sample)
     print("original size", len(df))
 
+    split_len = len(df) // args.n_splits
+    df = df[args.worker_id * split_len : (args.worker_id + 1) * split_len].copy()
+    print(f"split", args.worker_id, len(df))
+
     filepaths = df["id"].apply(
         lambda _id: list(
             filter(
@@ -56,10 +61,7 @@ if __name__ == "__main__":
     )
     filepaths = filepaths.explode()
     filepaths = filepaths[filepaths.apply(lambda fp: fp.exists())]
-    print("filter to", len(filepaths))
-
-    split_len = len(df) // args.n_splits
-    df = df[args.worker_id * split_len : (args.worker_id + 1) * split_len].copy()
-    print(f"split", args.worker_id, filepaths)
+    print("filter to existing files", len(filepaths))
+    print(filepaths)
 
     get_dataflow_for_graph_split(args.worker_id, filepaths)

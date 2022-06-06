@@ -28,7 +28,7 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
         dataargs = {
             "sample": sample,
             "gtype": gtype,
-            "splits": splits,
+            # "splits": splits,
             "feat": feat,
             "load_code": load_code,
             "cache_all": cache_all,
@@ -38,6 +38,7 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
         self.train = BigVulDatasetLineVD(partition="train", **dataargs)
         self.val = BigVulDatasetLineVD(partition="val", **dataargs)
         self.test = BigVulDatasetLineVD(partition="test", **dataargs)
+        print("SPLIT SIZES:", len(self.train),len(self.val),len(self.test))
         self.batch_size = batch_size
         self.nsampling = nsampling
         self.nsampling_hops = nsampling_hops

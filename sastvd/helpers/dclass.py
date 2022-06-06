@@ -29,11 +29,11 @@ class BigVulDataset:
         undersample=True,
         feat="all",
         filter_cwe=None,
+        sample_mode=False,
     ):
         """Init class."""
         # Get finished samples
         self.partition = partition
-        sample_mode = partition == "sample"
 
         df = svdds.bigvul(sample=sample_mode)
         if sample != -1:
@@ -151,7 +151,7 @@ class BigVulDataset:
         return f"BigVulDataset(partition={self.partition}, samples={len(self)}, vulnperc={vulnperc})"
 
 
-def test_ds():
+def test_1g():
     BigVulDataset(feat="_1G_DATAFLOW")
 
 

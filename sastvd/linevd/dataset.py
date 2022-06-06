@@ -1,3 +1,4 @@
+import json
 import os
 from glob import glob
 
@@ -65,6 +66,11 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
                     for i in ["_CODEBERT", "_GLOVE", "_RANDFEAT"]:
                         g.ndata.pop(i, None)
             # print("load from file")
+            if True:
+                if g.ndata["_1G_DATAFLOW"].size(1) != self.df_1g_max_idx * 2:
+                    savedir.unlink()
+                    return self.item(_id, codebert=codebert, must_load=True)
+
             return g
         code, lineno, ei, eo, et, nids, ntypes, iddict = feature_extraction(
             svddc.svdds.itempath(_id),
@@ -88,7 +94,9 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
 
             def get_dataflow_1g_features(_id):
                 dgl_feat = th.zeros((g.number_of_nodes(), self.df_1g_max_idx * 2))
-
+                # dfg = self.df_1g.groupby("node_id")
+                # dgl_feat = th.zeros((g.number_of_nodes(), dfg["gen"].count() + dfg["kill"].count()))
+                
                 nids_to_1g_df = self.df_1g.groupby("graph_id").get_group(_id)
                 node_id_dgl = nids_to_1g_df["node_id"].map(iddict)
                 # all_nids = [i for i in node_id_dgl.dropna().astype(int).tolist() if i in iddict.values()]
@@ -97,17 +105,19 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
                 )
                 nids_gen = dict(zip(node_id_dgl, nids_to_1g_df["gen"]))
                 nids_kill = dict(zip(node_id_dgl, nids_to_1g_df["kill"]))
-                for nid in range(len(dgl_feat)):
-                    gen_f = nids_gen.get(nid, "")
-                    kill_f = nids_kill.get(nid, "")
-                    for i in [int(s) for s in sorted(gen_f.split(",")) if s.isdigit()]:
-                        if i in iddict and iddict[i] in all_nids:
-                            dgl_feat[nid, all_nids.index(iddict[i])] = 1
-                    for i in [int(s) for s in sorted(kill_f.split(",")) if s.isdigit()]:
-                        if i in iddict and iddict[i] in all_nids:
-                            dgl_feat[
-                                nid, self.df_1g_max_idx + all_nids.index(iddict[i])
-                            ] = 1
+                try:
+                    for nid in range(len(dgl_feat)):
+                        for i in sorted(json.loads(nids_gen.get(nid, "[]"))):
+                            if i in iddict and iddict[i] in all_nids:
+                                dgl_feat[nid, all_nids.index(iddict[i])] = 1
+                        for i in sorted(json.loads(nids_kill.get(nid, "[]"))):
+                            if i in iddict and iddict[i] in all_nids:
+                                dgl_feat[
+                                    nid, self.df_1g_max_idx + all_nids.index(iddict[i])
+                                ] = 1
+                except Exception:
+                    print(_id, nids_gen, nids_kill)
+                    raise
                 return dgl_feat
 
             g.ndata["_1G_DATAFLOW"] = get_dataflow_1g_features(_id)
@@ -178,3 +188,9 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
     def __iter__(self) -> dict:
         for i in self.idx2id:
             yield self[i]
+
+def test_1g():
+    ds = BigVulDatasetLineVD(feat="_1G_DATAFLOW", partition="all", sample_mode=True)
+    print(ds)
+    for i, d in enumerate(ds):
+        print(i, d)

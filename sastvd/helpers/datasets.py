@@ -318,7 +318,7 @@ def bigvul_partition(df, partition="train", undersample=True):
 
 def abs_dataflow(sample=False):
     """Load abstract dataflow information"""
-
+    
     df = bigvul(sample=sample)
     source_df = bigvul_partition(df, "train", undersample=False)
 
@@ -350,7 +350,7 @@ def abs_dataflow(sample=False):
 def dataflow_1g(sample=False):
     """Load 1st generation dataflow information"""
 
-    cache_file = svd.processed_dir() / f"bigvul/1g_dataflow_hash_all{'_sample' if sample else ''}.csv"
+    cache_file = svd.processed_dir() / f"bigvul/1g_dataflow_hash_all_{sample}.csv"
     if cache_file.exists():
         df = pd.read_csv(
             cache_file,
@@ -362,6 +362,9 @@ def dataflow_1g(sample=False):
                 "kill": str,
             },
         )
+        return df
     else:
         print("YOU SHOULD RUN dataflow_1g.py")
-    return df
+
+def test_1g():
+    print(dataflow_1g(sample=True))
