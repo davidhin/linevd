@@ -307,11 +307,13 @@ def bigvul_partition(df, partition="train", undersample=True):
         print("undersampled", len(df))
 
     # Correct ratio for test set
-    if partition == "test" and undersample:
-        vul = df[df.vul == 1]
-        nonvul = df[df.vul == 0]
-        nonvul = nonvul.sample(min(len(nonvul), len(vul) * 20), random_state=0)
-        df = pd.concat([vul, nonvul])
+    # if partition == "test" and undersample:
+    #     vul = df[df.vul == 1]
+    #     nonvul = df[df.vul == 0]
+    #     nonvul = nonvul.sample(min(len(nonvul), len(vul) * 20), random_state=0)
+    #     df = pd.concat([vul, nonvul])
+    #     print("undersampled", len(df))
+
 
     return df
 
