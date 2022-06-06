@@ -12,12 +12,12 @@
 # Setup Python Environment
 echo $SLURM_JOB_ID $SLURM_JOB_NAME $SLURM_JOB_NODELIST
 
+module load singularity gcc/7.3.0-xegsmw4 cuda/10.2.89-jveb27i
+
 feat=$1
 
 echo "caching $feat"
 
-/work/LAS/weile-lab/benjis/envs/linevd/bin/python code_gnn/main.py \
+singularity exec main.sif python code_gnn/main.py \
     --model flow_gnn --dataset MSR --feat $feat \
-    --batch_size 256 \
-    --label_style graph \
-    --evaluation --dataset_only
+    --dataset_only
