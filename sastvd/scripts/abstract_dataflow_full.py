@@ -5,6 +5,7 @@ Extract abstract dataflow features from graphs
 import argparse
 import functools
 import sys
+import json
 
 sys.path.append("/home/benjis/benjis/weile-lab/linevd")
 import re
@@ -19,8 +20,6 @@ import sastvd.helpers.dclass as svddc
 import sastvd as svd
 import tqdm
 from matplotlib import pyplot as plt
-
-sample = False
 
 # Extract dataflow features from CPG
 
@@ -181,10 +180,16 @@ def get_dataflow_features(graph_id, raise_all=False, verbose=False):
             n["node_id"].isin(n for n, attr in cpg.nodes(data=True) if is_decl(attr))
         ].copy()
         decls["fields"] = decls["node_id"].apply(grab_declfeats)
-        decls = decls.explode("fields")
-        decls["subkey"], decls["subkey_node_id"], decls["subkey_text"] = zip(
-            *decls["fields"]
-        )
+        decls = decls.explode("fields").dropna()
+        if verbose: print("extracted fields:", decls["fields"], sep="\n")
+        if len(decls) > 0:
+            decls["subkey"], decls["subkey_node_id"], decls["subkey_text"] = zip(
+                *decls["fields"]
+            )
+        else:
+            decls["subkey"] = None
+            decls["subkey_node_id"] = None
+            decls["subkey_text"] = None
         return decls
     except Exception:
         print("graph error", graph_id, traceback.format_exc())
@@ -195,7 +200,7 @@ def get_dataflow_features(graph_id, raise_all=False, verbose=False):
 # Get all abstract dataflow info
 def get_dataflow_features_df():
     csv_file = (
-        svd.cache_dir() / f"bigvul/abstract_dataflow{'_sample' if sample else ''}.csv"
+        svd.cache_dir() / f"bigvul/abstract_dataflow{'_sample' if args.sample else ''}.csv"
     )
     if csv_file.exists() and args.cache:
         dataflow_df = pd.read_csv(csv_file)
@@ -245,11 +250,11 @@ if __name__ == "__main__":
     parser.add_argument("--verbose", action="store_true", help="Verbose output")
     parser.add_argument("--cache", action="store_true")
     parser.add_argument("--no-cache", dest="cache", action="store_false")
-    parser.add_argument("--further", action="store_true")
     parser.set_defaults(cache=True)
     parser.add_argument(
         "--workers", type=int, default=6, help="How many workers to use"
     )
+    parser.add_argument("--stage", type=int, default=1, help="Which stages to execute")
     args = parser.parse_args()
 
     dataflow_df = get_dataflow_features_df()
@@ -257,7 +262,7 @@ if __name__ == "__main__":
     print("dataflow_df counts", dataflow_df.value_counts("subkey"))
     print("dataflow_df na", dataflow_df[dataflow_df["subkey_text"].isna()])
 
-    if not args.further:
+    if args.stage <= 1:
         exit()
 
 """
@@ -265,50 +270,53 @@ generate hash value for each node
 """
 
 
-def to_hash(group, select, get_index=True):
+def to_hash(group, select_subkeys):
+    # print(group)
     _hash = {
         subkey: sorted(
             [
-                (keys.index(s) if s in keys else -1) if get_index else s
-                for s in group[group["subkey"] == subkey]["subkey_text"].tolist()
+                s for s in group[group["subkey"] == subkey]["subkey_text"].tolist()
             ]
         )
-        for subkey, keys in select.items()
+        for subkey in select_subkeys
     }
-    return _hash
+    return json.dumps(_hash)
 
 
 if __name__ == "__main__":
     # get most common subkeys
     # TODO: don't filter out missing files/graphs
-    source = svddc.BigVulDataset(partition="sample" if args.sample else "train")
-    source_df = source.df
-    print("generate hash from train", source_df, sep="\n")
+    # source = svddc.BigVulDataset(partition="sample" if args.sample else "train", undersample=False)
+    # source_df = source.df
+    # print("generate hash from train", source_df, sep="\n")
 
-    source_df = pd.merge(source_df, dataflow_df, left_on="id", right_on="graph_id")
+    # source_df = pd.merge(source_df, dataflow_df, left_on="id", right_on="graph_id")
     select_key = "datatype"
-    source_vc = source_df[source_df["subkey"] == select_key].value_counts("subkey_text")
-    print("train values", source_vc)
+    # source_vc = source_df[source_df["subkey"] == select_key].value_counts("subkey_text")
+    # print("train values", source_vc)
+
 
     # Export dataset
     # TODO: export more combinations of subkeys
-    select = {
-        select_key: source_vc.index.sort_values().tolist(),
-    }
-    hashes = dataflow_df.groupby("node_id").apply(to_hash, select=select)
-    all_df = dataflow_df[["graph_id", "node_id"]].merge(
-        hashes.to_frame("hash"), on="node_id"
-    )
+    select_subkeys = [select_key]
+    # select = {
+    #     select_key: source_vc.index.sort_values().tolist(),
+    # }
+    hashes = dataflow_df.groupby(["graph_id", "node_id"]).apply(to_hash, select_subkeys=select_subkeys)
+    all_df = dataflow_df.set_index(["graph_id", "node_id"]).join(
+        hashes.to_frame("hash")
+    ).reset_index()
+    print("Got hashes")
+    print(all_df)
     all_df = (
         all_df[["graph_id", "node_id", "hash"]]
         .sort_values(by=["graph_id", "node_id"])
         .reset_index(drop=True)
-    )
-    print(
-        len(all_df),
-        all_df["hash"].value_counts(dropna=False, normalize=True),
-    )
+    )[["graph_id", "node_id", "hash"]].drop_duplicates()
+    print("hash result")
+    print(all_df)
+    print(all_df["hash"].value_counts(dropna=False, normalize=True))
 
     all_df.to_csv(
-        svd.get_dir(svd.processed_dir() / "bigvul") / f"abstract_dataflow_hash_all.csv"
+        svd.get_dir(svd.processed_dir() / "bigvul") / f"abstract_dataflow_hash_all{'_sample' if args.sample else ''}.csv"
     )

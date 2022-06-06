@@ -319,16 +319,32 @@ def bigvul_partition(df, partition="train", undersample=True):
 def abs_dataflow(sample=False):
     """Load abstract dataflow information"""
 
+    df = bigvul(sample=sample)
+    source_df = bigvul_partition(df, "train", undersample=False)
+
     abs_df_file = svd.processed_dir() / f"bigvul/abstract_dataflow_hash_all{'_sample' if sample else ''}.csv"
     if abs_df_file.exists():
         abs_df = pd.read_csv(abs_df_file)
-        abs_df["hash"] = abs_df["hash"].fillna(-1)
-        abs_df_hashes = sorted(abs_df["hash"].unique().tolist())
+        abs_df["hash"] = abs_df["hash"].apply(json.loads).apply(lambda d: d["datatype"][0])
+        # unfiltered
+        hashes = source_df.set_index("id").join(abs_df.set_index("graph_id"))["hash"].dropna()
+        
+        # most frequent
+        hashes = hashes.value_counts().head(1000).index.sort_values()
+
+        # exclude single values
+        # is_multi = hashes.value_counts() > 1
+        # hashes = hashes[hashes.isin(is_multi[is_multi].index)]
+        
+        abs_df_hashes = sorted(hashes.unique().tolist())
+        
         # abs_df_hashes.insert(0, -1)
         abs_df_hashes.insert(0, None)
+        abs_df_hashes = {h: i for i, h in enumerate(abs_df_hashes)}
+        print("trained hashes", len(abs_df_hashes))
+        return abs_df, abs_df_hashes
     else:
         print("YOU SHOULD RUN abstract_dataflow.py")
-    return abs_df, abs_df_hashes
 
 
 def dataflow_1g(sample=False):

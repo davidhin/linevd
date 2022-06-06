@@ -123,7 +123,9 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
                 )
                 for nid in range(len(dgl_feat)):
                     f = nids_to_abs_df["hash"].get(nid, None)
-                    dgl_feat[nid, self.abs_df_hashes.index(f)] = 1
+                    if f not in self.abs_df_hashes:
+                        f = None
+                    dgl_feat[nid, self.abs_df_hashes[f]] = 1
                 return dgl_feat
 
             g.ndata["_ABS_DATAFLOW"] = get_abs_dataflow_features(_id)
