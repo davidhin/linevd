@@ -40,7 +40,7 @@ def train_single_model(config):
         # nsampling_hops=2,
         # gtype="pdg+raw",
         gtype="cfg",
-        splits="default",
+        # splits="default",
         # feat="all",
         feat=config["feat"],
         # load_code=config["dataset_only"],
@@ -53,23 +53,33 @@ def train_single_model(config):
         all_sums = None
         all_sums_no1 = None
         all_portions = None
+        if config["feat"].startswith("_ABS_DATAFLOW"):
+            featname = "_ABS_DATAFLOW"
+        else:
+            featname = config["feat"]
         for ds in (data.train, data.val, data.test):
             print(ds.partition, "examine")
             sums = []
             sums_no1 = []
             portions = []
             for d in tqdm.tqdm(ds, desc=ds.partition):
-                sums.append(d.ndata[config["feat"]].sum())
-                sums_no1.append(d.ndata[config["feat"]][:, 1:].sum())
+                sums.append(d.ndata[featname].sum())
+                sums_no1.append(d.ndata[featname][:, 1:].sum())
                 portions.append(
-                    d.ndata[config["feat"]][:, 1:].sum() / d.number_of_nodes()
+                    d.ndata[featname][:, 1:].sum() / d.number_of_nodes()
                 )
             sums_df = pd.DataFrame(sums)
             sums_no1_df = pd.DataFrame(sums_no1)
             portions_df = pd.DataFrame(portions)
-            print(ds.partition, "sums_df", sums_df.describe())
-            print(ds.partition, "sums_no1_df", sums_no1_df.describe())
-            print(ds.partition, "portions_df", portions_df.describe())
+            #print(ds.partition, "sums_df", sums_df.describe())
+            #print(ds.partition, "sums_no1_df", sums_no1_df.describe())
+            #print(ds.partition, "portions_df", portions_df.describe())
+            print(ds.partition, "sums_df")
+            print(sums_df)
+            print(ds.partition, "sums_no1_df")
+            print(sums_no1_df)
+            print(ds.partition, "portions_df")
+            print(portions_df)
             all_sums = (
                 sums_df
                 if all_sums is None
@@ -85,9 +95,12 @@ def train_single_model(config):
                 if all_portions is None
                 else pd.concat((all_portions, portions_df), ignore_index=True)
             )
-        print("all_sums", all_sums.describe())
-        print("all_sums_no1", all_sums_no1.describe())
-        print("all_portions", all_portions.describe())
+        print("all_sums")
+        print(all_sums)
+        print("all_sums_no1")
+        print(all_sums_no1)
+        print("all_portions")
+        print(all_portions)
         return
 
     trainer = get_trainer(config)

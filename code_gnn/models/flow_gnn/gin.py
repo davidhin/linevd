@@ -22,11 +22,13 @@ logger = logging.getLogger(__name__)
 #     "feature": "h",
 #     "node_type": "node_type",
 # }
+"""
 feature_keys = {
     "feature": "_ABS_DATAFLOW",
     # "feature": "_1G_DATAFLOW",
     "node_type": "node_type",
 }
+"""
 
 
 class ApplyNodeFunc(nn.Module):
@@ -55,6 +57,7 @@ class FlowGNNModule(BaseModule):
         learn_eps,
         graph_pooling_type,
         neighbor_pooling_type,
+        feat,
         **kwargs
     ):
         super().__init__()
@@ -62,6 +65,13 @@ class FlowGNNModule(BaseModule):
         output_dim = 1
         self.num_layers = num_layers
         self.learn_eps = learn_eps
+
+        if "_ABS_DATAFLOW" in feat:
+            feat = "_ABS_DATAFLOW"
+        self.feature_keys = {
+            "feature": feat,
+            "node_type": "node_type",
+        }
 
         # construct neural network layers
 
@@ -171,7 +181,7 @@ class FlowGNNModule(BaseModule):
         pass
 
     def forward(self, g):
-        h = g.ndata[feature_keys["feature"]]
+        h = g.ndata[self.feature_keys["feature"]]
         # list of hidden representation at each layer (including input)
         hidden_rep = [h]
 
@@ -190,7 +200,7 @@ class FlowGNNModule(BaseModule):
                 # if result.shape[0] != g.ndata['node_type'].shape[0]:
                 #     logger.debug(f'{result.shape=} {result=}')
                 #     logger.debug(f"{g.ndata['node_type'].shape=} {g.ndata['node_type']=}")
-                result = torch.cat((result, g.ndata[feature_keys["node_type"]]), dim=1)
+                result = torch.cat((result, g.ndata[self.feature_keys["node_type"]]), dim=1)
             for fc in self.linears_prediction:
                 result = fc(result)
             result = torch.sigmoid(result).squeeze(dim=-1)
@@ -205,7 +215,7 @@ class FlowGNNModule(BaseModule):
                     # if h.shape[0] != g.ndata['node_type'].shape[0]:
                     #     logger.debug(f'{h.shape=} {h=}')
                     #     logger.debug(f"{g.ndata['node_type'].shape=} {g.ndata['node_type']=}")
-                    h = torch.cat((h, g.ndata[feature_keys["node_type"]]), dim=1)
+                    h = torch.cat((h, g.ndata[self.feature_keys["node_type"]]), dim=1)
                     # TODO: we want to pass this through a linear layer so that the one-hot gets picked up.
                 h = self.pool(g, h)
                 fc_out = self.linears_prediction[i](h)

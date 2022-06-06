@@ -297,12 +297,14 @@ def bigvul_partition(df, partition="train", undersample=True):
     )
 
     df = df[df.label == partition]
+    print("partitioned", len(df))
 
     # Balance training set
-    if partition == "train" or partition == "val" and undersample:
+    if (partition == "train" or partition == "val") and undersample:
         vul = df[df.vul == 1]
         nonvul = df[df.vul == 0].sample(len(vul), random_state=0)
         df = pd.concat([vul, nonvul])
+        print("undersampled", len(df))
 
     # Correct ratio for test set
     if partition == "test" and undersample:
