@@ -43,3 +43,4 @@ repos/*
 archives_to_extract*_*
 core.*
 trash
+absdf/*_logs

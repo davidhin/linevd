@@ -255,7 +255,10 @@ if __name__ == "__main__":
         "--workers", type=int, default=6, help="How many workers to use"
     )
     parser.add_argument("--stage", type=int, default=1, help="Which stages to execute")
+    parser.add_argument("--select_subkeys", nargs="+", default=["api", "datatype", "literal", "operator"], help="Which subkeys to export")
     args = parser.parse_args()
+
+    args.select_subkeys = sorted(args.select_subkeys)
 
     dataflow_df = get_dataflow_features_df()
     print("dataflow_df", dataflow_df)
@@ -291,18 +294,18 @@ if __name__ == "__main__":
     # print("generate hash from train", source_df, sep="\n")
 
     # source_df = pd.merge(source_df, dataflow_df, left_on="id", right_on="graph_id")
-    select_key = "datatype"
+    # select_key = "datatype"
     # source_vc = source_df[source_df["subkey"] == select_key].value_counts("subkey_text")
     # print("train values", source_vc)
 
 
     # Export dataset
     # TODO: export more combinations of subkeys
-    select_subkeys = [select_key]
+    # select_subkeys = ["datatype", "operator", "api", "literal"]
     # select = {
     #     select_key: source_vc.index.sort_values().tolist(),
     # }
-    hashes = dataflow_df.groupby(["graph_id", "node_id"]).apply(to_hash, select_subkeys=select_subkeys)
+    hashes = dataflow_df.groupby(["graph_id", "node_id"]).apply(to_hash, select_subkeys=args.select_subkeys)
     all_df = dataflow_df.set_index(["graph_id", "node_id"]).join(
         hashes.to_frame("hash")
     ).reset_index()
@@ -318,5 +321,5 @@ if __name__ == "__main__":
     print(all_df["hash"].value_counts(dropna=False, normalize=True))
 
     all_df.to_csv(
-        svd.get_dir(svd.processed_dir() / "bigvul") / f"abstract_dataflow_hash_all{'_sample' if args.sample else ''}.csv"
+        svd.get_dir(svd.processed_dir() / "bigvul") / f"abstract_dataflow_hash_{'_'.join(args.select_subkeys)}_{'_sample' if args.sample else ''}.csv"
     )
