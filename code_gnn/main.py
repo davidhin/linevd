@@ -1,5 +1,6 @@
 import argparse
 import logging
+from pathlib import Path
 import shutil
 import sys
 from datetime import datetime
@@ -142,27 +143,28 @@ def train_single_model(config):
     if not config["skip_train"]:
         trainer.fit(model, datamodule=data)
     if config["evaluation"]:
-        if config["resume_from_checkpoint"]:
-            logger.info("loading checkpoint %s", config["resume_from_checkpoint"])
-            trainer.test(
-                model=model, datamodule=data, ckpt_path=config["resume_from_checkpoint"]
-            )
-        elif config["take_checkpoint"] == "best":
+        if config["take_checkpoint"] == "best":
             ckpt = trainer.checkpoint_callback.best_model_path
             logger.info("loading checkpoint %s", ckpt)
             trainer.test(model=model, datamodule=data, ckpt_path=ckpt)
-        else:
-            ckpts = list(config["base_dir"].glob("checkpoints/periodical-*.ckpt"))
-            logger.info(
-                "unsorted: %s", str([int(str(fp.name).split("-")[1]) for fp in ckpts])
-            )
-            ckpts = sorted(ckpts, key=lambda fp: int(str(fp.name).split("-")[1]))
-            logger.info(
-                "sorted: %s", str([int(str(fp.name).split("-")[1]) for fp in ckpts])
-            )
-            for ckpt in ckpts:
-                logger.info("loading checkpoint %s", ckpt)
-                trainer.test(model=model, datamodule=data, ckpt_path=ckpt)
+        elif config["resume_from_checkpoint"]:
+            logger.info("loading checkpoint %s", config["resume_from_checkpoint"])
+            if Path(config["resume_from_checkpoint"]).is_file():
+                trainer.test(
+                    model=model, datamodule=data, ckpt_path=config["resume_from_checkpoint"]
+                )
+            if Path(config["resume_from_checkpoint"]).is_dir():
+                ckpts = list(Path(config["resume_from_checkpoint"]).glob("checkpoints/periodical-*.ckpt"))
+                logger.info(
+                    "unsorted: %s", str([int(str(fp.name).split("-")[1]) for fp in ckpts])
+                )
+                ckpts = sorted(ckpts, key=lambda fp: int(str(fp.name).split("-")[1]))
+                logger.info(
+                    "sorted: %s", str([int(str(fp.name).split("-")[1]) for fp in ckpts])
+                )
+                for ckpt in ckpts:
+                    logger.info("loading checkpoint %s", ckpt)
+                    trainer.test(model=model, datamodule=data, ckpt_path=ckpt)
 
 
 def get_trainer(config):

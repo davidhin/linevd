@@ -6,9 +6,9 @@
 #SBATCH --gres=gpu:1
 #SBATCH --partition=gpu
 #SBATCH --exclude=amp-1,amp-2,amp-3,amp-4,singularity,matrix
-#SBATCH --err="hpc/logs/code_gnn_%j.info"
-#SBATCH --output="hpc/logs/code_gnn_%j.info"
-#SBATCH --job-name="code_gnn"
+#SBATCH --err="hpc/logs/code_gnn_eval_%j.info"
+#SBATCH --output="hpc/logs/code_gnn_eval_%j.info"
+#SBATCH --job-name="cgeval"
 #SBATCH --mail-user=benjis@iastate.edu
 #SBATCH --mail-type=FAIL,END
 
@@ -25,6 +25,6 @@ echo "training $feat"
 
 singularity exec --nv main.sif python -u code_gnn/main.py \
     --model flow_gnn --dataset MSR --feat $feat \
-    --clean --batch_size 256 --max_epochs 500 --weight_decay 1e-2 \
-    --label_style graph \
-    --evaluation
+    --batch_size 256 --weight_decay 1e-2 \
+    --label_style graph --cache_all \
+    --evaluation --resume_from_checkpoint $2 --skip_train --log_suffix _eval --take_checkpoint this
