@@ -16,7 +16,7 @@ from sastvd.linevd.utils import feature_extraction
 class BigVulDatasetLineVD(svddc.BigVulDataset):
     """IVDetect version of BigVul."""
 
-    def __init__(self, gtype="cfg", feat="all", cache_all=False, **kwargs):
+    def __init__(self, gtype="cfg", feat="all", cache_all=False, use_cache=True, **kwargs):
         """Init."""
         self.graph_type = gtype
         self.feat = feat
@@ -26,24 +26,25 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
         self.cache_all = cache_all
         self.cache_all_cache = {}
         self.lines = lines
+        self.use_cache = use_cache
 
-    def item(self, _id, codebert=None, must_load=False):
+    def item(self, _id, codebert=None, must_load=False, use_cache=True):
         """Cache item."""
 
-        if self.cache_all and not must_load:
+        if self.cache_all and not must_load and use_cache:
             if _id in self.cache_all_cache:
                 # print("return from cache")
                 return self.cache_all_cache[_id]
             else:
                 # print("load into cache")
-                g = self.item(_id, codebert, must_load=True)
+                g = self.item(_id, codebert, must_load=True, use_cache=use_cache)
                 self.cache_all_cache[_id] = g
                 return g
 
         savedir = svd.get_dir(
             svd.cache_dir() / f"bigvul_linevd_codebert_{self.graph_type}_{self.feat}"
         ) / str(_id)
-        if os.path.exists(savedir):
+        if os.path.exists(savedir) and use_cache:
             try:
                 g = load_graphs(str(savedir))[0][0]
             except Exception:
@@ -213,37 +214,9 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
         save_graphs(str(savedir), [g])
         return g
 
-    def cache_items(self, codebert):
-        """Cache all items."""
-        for i in tqdm(self.df.sample(len(self.df)).id.tolist(), desc="cache_items"):
-            try:
-                self.item(i, codebert)
-            except Exception as E:
-                print("cache_items exception", E)
-
-    def cache_codebert_method_level(self, codebert):
-        """Cache method-level embeddings using Codebert.
-
-        ONLY NEEDS TO BE RUN ONCE.
-        """
-        savedir = svd.get_dir(svd.cache_dir() / "codebert_method_level")
-        done = [int(i.split("/")[-1].split(".")[0]) for i in glob(str(savedir / "*"))]
-        done = set(done)
-        batches = svd.chunks((range(len(self.df))), 128)
-        for idx_batch in tqdm(batches, desc="cache_codebert_method_level"):
-            batch_texts = self.df.iloc[idx_batch[0] : idx_batch[-1] + 1].before.tolist()
-            batch_ids = self.df.iloc[idx_batch[0] : idx_batch[-1] + 1].id.tolist()
-            if set(batch_ids).issubset(done):
-                continue
-            texts = ["</s> " + ct for ct in batch_texts]
-            embedded = codebert.encode(texts).detach().cpu()
-            assert len(batch_texts) == len(batch_ids)
-            for i in range(len(batch_texts)):
-                th.save(embedded[i], savedir / f"{batch_ids[i]}.pt")
-
     def __getitem__(self, idx):
         """Override getitem."""
-        return self.item(self.idx2id[idx])
+        return self.item(self.idx2id[idx], use_cache=self.use_cache)
 
     def __len__(self):
         """Get length of dataset."""

@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -N 1
 #SBATCH -n 2
-#SBATCH --mem 8G
+#SBATCH --mem 16G
 #SBATCH --time=1-00:00:00
 #SBATCH --err="hpc/logs/code_gnn_cache_%j.info"
 #SBATCH --output="hpc/logs/code_gnn_cache_%j.info"
@@ -20,4 +20,4 @@ echo "caching $feat"
 
 singularity exec main.sif python code_gnn/main.py \
     --model flow_gnn --dataset MSR --feat $feat \
-    --dataset_only
+    --dataset_only --disable_cache

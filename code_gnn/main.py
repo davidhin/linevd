@@ -47,12 +47,11 @@ def train_single_model(config):
         cache_all=config["cache_all"],
         undersample=not config["no_undersample_graphs"],
         filter_cwe=config["filter_cwe"],
+        sample_mode=config["sample_mode"],
+        use_cache=not config["disable_cache"],
     )
 
     if config["dataset_only"]:
-        all_sums = None
-        all_sums_no1 = None
-        all_portions = None
         if config["feat"].startswith("_ABS_DATAFLOW"):
             featname = "_ABS_DATAFLOW"
         else:
@@ -60,47 +59,34 @@ def train_single_model(config):
         for ds in (data.train, data.val, data.test):
             print(ds.partition, "examine")
             sums = []
-            sums_no1 = []
-            portions = []
-            for d in tqdm.tqdm(ds, desc=ds.partition):
-                sums.append(d.ndata[featname].sum())
-                sums_no1.append(d.ndata[featname][:, 1:].sum())
-                portions.append(
-                    d.ndata[featname][:, 1:].sum() / d.number_of_nodes()
-                )
-            sums_df = pd.DataFrame(sums)
-            sums_no1_df = pd.DataFrame(sums_no1)
-            portions_df = pd.DataFrame(portions)
-            #print(ds.partition, "sums_df", sums_df.describe())
-            #print(ds.partition, "sums_no1_df", sums_no1_df.describe())
-            #print(ds.partition, "portions_df", portions_df.describe())
-            print(ds.partition, "sums_df")
-            print(sums_df)
-            print(ds.partition, "sums_no1_df")
-            print(sums_no1_df)
-            print(ds.partition, "portions_df")
-            print(portions_df)
-            all_sums = (
-                sums_df
-                if all_sums is None
-                else pd.concat((all_sums, sums_df), ignore_index=True)
-            )
-            all_sums_no1 = (
-                sums_no1_df
-                if all_sums_no1 is None
-                else pd.concat((all_sums_no1, sums_no1_df), ignore_index=True)
-            )
-            all_portions = (
-                portions_df
-                if all_portions is None
-                else pd.concat((all_portions, portions_df), ignore_index=True)
-            )
-        print("all_sums")
-        print(all_sums)
-        print("all_sums_no1")
-        print(all_sums_no1)
-        print("all_portions")
-        print(all_portions)
+            num_known = []
+            num_unknown = []
+            lens = []
+            printed = 0
+            for d in tqdm.tqdm(
+                    ds,
+                    total=len(ds),
+                    desc=ds.partition
+                ):
+                if d is None:
+                    continue
+                if printed < 5:
+                    print(printed, d)
+                    print(d.ndata)
+                    printed += 1
+                feats = d.ndata[featname]
+                sums.append(feats.sum())
+                num_known.append(feats[:, 1:].sum())
+                num_unknown.append(feats[:, 0].sum())
+                lens.append(feats.shape[0])
+
+            num_unknown = np.array(num_unknown)
+            lens = np.array(lens)
+            print(np.average(lens), "average length")
+            print(np.average(sums / lens), "average percentage CFG")
+            print(np.average(num_known / lens), "average percentage known")
+            print(np.average(num_unknown / lens), "average percentage unknown")
+            print(sum(num_unknown > 0), "out of", len(num_unknown), "have any unknown nodes")
         return
 
     trainer = get_trainer(config)
@@ -362,6 +348,12 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--cache_all", action="store_true", help="cache all items in memory"
+    )
+    parser.add_argument(
+        "--disable_cache", action="store_true", help="use cached files for dataset"
+    )
+    parser.add_argument(
+        "--sample_mode", action="store_true", help="load only sample of dataset"
     )
     # logging and reproducibility
     parser.add_argument("--seed", type=int, default=0, help="random seed")
