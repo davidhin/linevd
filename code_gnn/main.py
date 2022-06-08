@@ -414,7 +414,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--filter_cwe", nargs="+", help="CWE to filter examples")
     parser.add_argument(
-        "--target_metric", type=str, default="valid/loss", help="metric to optimize for"
+        "--target_metric", type=str, default="valid_loss", help="metric to optimize for"
     )
     parser.add_argument(
         "--take_checkpoint",
