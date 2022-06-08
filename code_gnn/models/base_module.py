@@ -8,6 +8,7 @@ import torch
 import torchmetrics
 from matplotlib import pyplot as plt
 
+import torch
 from torch.nn import BCELoss
 from torch.optim import Adam
 
@@ -62,7 +63,7 @@ class BaseModule(pl.LightningModule):
         out = self.forward(batch)
         self.log(
             f"train/meta/original_label_proportion",
-            torch.mean(label),
+            torch.mean(label).item(),
             on_step=True,
             on_epoch=False,
             batch_size=batch.batch_size,
@@ -90,7 +91,7 @@ class BaseModule(pl.LightningModule):
                 label = label[indices]
                 self.log(
                     f"train/meta/resampled_label_proportion",
-                    torch.mean(label),
+                    torch.mean(label).item(),
                     on_step=True,
                     on_epoch=False,
                     batch_size=batch.batch_size,
@@ -105,16 +106,18 @@ class BaseModule(pl.LightningModule):
         loss = self.loss_fn(out, label)
         self.log(
             f"train/loss",
-            loss,
+            loss.item(),
             on_step=True,
             on_epoch=True,
             batch_size=batch.batch_size,
         )
         # self.log_class_metrics("train", out, label)
-        self.train_accuracy(out, label.int())
-        self.train_precision(out, label.int())
-        self.train_recall(out, label.int())
-        self.train_f1(out, label.int())
+        out = out.detach().int()
+        label = label.detach().int()
+        self.train_accuracy(out, label)
+        self.train_precision(out, label)
+        self.train_recall(out, label)
+        self.train_f1(out, label)
         self.log(
             f"train/class/accuracy", self.train_accuracy, on_step=True, on_epoch=True
         )
@@ -132,16 +135,18 @@ class BaseModule(pl.LightningModule):
         loss = self.loss_fn(out, label)
         self.log(
             f"valid/loss",
-            loss,
+            loss.item(),
             on_step=True,
             on_epoch=True,
             batch_size=batch.batch_size,
         )
         # self.log_class_metrics("val", out, label)
-        self.val_accuracy(out, label.int())
-        self.val_precision(out, label.int())
-        self.val_recall(out, label.int())
-        self.val_f1(out, label.int())
+        out = out.detach().int()
+        label = label.detach().int()
+        self.val_accuracy(out, label)
+        self.val_precision(out, label)
+        self.val_recall(out, label)
+        self.val_f1(out, label)
         self.log(f"val/class/accuracy", self.val_accuracy, on_step=True, on_epoch=True)
         self.log(
             f"val/class/precision", self.val_precision, on_step=True, on_epoch=True
@@ -154,13 +159,15 @@ class BaseModule(pl.LightningModule):
         out = self.forward(batch)
         loss = self.loss_fn(out, label)
         self.log(
-            f"test/loss", loss, on_step=True, on_epoch=True, batch_size=batch.batch_size
+            f"test/loss", loss.item(), on_step=True, on_epoch=True, batch_size=batch.batch_size
         )
         # self.log_class_metrics("test", out, label)
-        self.test_accuracy(out, label.int())
-        self.test_precision(out, label.int())
-        self.test_recall(out, label.int())
-        self.test_f1(out, label.int())
+        out = out.detach().int()
+        label = label.detach().int()
+        self.test_accuracy(out, label)
+        self.test_precision(out, label)
+        self.test_recall(out, label)
+        self.test_f1(out, label)
         self.log(
             f"test/class/accuracy", self.test_accuracy, on_step=True, on_epoch=True
         )

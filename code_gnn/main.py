@@ -4,7 +4,7 @@ import shutil
 import sys
 from datetime import datetime
 import traceback
-import pandas as pd
+import numpy as np
 import tqdm
 
 import pytorch_lightning as pl
@@ -14,6 +14,7 @@ from pytorch_lightning.callbacks import (
     DeviceStatsMonitor,
     EarlyStopping,
     ModelCheckpoint,
+    GPUStatsMonitor,
 )
 from pytorch_lightning.loggers import TensorBoardLogger
 from sastvd.linevd import BigVulDatasetLineVDDataModule
@@ -236,6 +237,8 @@ def get_trainer(config):
         every=25,
     )
     callbacks.append(checkpoint_callback)
+    gpu_stats = GPUStatsMonitor()
+    callbacks.append(gpu_stats)
 
     tb_logger = TensorBoardLogger(str(base_dir), version="", name="")
 
