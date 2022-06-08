@@ -69,7 +69,7 @@ def feature_extraction(
 
     # Map edge types
     etypes = e.etype.tolist()
-    d = dict([(y, x) for x, y in enumerate(sorted(set(etypes)))])
+    d = dict([(y, x) for x, y in enumerate(sorted(set(etypes)))])  # TODO: use global enumeration
     etypes = [d[i] for i in etypes]
 
     # Append function name to code

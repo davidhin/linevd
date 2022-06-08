@@ -9,6 +9,7 @@ from pathlib import Path
 import json
 import traceback
 import sastvd.helpers.git as svdg
+import sastvd.helpers.joern as svdj
 
 
 def remove_comments(text):
@@ -204,7 +205,6 @@ def check_validity(_id):
     with open(str(svd.processed_dir() / f"bigvul/before/{_id}.c") + ".nodes.json", "r") as f:
         nodes = json.load(f)
     """
-    import sastvd.helpers.joern as svdj
 
     valid = 0
     try:
@@ -296,7 +296,8 @@ def bigvul_partition(df, partition="train", undersample=True):
         index=np.random.RandomState(seed=0).permutation(df.index),
     )
 
-    df = df[df.label == partition]
+    if partition != "all":
+        df = df[df.label == partition]
     print("partitioned", len(df))
 
     # Balance training set
@@ -357,14 +358,14 @@ def abs_dataflow(feat, sample=False, verbose=False):
                     print(len(vc.loc[vc > 100].index), "more than 100")
                     print(len(vc.loc[vc > 1000].index), "more than 1000")
                 my_abs_df = my_abs_df[["graph_id", "node_id", "hash", hash_name]]
-        
+                
                 hashes = pd.merge(source_df, my_abs_df, left_on="id", right_on="graph_id")[hash_name].dropna()
-        # most frequent
+                # most frequent
                 if verbose:
                     print("min", hashes.value_counts().head(1000).min(), hashes.value_counts().head(1000).idxmin())
                 hashes = hashes.value_counts().head(1000).index.sort_values().unique().tolist()
                 hashes.insert(0, None)
-        
+
                 abs_df_hashes[subkey] = {h: i for i, h in enumerate(hashes)}
                 print("trained hashes", subkey, len(abs_df_hashes[subkey]))
         return abs_df, abs_df_hashes
