@@ -11,4 +11,4 @@
 
 source activate.sh
 
-python -u sastvd/scripts/abstract_dataflow_full.py --workers 16 --stage 2 --cache --workers 1
+python -u sastvd/scripts/abstract_dataflow_full.py --workers 16 --stage 2 --cache

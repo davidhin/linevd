@@ -54,7 +54,7 @@ class BigVulDataset:
 
         if "_ABS_DATAFLOW" in feat:
             try:
-                self.abs_df, self.abs_df_hashes = svdds.abs_dataflow(sample_mode)
+                self.abs_df, self.abs_df_hashes = svdds.abs_dataflow(feat, sample_mode)
                 if "_filtertoabs" in feat:
                     filtered_file = (
                         svd.processed_dir()
@@ -153,6 +153,12 @@ class BigVulDataset:
 
 def test_1g():
     BigVulDataset(feat="_1G_DATAFLOW")
+
+def test_abs():
+    ds = BigVulDataset(feat="_ABS_DATAFLOW_api_datatype_literal_operator", sample_mode=True)
+    print(ds)
+    for i, d in enumerate(ds):
+        print(i, d)
 
 
 def test_abs_ds():

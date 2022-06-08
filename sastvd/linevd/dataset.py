@@ -123,30 +123,94 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
             g.ndata["_1G_DATAFLOW"] = get_dataflow_1g_features(_id)
 
         if "_ABS_DATAFLOW" in self.feat:
+            single = {
+                "api": False,
+                "datatype": True,
+                "literal": False,
+                "operator": False,
+            }
 
             def get_abs_dataflow_features(_id):
-                dgl_feat = th.zeros((g.number_of_nodes(), len(self.abs_df_hashes)))
+                dgl_feats = []
+                for subkey in ["api", "datatype", "literal", "operator"]:
+                    if subkey not in self.feat:
+                        continue
+                    hashes = self.abs_df_hashes[subkey]
+                    dgl_feat = th.zeros((g.number_of_nodes(), len(hashes)))
+                    hash_name = f"hash.{subkey}"
 
                 nids_to_abs_df = self.abs_df[self.abs_df["graph_id"] == _id]
                 nids_to_abs_df = nids_to_abs_df.set_index(
                     nids_to_abs_df["node_id"].map(iddict)
                 )
                 for nid in range(len(dgl_feat)):
-                    f = nids_to_abs_df["hash"].get(nid, None)
-                    if f not in self.abs_df_hashes:
-                        f = None
-                    dgl_feat[nid, self.abs_df_hashes[f]] = 1
-                return dgl_feat
+                        # Flip the bit for a single value
+                        if single[subkey]:
+                            f = nids_to_abs_df[hash_name].get(nid, None)
+                            if f is not None:
+                                idx = hashes[f] if f in hashes else hashes[None]
+                                dgl_feat[nid, idx] = 1
+                                # print(subkey, nid, f, idx)
+                        # Flip the bit for all values present
+                        else:
+                            for f in nids_to_abs_df[hash_name].get(nid, []):
+                                idx = hashes[f] if f in hashes else hashes[None]
+                                dgl_feat[nid, idx] = 1
+                    dgl_feats.append(dgl_feat)
+                return th.cat(dgl_feats, axis=1)
 
             g.ndata["_ABS_DATAFLOW"] = get_abs_dataflow_features(_id)
 
+            def get_abs_dataflow_kill_features(_id):
+                # print(nids_to_1g_df)
+                gen = g.ndata["_ABS_DATAFLOW"]
+                dgl_feats = th.zeros((g.number_of_nodes(), gen.shape[1]))
+                nids_to_1g_df = self.df_1g_group.get_group(_id)
+                nids_to_1g_df_dgl = nids_to_1g_df[["node_id", "kill"]].copy()
+                # print ("iddict", iddict)
+                # print("slice", nids_to_1g_df_dgl, sep="\n")
+                # nids_to_1g_df_dgl = nids_to_1g_df_dgl.explode("kill")
+                # print("explode", nids_to_1g_df_dgl, sep="\n")
+                # print([iddict[ki] for ki in nids_to_1g_df_dgl.iloc[0]["kill"] if ki in iddict])
+                # print(type(nids_to_1g_df_dgl.iloc[0]["kill"]), type(list(iddict.keys())[0]))
+                nids_to_1g_df_dgl = nids_to_1g_df_dgl.assign(
+                    node_id=nids_to_1g_df_dgl["node_id"].map(iddict),
+                    kill=nids_to_1g_df_dgl["kill"].apply(lambda k: [iddict[ki] for ki in k if ki in iddict]),
+                ).dropna()
+                nids_to_1g_df_dgl["node_id"] = nids_to_1g_df_dgl["node_id"].apply(int)
+                # print("map", nids_to_1g_df_dgl, sep="\n")
+                # nids_to_1g_df_dgl = nids_to_1g_df_dgl.groupby("node_id").agg(list)
+                # print("group", nids_to_1g_df_dgl, sep="\n")
+                nids_kill = nids_to_1g_df_dgl.set_index("node_id")["kill"].to_dict()
+                # print("nids_kill", nids_kill)
+                for nid in range(len(dgl_feats)):
+                    if nid in nids_kill:
+                        for kill_nid in nids_kill:
+                            # print(dgl_feats, gen, kill_nid, sep="\n")
+                            dgl_feats[nid] = dgl_feats[nid] + gen[kill_nid]
+                return dgl_feats
+            if "abskill" in self.feat:
+                g.ndata["_ABS_DATAFLOW_kill"] = get_abs_dataflow_kill_features(_id)
+            if "edgekill" in self.feat:
+                nids_to_1g_df = self.df_1g_group.get_group(_id)
+                nids_to_1g_df_dgl = nids_to_1g_df[["node_id", "kill"]].copy()
+                nids_to_1g_df_dgl = nids_to_1g_df_dgl.explode("kill")
+                nids_to_1g_df_dgl = nids_to_1g_df_dgl.assign(
+                    node_id=nids_to_1g_df_dgl["node_id"].map(iddict),
+                    kill=nids_to_1g_df_dgl["kill"].map(iddict),
+                ).dropna()
+                nids_to_1g_df_dgl["node_id"] = nids_to_1g_df_dgl["node_id"].apply(int)
+                nids_to_1g_df_dgl["kill"] = nids_to_1g_df_dgl["kill"].apply(int)
+                # print(nids_to_1g_df_dgl)
+                et.extend([max(et) + 1] * len(nids_to_1g_df_dgl))
+                # print(nids_to_1g_df_dgl.dtypes)
+                # print(et)
+                g.add_edges(nids_to_1g_df_dgl["node_id"].tolist(), nids_to_1g_df_dgl["kill"].tolist())
+
         g.ndata["_FVULN"] = g.ndata["_VULN"].max().repeat((g.number_of_nodes()))
         g.edata["_ETYPE"] = th.Tensor(et).long()
-        # emb_path = svd.cache_dir() / f"codebert_method_level/{_id}.pt"
-        # g.ndata["_FUNC_EMB"] = th.load(emb_path).repeat((g.number_of_nodes(), 1))
         g = dgl.add_self_loop(g)
         save_graphs(str(savedir), [g])
-        # print("compute")
         return g
 
     def cache_items(self, codebert):
@@ -188,6 +252,40 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
     def __iter__(self) -> dict:
         for i in self.idx2id:
             yield self[i]
+
+def test_abs():
+    ds = BigVulDatasetLineVD(feat="_ABS_DATAFLOW_api_datatype_literal_operator", partition="all", sample_mode=False, use_cache=False)
+    print(ds)
+    for i, d in enumerate(ds):
+        if i >= 10:
+            break
+        print(i, d)
+
+def test_abs_datatype():
+    ds = BigVulDatasetLineVD(feat="_ABS_DATAFLOW_datatype", partition="all", sample_mode=False, use_cache=False)
+    print(ds)
+    for i, d in enumerate(ds):
+        if i >= 10:
+            break
+        print(i, d)
+
+def test_abs_datatype_abskill():
+    ds = BigVulDatasetLineVD(feat="_ABS_DATAFLOW_datatype_abskill", partition="all", sample_mode=False, use_cache=False)
+    print(ds)
+    for i, d in enumerate(ds):
+        if i >= 10:
+            break
+        print(i, d)
+        print(d.number_of_nodes(), d.ndata["_ABS_DATAFLOW"].sum().item(), d.ndata["_ABS_DATAFLOW"][:, 1:].sum().item())
+        print(d.number_of_nodes(), d.ndata["_ABS_DATAFLOW_kill"].sum().item(), d.ndata["_ABS_DATAFLOW_kill"][:, 1:].sum().item())
+
+def test_abs_datatype_edgekill():
+    ds = BigVulDatasetLineVD(feat="_ABS_DATAFLOW_datatype_edgekill", partition="all", sample_mode=False, use_cache=False)
+    print(ds)
+    for i, d in enumerate(ds):
+        if i >= 10:
+            break
+        print(i, d)
 
 def test_1g():
     ds = BigVulDatasetLineVD(feat="_1G_DATAFLOW", partition="all", sample_mode=True)

@@ -321,5 +321,5 @@ if __name__ == "__main__":
     print(all_df["hash"].value_counts(dropna=False, normalize=True))
 
     all_df.to_csv(
-        svd.get_dir(svd.processed_dir() / "bigvul") / f"abstract_dataflow_hash_{'_'.join(args.select_subkeys)}_{'_sample' if args.sample else ''}.csv"
+        svd.get_dir(svd.processed_dir() / "bigvul") / f"abstract_dataflow_hash_{'_'.join(args.select_subkeys)}{'_sample' if args.sample else ''}.csv"
     )

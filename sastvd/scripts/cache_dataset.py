@@ -17,7 +17,6 @@ storage_dir = Path("storage/processed/bigvul")
 def do_one(ds, max_df_dim, split, dataargs, t):
     printed = 0
     i, ids = t
-    # for _id in tqdm.tqdm(ids, desc="cache_items", position=i):
     log_every = len(ids) // 10
     for j, _id in enumerate(ids):
         try:

@@ -317,36 +317,65 @@ def bigvul_partition(df, partition="train", undersample=True):
 
     return df
 
+single = {
+    "api": False,
+    "datatype": True,
+    "literal": False,
+    "operator": False,
+}
+all_subkeys = ["api", "datatype", "literal", "operator"]
 
-def abs_dataflow(sample=False):
+def abs_dataflow(feat, sample=False, verbose=False):
     """Load abstract dataflow information"""
     
     df = bigvul(sample=sample)
     source_df = bigvul_partition(df, "train", undersample=False)
 
-    abs_df_file = svd.processed_dir() / f"bigvul/abstract_dataflow_hash_all{'_sample' if sample else ''}.csv"
+    abs_df_file = svd.processed_dir() / f"bigvul/abstract_dataflow_hash_api_datatype_literal_operator{'_sample' if sample else ''}.csv"
     if abs_df_file.exists():
         abs_df = pd.read_csv(abs_df_file)
-        abs_df["hash"] = abs_df["hash"].apply(json.loads).apply(lambda d: d["datatype"][0])
-        # unfiltered
-        hashes = source_df.set_index("id").join(abs_df.set_index("graph_id"))["hash"].dropna()
+        abs_df_hashes = {}
+        abs_df["hash"] = abs_df["hash"].apply(json.loads)
+        print(abs_df)
+        for subkey in all_subkeys:
+            if subkey in feat:
+                if verbose:
+                    print("getting hashes", subkey)
+                hash_name = f"hash.{subkey}"
+                abs_df[hash_name] = abs_df["hash"].apply(lambda d: d[subkey])
+                if single[subkey]:
+                    abs_df[hash_name] = abs_df[hash_name].apply(lambda d: d[0])
+                    my_abs_df = abs_df
+                else:
+                    abs_df[hash_name] = abs_df[hash_name].apply(lambda d: sorted(set(d)))
+                    my_abs_df = abs_df.explode(hash_name)
+                if verbose:
+                    vc = my_abs_df[hash_name].value_counts()
+                    print(vc)
+                    print(len(vc.loc[vc > 1].index), "more than 1")
+                    print(len(vc.loc[vc > 5].index), "more than 5")
+                    print(len(vc.loc[vc > 100].index), "more than 100")
+                    print(len(vc.loc[vc > 1000].index), "more than 1000")
+                my_abs_df = my_abs_df[["graph_id", "node_id", "hash", hash_name]]
         
+                hashes = pd.merge(source_df, my_abs_df, left_on="id", right_on="graph_id")[hash_name].dropna()
         # most frequent
-        hashes = hashes.value_counts().head(1000).index.sort_values()
-
-        # exclude single values
-        # is_multi = hashes.value_counts() > 1
-        # hashes = hashes[hashes.isin(is_multi[is_multi].index)]
+                if verbose:
+                    print("min", hashes.value_counts().head(1000).min(), hashes.value_counts().head(1000).idxmin())
+                hashes = hashes.value_counts().head(1000).index.sort_values().unique().tolist()
+                hashes.insert(0, None)
         
-        abs_df_hashes = sorted(hashes.unique().tolist())
-        
-        # abs_df_hashes.insert(0, -1)
-        abs_df_hashes.insert(0, None)
-        abs_df_hashes = {h: i for i, h in enumerate(abs_df_hashes)}
-        print("trained hashes", len(abs_df_hashes))
+                abs_df_hashes[subkey] = {h: i for i, h in enumerate(hashes)}
+                print("trained hashes", subkey, len(abs_df_hashes[subkey]))
         return abs_df, abs_df_hashes
     else:
         print("YOU SHOULD RUN abstract_dataflow.py")
+
+def test_abs():
+    abs_df, abs_df_hashes = abs_dataflow(feat="_ABS_DATAFLOW_api_datatype_literal_operator", sample=False, verbose=True)
+    assert all(not all(abs_df[f"hash.{subkey}"].isna()) for subkey in all_subkeys)
+    assert len([c for c in abs_df.columns if "hash." in c]) == len(all_subkeys)
+    assert len(abs_df_hashes) == len(all_subkeys)
 
 
 def dataflow_1g(sample=False):
@@ -364,6 +393,8 @@ def dataflow_1g(sample=False):
                 "kill": str,
             },
         )
+        df["gen"] = df["gen"].apply(json.loads)
+        df["kill"] = df["kill"].apply(json.loads)
         return df
     else:
         print("YOU SHOULD RUN dataflow_1g.py")
