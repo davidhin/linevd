@@ -15,7 +15,7 @@ from sastvd.linevd.utils import feature_extraction
 class BigVulDatasetLineVD(svddc.BigVulDataset):
     """IVDetect version of BigVul."""
 
-    def __init__(self, gtype="cfg", feat="all", cache_all=False, use_cache=True, **kwargs):
+    def __init__(self, gtype="cfg", feat="all", cache_all=False, use_cache=True, catch_storage_errors=10, **kwargs):
         """Init."""
         self.graph_type = gtype
         self.feat = feat
@@ -26,6 +26,7 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
         self.cache_all_cache = {}
         self.lines = lines
         self.use_cache = use_cache
+        self.catch_storage_errors = catch_storage_errors
 
     def item(self, _id, codebert=None, must_load=False, use_cache=True):
         """Cache item."""
@@ -215,7 +216,16 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
 
     def __getitem__(self, idx):
         """Override getitem."""
+        tries = 0
+        while True:
+            try:
+                tries += 1
         return self.item(self.idx2id[idx], use_cache=self.use_cache)
+            except (BrokenPipeError, OSError):
+                print("index", idx, "tried", tries, "times out of", self.catch_storage_errors)
+                # Catch common storage errors
+                if tries > self.catch_storage_errors:
+                    raise
 
     def __len__(self):
         """Get length of dataset."""

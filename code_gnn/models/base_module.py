@@ -62,14 +62,14 @@ class BaseModule(pl.LightningModule):
         label = self.get_label(batch)
         out = self.forward(batch)
         self.log(
+            "train_meta_original_label_proportion",
             torch.mean(label).item(),
-            f"train_meta_original_label_proportion",
             on_step=True,
             on_epoch=False,
             batch_size=batch.batch_size,
         )
         self.log(
-            f"train_meta_original_label_len",
+            "train_meta_original_label_len",
             label.shape[0],
             on_step=True,
             on_epoch=False,
@@ -90,14 +90,14 @@ class BaseModule(pl.LightningModule):
                 out = out[indices]
                 label = label[indices]
                 self.log(
+                    "train_meta_resampled_label_proportion",
                     torch.mean(label).item(),
-                    f"train_meta_resampled_label_proportion",
                     on_step=True,
                     on_epoch=False,
                     batch_size=batch.batch_size,
                 )
                 self.log(
-                    f"train_meta_resampled_label_len",
+                    "train_meta_resampled_label_len",
                     label.shape[0],
                     on_step=True,
                     on_epoch=False,
@@ -105,27 +105,27 @@ class BaseModule(pl.LightningModule):
                 )
         loss = self.loss_fn(out, label)
         self.log(
+            "train_loss",
             loss.item(),
-            f"train_loss",
             on_step=True,
             on_epoch=True,
             batch_size=batch.batch_size,
         )
         # self.log_class_metrics("train", out, label)
-        out = out.detach().int()
+        out = out.detach().float()
         label = label.detach().int()
         self.train_accuracy(out, label)
         self.train_precision(out, label)
         self.train_recall(out, label)
         self.train_f1(out, label)
         self.log(
-            f"train_class_accuracy", self.train_accuracy, on_step=True, on_epoch=True
+            "train_class_accuracy", self.train_accuracy, on_step=True, on_epoch=True
         )
         self.log(
-            f"train_class_precision", self.train_precision, on_step=True, on_epoch=True
+            "train_class_precision", self.train_precision, on_step=True, on_epoch=True
         )
-        self.log(f"train_class_recall", self.train_recall, on_step=True, on_epoch=True)
-        self.log(f"train_class_f1", self.train_f1, on_step=True, on_epoch=True)
+        self.log("train_class_recall", self.train_recall, on_step=True, on_epoch=True)
+        self.log("train_class_f1", self.train_f1, on_step=True, on_epoch=True)
 
         return loss
 
@@ -134,35 +134,36 @@ class BaseModule(pl.LightningModule):
         out = self.forward(batch)
         loss = self.loss_fn(out, label)
         self.log(
+            "val_loss",
             loss.item(),
-            f"val_loss",
             on_step=True,
             on_epoch=True,
             batch_size=batch.batch_size,
         )
         # self.log_class_metrics("val", out, label)
-        out = out.detach().int()
+        out = out.detach().float()
         label = label.detach().int()
         self.val_accuracy(out, label)
         self.val_precision(out, label)
         self.val_recall(out, label)
         self.val_f1(out, label)
-        self.log(f"val_class_accuracy", self.val_accuracy, on_step=True, on_epoch=True)
+        self.log("val_class_accuracy", self.val_accuracy, on_step=True, on_epoch=True)
         self.log(
-            f"val_class_precision", self.val_precision, on_step=True, on_epoch=True
+            "val_class_precision", self.val_precision, on_step=True, on_epoch=True
         )
-        self.log(f"val_class_recall", self.val_recall, on_step=True, on_epoch=True)
-        self.log(f"val_class_f1", self.val_f1, on_step=True, on_epoch=True)
+        self.log("val_class_recall", self.val_recall, on_step=True, on_epoch=True)
+        self.log("val_class_f1", self.val_f1, on_step=True, on_epoch=True)
 
     def test_step(self, batch, batch_idx):
+        # breakpoint()
         label = self.get_label(batch)
         out = self.forward(batch)
         loss = self.loss_fn(out, label)
         self.log(
-            f"test_loss", loss.item(), on_step=True, on_epoch=True, batch_size=batch.batch_size
+            "test_loss", loss.item(), on_step=True, on_epoch=True, batch_size=batch.batch_size
         )
         # self.log_class_metrics("test", out, label)
-        out = out.detach().int()
+        out = out.detach().float()
         label = label.detach().int()
         self.test_accuracy(out, label)
         self.test_precision(out, label)
