@@ -338,6 +338,7 @@ def abs_dataflow(feat, sample=False, verbose=False):
         abs_df_hashes = {}
         abs_df["hash"] = abs_df["hash"].apply(json.loads)
         print(abs_df)
+        # compute concatenated embedding
         for subkey in all_subkeys:
             if subkey in feat:
                 if verbose:
@@ -367,7 +368,44 @@ def abs_dataflow(feat, sample=False, verbose=False):
                 hashes.insert(0, None)
 
                 abs_df_hashes[subkey] = {h: i for i, h in enumerate(hashes)}
+
                 print("trained hashes", subkey, len(abs_df_hashes[subkey]))
+
+        if "all" in feat:
+            source_df_hashes = pd.merge(source_df, abs_df, left_on="id", right_on="graph_id")
+            def get_all_hash(row):
+                h = {}
+                for subkey in all_subkeys:
+                    if subkey in feat:
+                        hash_name = f"hash.{subkey}"
+                        hashes = abs_df_hashes[subkey]
+                        hash_values = row[hash_name]
+                        if "includeunknown" in feat:
+                            if single[subkey]:
+                                hash_idx = [hash_values]
+                            else:
+                                hash_idx = hash_values
+                        else:
+                            if single[subkey]:
+                                hash_idx = [hash_values if hash_values in hashes else "UNKNOWN"]
+                            else:
+                                hash_idx = [hh if hh in hashes else "UNKNOWN" for hh in hash_values]
+                        # print(hash_idx)
+                        h[subkey] = sorted(set(hash_idx))
+                return h
+            abs_df["hash.all"] = source_df_hashes.apply(get_all_hash, axis=1).apply(json.dumps)
+            if verbose:
+                vc = abs_df.value_counts("hash.all")
+                print(vc)
+                print(len(vc.loc[vc > 1].index), "more than 1")
+                print(len(vc.loc[vc > 5].index), "more than 5")
+                print(len(vc.loc[vc > 100].index), "more than 100")
+                print(len(vc.loc[vc > 1000].index), "more than 1000")
+                print("min", vc.head(1000).min(), vc.head(1000).idxmin())
+            all_hashes = abs_df["hash.all"].value_counts().head(1000).index.sort_values().unique().tolist()
+            all_hashes.insert(0, None)
+            abs_df_hashes["all"] = {h: i for i, h in enumerate(all_hashes)}
+
         return abs_df, abs_df_hashes
     else:
         print("YOU SHOULD RUN abstract_dataflow.py")
@@ -377,6 +415,31 @@ def test_abs():
     assert all(not all(abs_df[f"hash.{subkey}"].isna()) for subkey in all_subkeys)
     assert len([c for c in abs_df.columns if "hash." in c]) == len(all_subkeys)
     assert len(abs_df_hashes) == len(all_subkeys)
+
+def test_abs_all():
+    for featname in ("datatype", "literal_operator", "api_literal_operator", "api_datatype_literal_operator_all"):
+        print(featname)
+        abs_df, abs_df_hashes = abs_dataflow(feat=f"_ABS_DATAFLOW_{featname}_all", sample=False)
+        vc = abs_df.value_counts("hash.all")
+        print(vc)
+        print(len(vc.loc[vc > 1].index), "more than 1")
+        print(len(vc.loc[vc > 5].index), "more than 5")
+        print(len(vc.loc[vc > 100].index), "more than 100")
+        print(len(vc.loc[vc > 1000].index), "more than 1000")
+        print("min", vc.head(1000).min(), vc.head(1000).idxmin())
+
+
+def test_abs_all_unk():
+    for featname in ("datatype", "literal_operator", "api_literal_operator", "api_datatype_literal_operator_all"):
+        print(featname)
+        abs_df, abs_df_hashes = abs_dataflow(feat=f"_ABS_DATAFLOW_{featname}_all_includeunknown", sample=False)
+        vc = abs_df.value_counts("hash.all")
+        print(vc)
+        print(len(vc.loc[vc > 1].index), "more than 1")
+        print(len(vc.loc[vc > 5].index), "more than 5")
+        print(len(vc.loc[vc > 100].index), "more than 100")
+        print(len(vc.loc[vc > 1000].index), "more than 1000")
+        print("min", vc.head(1000).min(), vc.head(1000).idxmin())
 
 
 def dataflow_1g(sample=False):
