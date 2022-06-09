@@ -27,7 +27,7 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
         self.use_cache = use_cache
         self.catch_storage_errors = catch_storage_errors
 
-    def item(self, _id, codebert=None, must_load=False, use_cache=True):
+    def item(self, _id, must_load=False, use_cache=True):
         """Cache item."""
 
         if self.cache_all and not must_load and use_cache:
@@ -36,7 +36,7 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
                 return self.cache_all_cache[_id]
             else:
                 # print("load into cache")
-                g = self.item(_id, codebert, must_load=True, use_cache=use_cache)
+                g = self.item(_id, must_load=True, use_cache=use_cache)
                 self.cache_all_cache[_id] = g
                 return g
 
@@ -48,7 +48,7 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
                 g = load_graphs(str(savedir))[0][0]
             except Exception:
                 savedir.unlink()
-                return self.item(_id, codebert=codebert, must_load=must_load)
+                return self.item(_id, must_load=must_load)
             if "_SASTRATS" in g.ndata:
                 g.ndata.pop("_SASTRATS")
                 g.ndata.pop("_SASTCPP")
@@ -69,7 +69,7 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
             if "_1G_DATAFLOW" in g.ndata:
                 if g.ndata["_1G_DATAFLOW"].size(1) != self.df_1g_max_idx * 2:
                     savedir.unlink()
-                    return self.item(_id, codebert=codebert, must_load=True)
+                    return self.item(_id, must_load=True)
 
             return g
         code, lineno, ei, eo, et, nids, ntypes, iddict = feature_extraction(
@@ -141,41 +141,41 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
                         dgl_feat[nid, idx] = 1
                 g.ndata["_ABS_DATAFLOW"] = dgl_feat
             else:
-            single = {
-                "api": False,
-                "datatype": True,
-                "literal": False,
-                "operator": False,
-            }
+                single = {
+                    "api": False,
+                    "datatype": True,
+                    "literal": False,
+                    "operator": False,
+                }
 
-            def get_abs_dataflow_features(_id):
-                dgl_feats = []
-                for subkey in ["api", "datatype", "literal", "operator"]:
-                    if subkey not in self.feat:
-                        continue
-                    hashes = self.abs_df_hashes[subkey]
-                    dgl_feat = th.zeros((g.number_of_nodes(), len(hashes)))
-                    hash_name = f"hash.{subkey}"
+                def get_abs_dataflow_features(_id):
+                    dgl_feats = []
+                    for subkey in ["api", "datatype", "literal", "operator"]:
+                        if subkey not in self.feat:
+                            continue
+                        hashes = self.abs_df_hashes[subkey]
+                        dgl_feat = th.zeros((g.number_of_nodes(), len(hashes)))
+                        hash_name = f"hash.{subkey}"
 
-                    nids_to_abs_df = self.abs_df[self.abs_df["graph_id"] == _id]
-                    nids_to_abs_df = nids_to_abs_df.set_index(
-                        nids_to_abs_df["node_id"].map(iddict)
-                    )
-                    for nid in range(len(dgl_feat)):
-                        # Flip the bit for a single value
-                        if single[subkey]:
-                            f = nids_to_abs_df[hash_name].get(nid, None)
-                            if f is not None:
-                                idx = hashes[f] if f in hashes else hashes[None]
-                                dgl_feat[nid, idx] = 1
-                        # Flip the bit for all values present
-                        else:
-                            for f in nids_to_abs_df[hash_name].get(nid, []):
+                        nids_to_abs_df = self.abs_df[self.abs_df["graph_id"] == _id]
+                        nids_to_abs_df = nids_to_abs_df.set_index(
+                            nids_to_abs_df["node_id"].map(iddict)
+                        )
+                        for nid in range(len(dgl_feat)):
+                            # Flip the bit for a single value
+                            if single[subkey]:
+                                f = nids_to_abs_df[hash_name].get(nid, None)
+                                if f is not None:
+                                    idx = hashes[f] if f in hashes else hashes[None]
+                                    dgl_feat[nid, idx] = 1
+                            # Flip the bit for all values present
+                            else:
+                                for f in nids_to_abs_df[hash_name].get(nid, []):
                                     idx = hashes.get(f, hashes[None])
-                                dgl_feat[nid, idx] = 1
-                    dgl_feats.append(dgl_feat)
-                return th.cat(dgl_feats, axis=1)
-            g.ndata["_ABS_DATAFLOW"] = get_abs_dataflow_features(_id)
+                                    dgl_feat[nid, idx] = 1
+                        dgl_feats.append(dgl_feat)
+                    return th.cat(dgl_feats, axis=1)
+                g.ndata["_ABS_DATAFLOW"] = get_abs_dataflow_features(_id)
 
             def get_abs_dataflow_kill_features(_id):
                 # print(nids_to_1g_df)
@@ -212,6 +212,12 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
                 # print(et)
                 g.add_edges(nids_to_1g_df_dgl["node_id"].tolist(), nids_to_1g_df_dgl["kill"].tolist())
 
+        if "CODEBERT" in self.feat:
+            code = [c.replace("\\t", "").replace("\\n", "") for c in code]
+            chunked_batches = svd.chunks(code, 128)
+            features = [codebert.encode(c).detach().cpu() for c in chunked_batches]
+            g.ndata["_CODEBERT"] = th.cat(features)
+
         g.ndata["_FVULN"] = g.ndata["_VULN"].max().repeat((g.number_of_nodes()))
         g.edata["_ETYPE"] = th.Tensor(et).long()
         g = dgl.add_self_loop(g)
@@ -224,7 +230,7 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
         while True:
             try:
                 tries += 1
-        return self.item(self.idx2id[idx], use_cache=self.use_cache)
+                return self.item(self.idx2id[idx], use_cache=self.use_cache)
             except (BrokenPipeError, OSError):
                 print("index", idx, "tried", tries, "times out of", self.catch_storage_errors)
                 # Catch common storage errors
