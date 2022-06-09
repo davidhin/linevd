@@ -18,6 +18,6 @@ feat=$1
 
 echo "caching $feat"
 
-singularity exec main.sif python code_gnn/main.py \
+singularity exec main.sif python -u code_gnn/main.py \
     --model flow_gnn --dataset MSR --feat $feat \
     --dataset_only --disable_cache

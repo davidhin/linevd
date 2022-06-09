@@ -231,6 +231,7 @@ def get_trainer(config):
         monitor=config["target_metric"],
         mode="min",
         save_last=True,
+        save_top_k=5,
         # verbose=True,
     )
     callbacks.append(checkpoint_callback)
@@ -239,8 +240,13 @@ def get_trainer(config):
         every=25,
     )
     callbacks.append(checkpoint_callback)
-    gpu_stats = GPUStatsMonitor()
-    callbacks.append(gpu_stats)
+
+    try:
+        gpu_stats = GPUStatsMonitor()
+        callbacks.append(gpu_stats)
+    except pl.utilities.exceptions.MisconfigurationException:
+        traceback.print_exc()
+        pass
 
     tb_logger = TensorBoardLogger(str(base_dir), version="", name="")
 
