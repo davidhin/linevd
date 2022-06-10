@@ -27,9 +27,8 @@ update_func="sum"
 fi
 
 echo "training $feat"
-
-singularity exec --nv main.sif python -u code_gnn/main.py \
+./mypython code_gnn/main.py \
     --model flow_gnn --dataset MSR --feat $feat \
-    --clean --batch_size 256 --max_epochs 500 --weight_decay 1e-2 \
+    --clean --batch_size 256 --train_workers 0 --max_epochs 5 --weight_decay 1e-2 \
     --label_style graph \
-    --evaluation --neighbor_pooling_type $update_func
+    --evaluation --neighbor_pooling_type $update_func --seed 0

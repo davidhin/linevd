@@ -1,0 +1,9 @@
+#!/bin/bash
+# A helper script to choose the best python command based on the environment.
+
+if [ $(hostname) == "AM" ]
+then
+    exec python $@
+else
+    exec singularity exec --nv main.sif python $@
+fi
