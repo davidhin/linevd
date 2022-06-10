@@ -294,15 +294,20 @@ def bigvul_partition(df, partition="train", undersample=True, split="fixed"):
             return "train"
 
     if split == "random":
+        print("generating random splits")
         df["label"] = pd.Series(
             data=list(map(get_label, range(len(df)))),
             index=np.random.RandomState(seed=global_seed).permutation(df.index),
         )
+        # NOTE: I verified that this always gives the same output for all runs!
+        # as long as the input df is the same (should be filtered first e.g. datamodule vs. abs_df)
     elif split == "fixed":
+        print("loading fixed splits")
         splits = pd.read_csv(svd.external_dir() / "bigvul_rand_splits.csv")
         splits = splits.set_index("id").to_dict()["label"]
         df["label"] = df.id.map(splits)
-    # TODO verify that this always gives the same output no matter what!
+    else:
+        raise NotImplementedError(split)
     print(df.value_counts("label"))
     print(df.head())
 
@@ -336,11 +341,19 @@ single = {
 }
 all_subkeys = ["api", "datatype", "literal", "operator"]
 
-def abs_dataflow(feat, sample=False, verbose=False):
+def abs_dataflow(feat, sample=False, verbose=False, split="fixed"):
     """Load abstract dataflow information"""
     
     df = bigvul(sample=sample)
-    source_df = bigvul_partition(df, "train", undersample=False)
+    df = bigvul_filter(
+        df,
+        check_file=True,
+        check_valid=True,
+        vulonly=False,
+        load_code=False,
+        sample_mode=sample,
+    )
+    source_df = bigvul_partition(df, "train", undersample=False, split=split)
 
     abs_df_file = svd.processed_dir() / f"bigvul/abstract_dataflow_hash_api_datatype_literal_operator{'_sample' if sample else ''}.csv"
     if abs_df_file.exists():
