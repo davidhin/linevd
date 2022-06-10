@@ -14,7 +14,7 @@ from pytorch_lightning.callbacks import (
     DeviceStatsMonitor,
     EarlyStopping,
     ModelCheckpoint,
-    GPUStatsMonitor,
+    DeviceStatsMonitor
 )
 from pytorch_lightning.loggers import TensorBoardLogger
 from sastvd.linevd import BigVulDatasetLineVDDataModule
@@ -241,7 +241,7 @@ def get_trainer(config):
     callbacks.append(checkpoint_callback)
 
     try:
-        gpu_stats = GPUStatsMonitor()
+        gpu_stats = DeviceStatsMonitor()
         callbacks.append(gpu_stats)
     except pl.utilities.exceptions.MisconfigurationException:
         traceback.print_exc()
