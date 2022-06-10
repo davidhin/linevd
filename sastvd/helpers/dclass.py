@@ -49,6 +49,7 @@ class BigVulDataset:
             vulonly=vulonly,
             load_code=load_code,
             sample=sample,
+            sample_mode=sample_mode,
         )
         print("svdds.bigvul_filter", len(df))
 

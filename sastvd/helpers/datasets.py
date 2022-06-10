@@ -237,7 +237,7 @@ def itempath(_id):
 
 
 def bigvul_filter(
-    df, check_file=False, check_valid=False, vulonly=False, load_code=False, sample=-1
+    df, check_file=False, check_valid=False, vulonly=False, load_code=False, sample=-1, sample_mode=False
 ):
     """Filter dataset based on various considerations for training"""
 
@@ -261,7 +261,7 @@ def bigvul_filter(
 
     # Filter out samples with no lineNumber from Joern output
     if check_valid:
-        valid_cache = svd.cache_dir() / f"bigvul_valid.csv"
+        valid_cache = svd.cache_dir() / f"bigvul_valid_{sample_mode}.csv"
         if valid_cache.exists():
             valid_cache_df = pd.read_csv(valid_cache, index_col=0)
         else:
@@ -408,7 +408,7 @@ def abs_dataflow(feat, sample=False, verbose=False):
 
         return abs_df, abs_df_hashes
     else:
-        print("YOU SHOULD RUN abstract_dataflow.py")
+        print("YOU SHOULD RUN `python sastvd/scripts/abstract_dataflow_full.py --stage 2`")
 
 def test_abs():
     abs_df, abs_df_hashes = abs_dataflow(feat="_ABS_DATAFLOW_api_datatype_literal_operator", sample=False, verbose=True)
