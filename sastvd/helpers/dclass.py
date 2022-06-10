@@ -31,6 +31,7 @@ class BigVulDataset:
         feat="all",
         filter_cwe=None,
         sample_mode=False,
+        split="fixed",
     ):
         """Init class."""
         # Get finished samples
@@ -56,7 +57,7 @@ class BigVulDataset:
 
         if "_ABS_DATAFLOW" in feat:
             try:
-                self.abs_df, self.abs_df_hashes = svdds.abs_dataflow(feat, sample_mode)
+                self.abs_df, self.abs_df_hashes = svdds.abs_dataflow(feat, sample_mode, split=split)
                 if "_filtertoabs" in feat:
                     filtered_file = (
                         svd.processed_dir()
@@ -120,7 +121,7 @@ class BigVulDataset:
             print("CWE filter", len(df))
 
         if not sample_mode:
-            df = svdds.bigvul_partition(df, partition, undersample=undersample)
+            df = svdds.bigvul_partition(df, partition, undersample=undersample, split=split)
         print(partition, len(df))
 
         self.df = df

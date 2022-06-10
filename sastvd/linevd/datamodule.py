@@ -25,6 +25,7 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
         sample_mode=False,
         use_cache=True,
         train_workers=4,
+        split="fixed",
     ):
         """Init class from bigvul dataset."""
         super().__init__()
@@ -39,6 +40,7 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
             "filter_cwe": filter_cwe,
             "sample_mode": sample_mode,
             "use_cache": use_cache,
+            "split": split,
         }
         self.train = BigVulDatasetLineVD(partition="train", **dataargs)
         self.val = BigVulDatasetLineVD(partition="val", **dataargs)

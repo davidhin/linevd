@@ -50,7 +50,8 @@ def train_single_model(config):
         filter_cwe=config["filter_cwe"],
         sample_mode=config["sample_mode"],
         use_cache=not config["disable_cache"],
-        train_workers=config["train_workers"]
+        train_workers=config["train_workers"],
+        split=config["split"],
     )
 
     if config["dataset_only"]:
