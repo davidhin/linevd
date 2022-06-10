@@ -7,6 +7,8 @@ import sastvd as svd
 import sastvd.helpers.dclass as svddc
 import sastvd.ivdetect.evaluate as ivde
 import torch as th
+import tqdm
+import time
 
 from sastvd.linevd.utils import feature_extraction
 
@@ -236,6 +238,7 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
                 # Catch common storage errors
                 if tries > self.catch_storage_errors:
                     raise
+                time.sleep(3)
 
     def __len__(self):
         """Get length of dataset."""
@@ -282,11 +285,15 @@ def test_abs_datatype_edgekill():
 def test_abs_datatype_hash():
     ds = BigVulDatasetLineVD(feat="_ABS_DATAFLOW_datatype_all", partition="all", sample_mode=False, use_cache=False)
     print(ds)
-    for i, d in enumerate(ds):
-        if i >= 10:
-            break
-        print(i, d)
-        print(d.number_of_nodes(), d.ndata["_ABS_DATAFLOW"].sum().item(), d.ndata["_ABS_DATAFLOW"][:, 1:].sum().item())
+    with open("tensor.txt", "w") as of:
+        for i, d in enumerate(tqdm.tqdm(ds, desc="get dataset examples")):
+            if i < 10:
+                print(i, d)
+                print(d.number_of_nodes(), d.ndata["_ABS_DATAFLOW"].sum().item(), d.ndata["_ABS_DATAFLOW"][:, 1:].sum().item())
+                th.set_printoptions(profile="full")
+                print(d.ndata["_ABS_DATAFLOW"].argmax(dim=1), file=of)
+            row_sums = d.ndata["_ABS_DATAFLOW"].sum(dim=1)
+            assert th.all(th.eq(row_sums, th.zeros_like(row_sums)) | th.eq(row_sums, th.ones_like(row_sums)))
 
 def test_abs_all_hash():
     ds = BigVulDatasetLineVD(feat="_ABS_DATAFLOW_api_datatype_literal_operator_all", partition="all", sample_mode=False, use_cache=False)
