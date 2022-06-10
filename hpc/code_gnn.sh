@@ -21,14 +21,19 @@ nvidia-smi
 
 feat="$1"
 update_func="$2"
-if [ -z "$2" ]
+if [ -z "$update_func" ]
 then
 update_func="sum"
+fi
+seed="$3"
+if [ -z "$seed" ]
+then
+seed="0"
 fi
 
 echo "training $feat"
 ./mypython code_gnn/main.py \
     --model flow_gnn --dataset MSR --feat $feat \
-    --clean --batch_size 256 --train_workers 0 --max_epochs 5 --weight_decay 1e-2 \
+    --clean --batch_size 256 --train_workers 6 --max_epochs 250 --weight_decay 1e-2 \
     --label_style graph \
-    --evaluation --neighbor_pooling_type $update_func --seed 0
+    --evaluation --neighbor_pooling_type $update_func --seed $seed

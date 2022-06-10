@@ -43,6 +43,10 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
         self.train = BigVulDatasetLineVD(partition="train", **dataargs)
         self.val = BigVulDatasetLineVD(partition="val", **dataargs)
         self.test = BigVulDatasetLineVD(partition="test", **dataargs)
+        duped_examples_trainval = set(self.train.df.index) & set(self.val.df.index)
+        assert not any(duped_examples_trainval)
+        duped_examples_valtest = set(self.val.df.index) & set(self.test.df.index)
+        assert not any(duped_examples_valtest)
         print("SPLIT SIZES:", len(self.train),len(self.val),len(self.test))
         self.batch_size = batch_size
         self.nsampling = nsampling
@@ -84,4 +88,4 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
 
     def test_dataloader(self):
         """Return test dataloader."""
-        return GraphDataLoader(self.test, batch_size=32, num_workers=0)
+        return GraphDataLoader(self.test, batch_size=32, num_workers=self.train_workers)

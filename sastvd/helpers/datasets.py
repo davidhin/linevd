@@ -283,6 +283,7 @@ def bigvul_filter(
 
 def bigvul_partition(df, partition="train", undersample=True, split="fixed"):
     """Filter to one partition of bigvul and rebalance function-wise"""
+    print("bigvul_partition", partition)
 
     def get_label(i):
         if i < int(len(df) * 0.1):
@@ -302,12 +303,8 @@ def bigvul_partition(df, partition="train", undersample=True, split="fixed"):
         splits = splits.set_index("id").to_dict()["label"]
         df["label"] = df.id.map(splits)
     # TODO verify that this always gives the same output no matter what!
-    i = 0
-    logfile = Path(f"labels_{i}.csv")
-    while logfile.exists():
-        i += 1
-        logfile = Path(f"labels_{i}.csv")
-    df["label"].to_csv(logfile)
+    print(df.value_counts("label"))
+    print(df.head())
 
     if partition != "all":
         df = df[df.label == partition]

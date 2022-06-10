@@ -45,3 +45,4 @@ core.*
 trash
 absdf/*_logs
 *.pstat
+hpc/*_logs_*
