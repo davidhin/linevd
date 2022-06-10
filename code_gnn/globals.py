@@ -3,6 +3,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
+from pytorch_lightning import seed_everything
 
 project_root_dir = Path(__file__).parent.parent
 ml_data_dir = project_root_dir / 'data'
@@ -25,8 +26,11 @@ def test_data_dir_exists():
     assert test_data_dir.is_dir()
     print(f'test_data_dir={test_data_dir}')
 
-
+global_seed = 0
 def seed_all(seed):
+    global global_seed
     random.seed(seed)
     np.random.seed(seed)
     torch.random.manual_seed(seed)
+    seed_everything(seed, workers=True)
+    global_seed = seed

@@ -5,6 +5,7 @@ import pandas as pd
 import sastvd as svd
 import sastvd.helpers.datasets as svdds
 import sastvd.helpers.joern as svdj
+from code_gnn.globals import global_seed
 
 
 def is_valid(_id, hash_index):
@@ -37,7 +38,7 @@ class BigVulDataset:
 
         df = svdds.bigvul(sample=sample_mode)
         if sample != -1:
-            df = df.sample(sample, random_state=0)
+            df = df.sample(sample, random_state=global_seed)
         # print("load", len(df))
         # Filter to storage/cache/bigvul_linevd_codebert_dataflow_cfg
         # df = df[df["id"].apply(lambda i: (Path("storage/cache/bigvul_linevd_codebert_dataflow_cfg")/str(i)).exists())]

@@ -10,7 +10,6 @@ import tqdm
 
 import pytorch_lightning as pl
 import torch
-from pytorch_lightning import seed_everything
 from pytorch_lightning.callbacks import (
     DeviceStatsMonitor,
     EarlyStopping,
@@ -292,12 +291,11 @@ def get_trainer(config):
 
 def main(config):
     logger.info(f"config={config}")
-    seed_all(config["seed"])
 
     config["cuda"] = torch.cuda.is_available()
     logger.info(f"gpus={torch.cuda.is_available()}, {torch.cuda.device_count()}")
 
-    seed_everything(config["seed"], workers=True)
+    seed_all(config["seed"])
     if config["tune"]:
         pass
     else:

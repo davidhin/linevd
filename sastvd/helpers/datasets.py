@@ -10,6 +10,7 @@ import json
 import traceback
 import sastvd.helpers.git as svdg
 import sastvd.helpers.joern as svdj
+from code_gnn.globals import global_seed
 
 
 def remove_comments(text):
@@ -243,7 +244,7 @@ def bigvul_filter(
 
     # Small sample (for debugging):
     if sample > 0:
-        df = df.sample(sample, random_state=0)
+        df = df.sample(sample, random_state=global_seed)
 
     # Filter only vulnerable
     if vulonly:
@@ -293,7 +294,7 @@ def bigvul_partition(df, partition="train", undersample=True):
 
     df["label"] = pd.Series(
         data=list(map(get_label, range(len(df)))),
-        index=np.random.RandomState(seed=0).permutation(df.index),
+            index=np.random.RandomState(seed=global_seed).permutation(df.index),
     )
     # TODO verify that this always gives the same output no matter what!
 
@@ -304,7 +305,7 @@ def bigvul_partition(df, partition="train", undersample=True):
     # Balance training set
     if (partition == "train" or partition == "val") and undersample:
         vul = df[df.vul == 1]
-        nonvul = df[df.vul == 0].sample(len(vul), random_state=0)
+        nonvul = df[df.vul == 0].sample(len(vul), random_state=global_seed)
         df = pd.concat([vul, nonvul])
         print("undersampled", len(df))
 
@@ -312,7 +313,7 @@ def bigvul_partition(df, partition="train", undersample=True):
     # if partition == "test" and undersample:
     #     vul = df[df.vul == 1]
     #     nonvul = df[df.vul == 0]
-    #     nonvul = nonvul.sample(min(len(nonvul), len(vul) * 20), random_state=0)
+    #     nonvul = nonvul.sample(min(len(nonvul), len(vul) * 20), random_state=global_seed)
     #     df = pd.concat([vul, nonvul])
     #     print("undersampled", len(df))
 
