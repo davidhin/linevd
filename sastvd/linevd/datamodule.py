@@ -24,6 +24,7 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
         filter_cwe=[],
         sample_mode=False,
         use_cache=True,
+        train_workers=4,
     ):
         """Init class from bigvul dataset."""
         super().__init__()
@@ -46,6 +47,7 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
         self.batch_size = batch_size
         self.nsampling = nsampling
         self.nsampling_hops = nsampling_hops
+        self.train_workers = train_workers
 
     def node_dl(self, g, shuffle=False):
         """Return node dataloader."""
@@ -66,7 +68,7 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
             g = next(iter(GraphDataLoader(self.train, batch_size=len(self.train))))
             return self.node_dl(g, shuffle=True)
         return GraphDataLoader(
-            self.train, shuffle=True, batch_size=self.batch_size, num_workers=4
+            self.train, shuffle=True, batch_size=self.batch_size, num_workers=self.train_workers,
         )
 
     def val_dataloader(self):

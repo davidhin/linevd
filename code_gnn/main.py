@@ -50,6 +50,7 @@ def train_single_model(config):
         filter_cwe=config["filter_cwe"],
         sample_mode=config["sample_mode"],
         use_cache=not config["disable_cache"],
+        train_workers=config["train_workers"]
     )
 
     if config["dataset_only"]:
@@ -363,6 +364,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--sample_mode", action="store_true", help="load only sample of dataset"
+    )
+    parser.add_argument(
+        "--train_workers", type=int, default=4, help="use n parallel dataloader workers"
     )
     # logging and reproducibility
     parser.add_argument("--seed", type=int, default=0, help="random seed")
