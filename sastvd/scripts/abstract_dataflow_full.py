@@ -7,10 +7,7 @@ Yields:
 
 import argparse
 import functools
-import sys
 import json
-
-sys.path.append("/home/benjis/benjis/weile-lab/linevd")
 import re
 import traceback
 from multiprocessing import Pool
@@ -19,10 +16,8 @@ import networkx as nx
 import pandas as pd
 import code_gnn.analysis.dataflow as dataflow
 import sastvd.helpers.datasets as svdds
-import sastvd.helpers.dclass as svddc
 import sastvd as svd
 import tqdm
-from matplotlib import pyplot as plt
 
 # Extract dataflow features from CPG
 
