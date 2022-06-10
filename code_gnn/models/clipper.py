@@ -19,7 +19,7 @@ def relu_union(a, b):
     Return bitwise union of a and b.
     """
     shape = a.shape
-    y = torch.ones(shape) - F.relu(torch.ones(shape) - (a + b))
+    y = torch.ones(shape, device=a.device) - F.relu(torch.ones(shape, device=a.device) - (a + b))
     if torch.any(torch.isnan(y)):
         print("isnan", a, b, y)
     return y
