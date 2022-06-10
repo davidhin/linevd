@@ -281,7 +281,7 @@ def bigvul_filter(
     return df
 
 
-def bigvul_partition(df, partition="train", undersample=True):
+def bigvul_partition(df, partition="train", undersample=True, split="fixed"):
     """Filter to one partition of bigvul and rebalance function-wise"""
 
     def get_label(i):
@@ -292,11 +292,22 @@ def bigvul_partition(df, partition="train", undersample=True):
         else:
             return "train"
 
-    df["label"] = pd.Series(
-        data=list(map(get_label, range(len(df)))),
+    if split == "random":
+        df["label"] = pd.Series(
+            data=list(map(get_label, range(len(df)))),
             index=np.random.RandomState(seed=global_seed).permutation(df.index),
-    )
+        )
+    elif split == "fixed":
+        splits = pd.read_csv(svd.external_dir() / "bigvul_rand_splits.csv")
+        splits = splits.set_index("id").to_dict()["label"]
+        df["label"] = df.id.map(splits)
     # TODO verify that this always gives the same output no matter what!
+    i = 0
+    logfile = Path(f"labels_{i}.csv")
+    while logfile.exists():
+        i += 1
+        logfile = Path(f"labels_{i}.csv")
+    df["label"].to_csv(logfile)
 
     if partition != "all":
         df = df[df.label == partition]
@@ -467,3 +478,17 @@ def dataflow_1g(sample=False):
 
 def test_1g():
     print(dataflow_1g(sample=True))
+
+def test_generate_random():
+    df = bigvul()
+    df = bigvul_filter(
+        df,
+        check_file=True,
+        check_valid=True,
+        vulonly=False,
+        load_code=False,
+    )
+    for split in ["random", "fixed"]:
+        df = bigvul_partition(df, partition="all", split=split)
+        print(split)
+        print(df.value_counts("label", normalize=True))

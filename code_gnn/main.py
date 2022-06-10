@@ -368,6 +368,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--train_workers", type=int, default=4, help="use n parallel dataloader workers"
     )
+    parser.add_argument(
+        "--split", default="fixed", help="which split method to use"
+    )
     # logging and reproducibility
     parser.add_argument("--seed", type=int, default=0, help="random seed")
     parser.add_argument(
