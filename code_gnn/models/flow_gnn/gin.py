@@ -74,13 +74,15 @@ class FlowGNNModule(BaseModule):
         }
 
         # construct neural network layers
+        if self.hparams.separate_embedding_layer:
+            self.embedding = nn.Linear(input_dim, hidden_dim)
 
         # List of MLPs
         self.ginlayers = torch.nn.ModuleList()
         self.batch_norms = torch.nn.ModuleList()
 
         for layer in range(self.num_layers - 1):
-            if layer == 0:
+            if layer == 0 and not self.hparams.separate_embedding_layer:
                 mlp = MLP(num_mlp_layers, input_dim, hidden_dim, hidden_dim)
             else:
                 mlp = MLP(num_mlp_layers, hidden_dim, hidden_dim, hidden_dim)
@@ -109,7 +111,7 @@ class FlowGNNModule(BaseModule):
                 self.linears_prediction.append(nn.Linear(i, o))
         else:
             for layer in range(num_layers):
-                if layer == 0:
+                if layer == 0 and not self.hparams.separate_embedding_layer:
                     self.linears_prediction.append(
                         nn.Linear(input_dim + additional_element_size, output_dim)
                     )
@@ -174,6 +176,11 @@ class FlowGNNModule(BaseModule):
             action="store_true",
             help="attach node type separately from data flow features",
         )
+        parser.add_argument(
+            "--separate_embedding_layer",
+            action="store_true",
+            help="embed input features separately from graph learning layer",
+        )
         return parent_parser
 
     def reset_parameters(self):
@@ -182,6 +189,10 @@ class FlowGNNModule(BaseModule):
 
     def forward(self, g):
         h = g.ndata[self.feature_keys["feature"]]
+
+        if self.hparams.separate_embedding_layer:
+            h = self.embedding(h)
+
         # list of hidden representation at each layer (including input)
         hidden_rep = [h]
 

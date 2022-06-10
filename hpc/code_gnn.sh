@@ -19,7 +19,12 @@ echo $SLURM_JOB_ID $SLURM_JOB_NAME $SLURM_JOB_NODELIST
 
 nvidia-smi
 
-feat=$1
+feat="$1"
+update_func="$2"
+if [ -z "$2" ]
+then
+update_func="sum"
+fi
 
 echo "training $feat"
 
@@ -27,4 +32,4 @@ singularity exec --nv main.sif python -u code_gnn/main.py \
     --model flow_gnn --dataset MSR --feat $feat \
     --clean --batch_size 256 --max_epochs 500 --weight_decay 1e-2 \
     --label_style graph \
-    --evaluation
+    --evaluation --neighbor_pooling_type $update_func

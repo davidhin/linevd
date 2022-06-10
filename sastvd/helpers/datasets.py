@@ -295,6 +295,7 @@ def bigvul_partition(df, partition="train", undersample=True):
         data=list(map(get_label, range(len(df)))),
         index=np.random.RandomState(seed=0).permutation(df.index),
     )
+    # TODO verify that this always gives the same output no matter what!
 
     if partition != "all":
         df = df[df.label == partition]
