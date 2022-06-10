@@ -1,5 +1,8 @@
 """
 Extract abstract dataflow features from graphs
+Yields:
+- storage/cache/bigvul/abstract_dataflow.csv (cache)
+- storage/processed/bigvul/abstract_dataflow_hash_api_datatype_literal_operator.csv
 """
 
 import argparse

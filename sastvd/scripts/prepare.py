@@ -2,13 +2,13 @@ import argparse
 import sastvd as svd
 import sastvd.helpers.datasets as svdd
 import sastvd.ivdetect.evaluate as ivde
-import sys
 
 
 def bigvul():
     """Run preperation scripts for BigVul dataset."""
-    svdd.bigvul(sample=args.sample)
+    print(svdd.bigvul(sample=args.sample))
     ivde.get_dep_add_lines_bigvul(sample=args.sample)
+    print("success")
 
 
 if __name__ == "__main__":

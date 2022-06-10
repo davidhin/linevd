@@ -1,3 +1,7 @@
+"""
+Get subtypes from raw abstract dataflow features (abstract_dataflow.csv)
+"""
+
 import pandas as pd
 from pathlib import Path
 import json
