@@ -5,7 +5,6 @@ import pandas as pd
 import sastvd as svd
 import sastvd.helpers.datasets as svdds
 import sastvd.helpers.joern as svdj
-from code_gnn.globals import global_seed
 
 
 def is_valid(_id, hash_index):
@@ -32,6 +31,7 @@ class BigVulDataset:
         filter_cwe=None,
         sample_mode=False,
         split="fixed",
+        seed=0,
     ):
         """Init class."""
         # Get finished samples
@@ -39,7 +39,7 @@ class BigVulDataset:
 
         df = svdds.bigvul(sample=sample_mode)
         if sample != -1:
-            df = df.sample(sample, random_state=global_seed)
+            df = df.sample(sample, random_state=seed)
         # print("load", len(df))
         # Filter to storage/cache/bigvul_linevd_codebert_dataflow_cfg
         # df = df[df["id"].apply(lambda i: (Path("storage/cache/bigvul_linevd_codebert_dataflow_cfg")/str(i)).exists())]
@@ -57,7 +57,7 @@ class BigVulDataset:
 
         if "_ABS_DATAFLOW" in feat:
             try:
-                self.abs_df, self.abs_df_hashes = svdds.abs_dataflow(feat, sample_mode, split=split)
+                self.abs_df, self.abs_df_hashes = svdds.abs_dataflow(feat, sample_mode, split=split, seed=seed)
                 if "_filtertoabs" in feat:
                     filtered_file = (
                         svd.processed_dir()
@@ -121,7 +121,7 @@ class BigVulDataset:
             print("CWE filter", len(df))
 
         if not sample_mode:
-            df = svdds.bigvul_partition(df, partition, undersample=undersample, split=split)
+            df = svdds.bigvul_partition(df, partition, undersample=undersample, split=split, seed=seed)
         print(partition, len(df))
 
         self.df = df

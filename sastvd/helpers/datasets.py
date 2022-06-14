@@ -10,7 +10,6 @@ import json
 import traceback
 import sastvd.helpers.git as svdg
 import sastvd.helpers.joern as svdj
-from code_gnn.globals import global_seed
 
 
 def remove_comments(text):
@@ -238,13 +237,13 @@ def itempath(_id):
 
 
 def bigvul_filter(
-    df, check_file=False, check_valid=False, vulonly=False, load_code=False, sample=-1, sample_mode=False
+    df, check_file=False, check_valid=False, vulonly=False, load_code=False, sample=-1, sample_mode=False, seed=0
 ):
     """Filter dataset based on various considerations for training"""
 
     # Small sample (for debugging):
     if sample > 0:
-        df = df.sample(sample, random_state=global_seed)
+        df = df.sample(sample, random_state=seed)
 
     # Filter only vulnerable
     if vulonly:
@@ -281,24 +280,28 @@ def bigvul_filter(
     return df
 
 
-def bigvul_partition(df, partition="train", undersample=True, split="fixed"):
+def bigvul_partition(df, partition="train", undersample=True, split="fixed", seed=0):
     """Filter to one partition of bigvul and rebalance function-wise"""
-    print("bigvul_partition", partition)
-
-    def get_label(i):
-        if i < int(len(df) * 0.1):
-            return "val"
-        elif i < int(len(df) * 0.2):
-            return "test"
-        else:
-            return "train"
+    print("bigvul_partition", len(df), partition, seed)
 
     if split == "random":
-        print("generating random splits")
-        df["label"] = pd.Series(
-            data=list(map(get_label, range(len(df)))),
-            index=np.random.RandomState(seed=global_seed).permutation(df.index),
-        )
+        print("generating random splits with seed", seed)
+        def get_label(i):
+            if i < int(len(df) * 0.1):
+                # print(i, int(len(df) * 0.1), int(len(df) * 0.2))
+                return "val"
+            elif i < int(len(df) * 0.2):
+                # print(i, int(len(df) * 0.1), int(len(df) * 0.2))
+                return "test"
+            else:
+                return "train"
+        # df["label"] = pd.Series(
+        #     data=list(map(get_label, range(len(df)))),
+        #     index=np.random.RandomState(seed=seed).permutation(df.index),
+        # )
+        print(len(df))
+        df["label"] = pd.Series(list(map(get_label, range(len(df)))), index=np.random.RandomState(seed=seed).permutation(df.index))
+        # train, validate, test = np.split(df.sample(frac=1, random_state=seed), [int(.8*len(df)), int(.9*len(df))])
         # NOTE: I verified that this always gives the same output for all runs!
         # as long as the input df is the same (should be filtered first e.g. datamodule vs. abs_df)
     elif split == "fixed":
@@ -309,7 +312,7 @@ def bigvul_partition(df, partition="train", undersample=True, split="fixed"):
     else:
         raise NotImplementedError(split)
     print(df.value_counts("label"))
-    print(df.head())
+    print(df.groupby("label").head(5))
 
     if partition != "all":
         df = df[df.label == partition]
@@ -318,7 +321,7 @@ def bigvul_partition(df, partition="train", undersample=True, split="fixed"):
     # Balance training set
     if (partition == "train" or partition == "val") and undersample:
         vul = df[df.vul == 1]
-        nonvul = df[df.vul == 0].sample(len(vul), random_state=global_seed)
+        nonvul = df[df.vul == 0].sample(len(vul), random_state=seed)
         df = pd.concat([vul, nonvul])
         print("undersampled", len(df))
 
@@ -326,12 +329,38 @@ def bigvul_partition(df, partition="train", undersample=True, split="fixed"):
     # if partition == "test" and undersample:
     #     vul = df[df.vul == 1]
     #     nonvul = df[df.vul == 0]
-    #     nonvul = nonvul.sample(min(len(nonvul), len(vul) * 20), random_state=global_seed)
+    #     nonvul = nonvul.sample(min(len(nonvul), len(vul) * 20), random_state=seed)
     #     df = pd.concat([vul, nonvul])
     #     print("undersampled", len(df))
 
 
     return df
+
+
+def test_random():
+    df = bigvul()
+    df = bigvul_partition(df, seed=42, partition="all", split="random")
+    print("TEST 1")
+    print(df.value_counts("label"))
+    for label, group in df.groupby("label"):
+        print(label)
+        print(group)
+
+    sdf = bigvul()
+    sdf = bigvul_partition(df, seed=42, partition="all", split="random")
+    print("TEST 2")
+    assert sdf["label"].to_list() == df["label"].to_list()
+
+    odf = bigvul()
+    odf = bigvul_partition(odf, seed=53, partition="all", split="random")
+    print("TEST 3")
+    print(odf.value_counts("label"))
+    for label, group in odf.groupby("label"):
+        print(label)
+        print(group)
+        assert len(group) == len(df[df["label"] == label])
+        assert group["id"].to_list() != (df[df["label"] == label]["id"]).to_list()
+    assert odf["label"].to_list() != df["label"].to_list()
 
 single = {
     "api": False,
@@ -341,7 +370,7 @@ single = {
 }
 all_subkeys = ["api", "datatype", "literal", "operator"]
 
-def abs_dataflow(feat, sample=False, verbose=False, split="fixed"):
+def abs_dataflow(feat, sample=False, verbose=False, split="fixed", seed=0):
     """Load abstract dataflow information"""
     
     df = bigvul(sample=sample)
@@ -352,8 +381,9 @@ def abs_dataflow(feat, sample=False, verbose=False, split="fixed"):
         vulonly=False,
         load_code=False,
         sample_mode=sample,
+        seed=seed,
     )
-    source_df = bigvul_partition(df, "train", undersample=False, split=split)
+    source_df = bigvul_partition(df, "train", undersample=False, split=split, seed=seed)
 
     abs_df_file = svd.processed_dir() / f"bigvul/abstract_dataflow_hash_api_datatype_literal_operator{'_sample' if sample else ''}.csv"
     if abs_df_file.exists():

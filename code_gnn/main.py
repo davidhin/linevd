@@ -52,6 +52,7 @@ def train_single_model(config):
         use_cache=not config["disable_cache"],
         train_workers=config["train_workers"],
         split=config["split"],
+        seed=config["seed"],
     )
 
     if config["dataset_only"]:
@@ -494,6 +495,7 @@ if __name__ == "__main__":
                 f"{args.learning_rate:f}".rstrip("0").rstrip("."),
                 f"{args.weight_decay:f}".rstrip("0").rstrip("."),
                 args.batch_size,
+                args.seed,
             ),
         )
     )

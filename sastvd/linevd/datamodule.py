@@ -26,6 +26,7 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
         use_cache=True,
         train_workers=4,
         split="fixed",
+        seed=0,
     ):
         """Init class from bigvul dataset."""
         super().__init__()
@@ -41,14 +42,15 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
             "sample_mode": sample_mode,
             "use_cache": use_cache,
             "split": split,
+            "seed": seed,
         }
         self.train = BigVulDatasetLineVD(partition="train", **dataargs)
         self.val = BigVulDatasetLineVD(partition="val", **dataargs)
         self.test = BigVulDatasetLineVD(partition="test", **dataargs)
-        duped_examples_trainval = set(self.train.df.index) & set(self.val.df.index)
-        assert not any(duped_examples_trainval)
-        duped_examples_valtest = set(self.val.df.index) & set(self.test.df.index)
-        assert not any(duped_examples_valtest)
+        duped_examples_trainval = set(self.train.df["id"]) & set(self.val.df["id"])
+        assert not any(duped_examples_trainval), len(duped_examples_trainval)
+        duped_examples_valtest = set(self.val.df["id"]) & set(self.test.df["id"])
+        assert not any(duped_examples_valtest), len(duped_examples_valtest)
         print("SPLIT SIZES:", len(self.train),len(self.val),len(self.test))
         self.batch_size = batch_size
         self.nsampling = nsampling
@@ -91,3 +93,19 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
     def test_dataloader(self):
         """Return test dataloader."""
         return GraphDataLoader(self.test, batch_size=32, num_workers=self.train_workers)
+
+def test_dm():
+    data = BigVulDatasetLineVDDataModule(
+        batch_size=256,
+        methodlevel=False,
+        gtype="cfg",
+        feat="_ABS_DATAFLOW_datatype_all",
+        cache_all=False,
+        undersample=True,
+        filter_cwe=[],
+        sample_mode=False,
+        use_cache=True,
+        train_workers=0,
+        split="random",
+    )
+    print(data)
