@@ -155,14 +155,29 @@ def train_single_model(config):
                     model=model, datamodule=data, ckpt_path=config["resume_from_checkpoint"]
                 )
             if Path(config["resume_from_checkpoint"]).is_dir():
-                ckpts = list(Path(config["resume_from_checkpoint"]).glob("checkpoints/periodical-*.ckpt"))
-                logger.info(
-                    "unsorted: %s", str([int(str(fp.name).split("-")[1]) for fp in ckpts])
-                )
-                ckpts = sorted(ckpts, key=lambda fp: int(str(fp.name).split("-")[1]))
-                logger.info(
-                    "sorted: %s", str([int(str(fp.name).split("-")[1]) for fp in ckpts])
-                )
+                ckpts = list(Path(config["resume_from_checkpoint"]).glob("checkpoints/*.ckpt"))
+                # logger.info(
+                #     "unsorted: %s", str([int(str(fp.name).split("-")[1]) for fp in ckpts])
+                # )
+                # logger.info(
+                #     "sorted: %s", str([int(str(fp.name).split("-")[1]) for fp in ckpts])
+                # )
+                periodical_ckpts = []
+                performance_ckpts = []
+                other_ckpts = []
+                for c in ckpts:
+                    if c.name.startswith("periodical"):
+                        periodical_ckpts.append(c)
+                    elif c.name.startswith("performance"):
+                        performance_ckpts.append(c)
+                    else:
+                        other_ckpts.append(c)
+                
+                periodical_ckpts = sorted(periodical_ckpts, key=lambda fp: int(str(fp.name).split("-")[1]))
+                performance_ckpts = sorted(performance_ckpts, reverse=True, key=lambda fp: float(str(fp.name).split("-")[3].split("=")[1].split(".")[0]))
+                
+                ckpts = periodical_ckpts + performance_ckpts + other_ckpts
+                logger.info("ckpts: %s", [c.name for c in ckpts])
                 for ckpt in ckpts:
                     logger.info("loading checkpoint %s", ckpt)
                     trainer.test(model=model, datamodule=data, ckpt_path=ckpt)
