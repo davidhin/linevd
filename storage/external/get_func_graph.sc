@@ -1,6 +1,12 @@
 import better.files.File
 
-@main def exec(filename: String, runOssDataflow: Boolean = true, exportJson: Boolean = true, exportCpg: Boolean = false, deleteAfter: Boolean = true) = {
+/**
+  * Instantiate reaching definition problem and print the solution
+  *
+  * Run with:
+  * joern --script storage/external/get_dataflow_output.scala --params filename=x42/c/X42.c
+  */
+@main def exec(filename: String, runOssDataflow: Boolean = true, exportJson: Boolean = true, exportCpg: Boolean = true, deleteAfter: Boolean = true) = {
    val cpgFile = File(filename + ".cpg.bin")
    if (cpgFile.exists) {
       println(s"Loading CPG from $cpgFile")

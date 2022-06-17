@@ -19,7 +19,7 @@ def toJson(query: Any): String = query match {
   * Instantiate reaching definition problem and print the solution
   *
   * Run with:
-  * joern --script storage/external/get_dataflow_output.scala --params filename=x42/c/X42.c,problem=reachingdef
+  * joern --script storage/external/get_dataflow_output.scala --params filename=x42/c/X42.c
   */
 @main def exec(filename: String, cache: Boolean = true) = {
     val summaryFile = File(s"${filename}.dataflow.summary.json")
