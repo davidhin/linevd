@@ -143,7 +143,10 @@ def train_single_model(config):
 
     model = config["model_class"](**config)
     if not config["skip_train"]:
-        trainer.fit(model, datamodule=data)
+        if config["test_every"]:
+            trainer.fit(model, train_dataloaders=data.train_dataloader(), val_dataloaders=[data.val_dataloader(), data.test_dataloader()])
+        else:
+            trainer.fit(model, datamodule=data)
     if config["evaluation"]:
         if config["take_checkpoint"] == "best":
             ckpt = trainer.checkpoint_callback.best_model_path
@@ -303,6 +306,7 @@ def get_trainer(config):
         enable_checkpointing=True,
         # profiler=profiler,
         resume_from_checkpoint=config["resume_from_checkpoint"],
+        # track_grad_norm=2,
     )
     return trainer
 
@@ -438,7 +442,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--clean", action="store_true", help="clean old outputs")
     parser.add_argument(
-        "--batch_size", type=int, default=64, help="number of items to load in a batch"
+        "--batch_size", type=int, default=256, help="number of items to load in a batch"
     )
     parser.add_argument("--filter_cwe", nargs="+", help="CWE to filter examples")
     parser.add_argument(
@@ -466,6 +470,9 @@ if __name__ == "__main__":
         "--patience",
         type=int,
         help="patience value to use for early stopping. Omit to disable early stopping.",
+    )
+    parser.add_argument(
+        "--test_every", action="store_true", help="run test dataloader every epoch"
     )
     parser.add_argument("--roc_every", type=int, help="print ROC curve every n epochs.")
 

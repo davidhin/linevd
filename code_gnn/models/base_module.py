@@ -119,40 +119,71 @@ class BaseModule(pl.LightningModule):
         self.train_recall(out, label)
         self.train_f1(out, label)
         self.log(
-            "train_class_accuracy", self.train_accuracy, on_step=True, on_epoch=True
+            "train_class_accuracy", self.train_accuracy, on_step=True, on_epoch=True, batch_size=batch.batch_size,
         )
         self.log(
-            "train_class_precision", self.train_precision, on_step=True, on_epoch=True
+            "train_class_precision", self.train_precision, on_step=True, on_epoch=True, batch_size=batch.batch_size,
         )
-        self.log("train_class_recall", self.train_recall, on_step=True, on_epoch=True)
-        self.log("train_class_f1", self.train_f1, on_step=True, on_epoch=True)
+        self.log("train_class_recall", self.train_recall, on_step=True, on_epoch=True, batch_size=batch.batch_size,)
+        self.log("train_class_f1", self.train_f1, on_step=True, on_epoch=True, batch_size=batch.batch_size,)
 
         return loss
 
-    def validation_step(self, batch, batch_idx):
+    def on_after_backward(self):
+        """https://github.com/Lightning-AI/lightning/issues/2660#issuecomment-699020383"""
+        if self.global_step % 100 == 0:  # don't make the tf file huge
+            for name, param in self.named_parameters():
+                self.logger.experiment.add_histogram(name, param, self.global_step)
+                if param.requires_grad:
+                    self.logger.experiment.add_histogram(f"{name}_grad", param.grad, self.global_step)
+
+    def validation_step(self, batch, batch_idx, dataloader_idx):
         label = self.get_label(batch)
         out = self.forward(batch)
         loss = self.loss_fn(out, label)
-        self.log(
-            "val_loss",
-            loss.item(),
-            on_step=True,
-            on_epoch=True,
-            batch_size=batch.batch_size,
-        )
         # self.log_class_metrics("val", out, label)
+
         out = out.detach().float()
         label = label.detach().int()
-        self.val_accuracy(out, label)
-        self.val_precision(out, label)
-        self.val_recall(out, label)
-        self.val_f1(out, label)
-        self.log("val_class_accuracy", self.val_accuracy, on_step=True, on_epoch=True)
-        self.log(
-            "val_class_precision", self.val_precision, on_step=True, on_epoch=True
-        )
-        self.log("val_class_recall", self.val_recall, on_step=True, on_epoch=True)
-        self.log("val_class_f1", self.val_f1, on_step=True, on_epoch=True)
+        if dataloader_idx == 0:
+            self.log(
+                "val_loss",
+                loss.item(),
+                on_step=True,
+                on_epoch=True,
+                batch_size=batch.batch_size,
+            )
+            self.val_accuracy(out, label)
+            self.val_precision(out, label)
+            self.val_recall(out, label)
+            self.val_f1(out, label)
+            self.log("val_class_accuracy", self.val_accuracy, on_step=True, on_epoch=True, batch_size=batch.batch_size,)
+            self.log(
+                "val_class_precision", self.val_precision, on_step=True, on_epoch=True, batch_size=batch.batch_size,
+            )
+            self.log("val_class_recall", self.val_recall, on_step=True, on_epoch=True, batch_size=batch.batch_size,)
+            self.log("val_class_f1", self.val_f1, on_step=True, on_epoch=True, batch_size=batch.batch_size,)
+        elif dataloader_idx == 1:
+            self.log(
+                "test_loss",
+                loss.item(),
+                on_step=True,
+                on_epoch=True,
+                batch_size=batch.batch_size,
+            )
+            self.test_accuracy(out, label)
+            self.test_precision(out, label)
+            self.test_recall(out, label)
+            self.test_f1(out, label)
+            self.log(
+                f"test_class_accuracy", self.test_accuracy, on_step=True, on_epoch=True, batch_size=batch.batch_size,
+            )
+            self.log(
+                f"test_class_precision", self.test_precision, on_step=True, on_epoch=True, batch_size=batch.batch_size,
+            )
+            self.log(f"test_class_recall", self.test_recall, on_step=True, on_epoch=True, batch_size=batch.batch_size,)
+            self.log(f"test_class_f1", self.test_f1, on_step=True, on_epoch=True, batch_size=batch.batch_size,)
+
 
     def test_step(self, batch, batch_idx):
         # breakpoint()
@@ -170,13 +201,13 @@ class BaseModule(pl.LightningModule):
         self.test_recall(out, label)
         self.test_f1(out, label)
         self.log(
-            f"test_class_accuracy", self.test_accuracy, on_step=True, on_epoch=True
+            f"test_class_accuracy", self.test_accuracy, on_step=True, on_epoch=True, batch_size=batch.batch_size,
         )
         self.log(
-            f"test_class_precision", self.test_precision, on_step=True, on_epoch=True
+            f"test_class_precision", self.test_precision, on_step=True, on_epoch=True, batch_size=batch.batch_size,
         )
-        self.log(f"test_class_recall", self.test_recall, on_step=True, on_epoch=True)
-        self.log(f"test_class_f1", self.test_f1, on_step=True, on_epoch=True)
+        self.log(f"test_class_recall", self.test_recall, on_step=True, on_epoch=True, batch_size=batch.batch_size,)
+        self.log(f"test_class_f1", self.test_f1, on_step=True, on_epoch=True, batch_size=batch.batch_size,)
 
     def training_epoch_end(self, outputs):
         self.log("epoch", self.current_epoch)
