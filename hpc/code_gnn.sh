@@ -2,10 +2,10 @@
 #SBATCH -N 1
 #SBATCH -n 4
 #SBATCH --mem 32G
-#SBATCH --time=3-00:00:00
+#SBATCH --time=12:00:00
 #SBATCH --gres=gpu:1
 #SBATCH --partition=gpu
-##SBATCH --exclude=amp-1,amp-2,amp-3,amp-4,singularity,matrix
+#SBATCH --exclude=amp-1,amp-2,amp-3,amp-4,singularity,matrix
 #SBATCH --err="hpc/logs/code_gnn_%j.info"
 #SBATCH --output="hpc/logs/code_gnn_%j.info"
 #SBATCH --job-name="code_gnn"

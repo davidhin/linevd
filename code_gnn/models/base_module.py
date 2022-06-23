@@ -42,11 +42,27 @@ class BaseModule(pl.LightningModule):
         self.test_f1 = torchmetrics.F1Score()
 
     def configure_optimizers(self):
-        return Adam(
+        optimizer = Adam(
             self.parameters(),
             lr=self.hparams.learning_rate,
             weight_decay=self.hparams.weight_decay,
         )
+        if self.hparams.use_lr_scheduler is not None:
+            if self.hparams.use_lr_scheduler == "OneCycleLR":
+                lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
+                    optimizer,
+                    max_lr=self.hparams.learning_rate,
+                    steps_per_epoch=self.hparams.steps_per_epoch,
+                    epochs=self.hparams.max_epochs,
+                    anneal_strategy="linear",
+                )
+            elif self.hparams.use_lr_scheduler == "MultiplicativeLR":
+                lr_scheduler = torch.optim.lr_scheduler.MultiplicativeLR(optimizer, lr_lambda=0.95)
+            elif self.hparams.use_lr_scheduler == "ExponentialLR":
+                lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.999)
+            return [optimizer], [lr_scheduler]
+        else:
+            return optimizer
 
     def get_label(self, batch):
         if self.hparams.label_style == "node":

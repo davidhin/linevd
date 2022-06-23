@@ -14,7 +14,8 @@ from pytorch_lightning.callbacks import (
     DeviceStatsMonitor,
     EarlyStopping,
     ModelCheckpoint,
-    DeviceStatsMonitor
+    DeviceStatsMonitor,
+    LearningRateMonitor
 )
 from pytorch_lightning.loggers import TensorBoardLogger
 from sastvd.linevd import BigVulDatasetLineVDDataModule
@@ -54,6 +55,7 @@ def train_single_model(config):
         split=config["split"],
         seed=config["seed"],
     )
+    config["steps_per_epoch"] = int(len(data.train_dataloader()))
 
     if config["dataset_only"]:
         if config["feat"].startswith("_ABS_DATAFLOW"):
@@ -260,6 +262,8 @@ def get_trainer(config):
         every=25,
     )
     callbacks.append(checkpoint_callback)
+    lr_monitor = LearningRateMonitor(logging_interval='step')
+    callbacks.append(lr_monitor)
 
     try:
         gpu_stats = DeviceStatsMonitor()
@@ -307,6 +311,8 @@ def get_trainer(config):
         # profiler=profiler,
         resume_from_checkpoint=config["resume_from_checkpoint"],
         # track_grad_norm=2,
+        gradient_clip_val=config["gradient_clip_val"],
+        accumulate_grad_batches=config["accumulate_grad_batches"],
     )
     return trainer
 
@@ -475,6 +481,21 @@ if __name__ == "__main__":
         "--test_every", action="store_true", help="run test dataloader every epoch"
     )
     parser.add_argument("--roc_every", type=int, help="print ROC curve every n epochs.")
+    parser.add_argument(
+        "--gradient_clip_val",
+        type=float,
+        default=None,
+        help="Value to clip gradient norm",
+    )
+    parser.add_argument(
+        "--use_lr_scheduler", type=str, help="use a learning rate scheduler"
+    )
+    parser.add_argument(
+        "--accumulate_grad_batches",
+        type=int,
+        default=1,
+        help="how many batches to accumulate gradients",
+    )
 
     args, _ = parser.parse_known_args()
 
@@ -503,6 +524,9 @@ if __name__ == "__main__":
                 f"{args.weight_decay:f}".rstrip("0").rstrip("."),
                 args.batch_size,
                 args.seed,
+                args.gradient_clip_val,
+                args.use_lr_scheduler,
+                args.accumulate_grad_batches,
             ),
         )
     )
