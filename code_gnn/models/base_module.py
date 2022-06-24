@@ -10,9 +10,6 @@ from matplotlib import pyplot as plt
 
 import torch
 from torch.nn import BCELoss
-from torch.optim import Adam
-
-from sastvd.linevd.datamodule import BigVulDatasetLineVDDataModule
 
 logger = logging.getLogger(__name__)
 
@@ -25,50 +22,29 @@ label_keys = {
 
 
 class BaseModule(pl.LightningModule):
-    def __init__(self):
+    def __init__(
+        self,
+        undersample_factor=None,
+        test_every=False,
+        ):
         super().__init__()
-        self.loss_fn = BCELoss()
         self.class_threshold = 0.5
 
-        self.train_accuracy = torchmetrics.Accuracy()
-        self.train_precision = torchmetrics.Precision()
-        self.train_recall = torchmetrics.Recall()
-        self.train_f1 = torchmetrics.F1Score()
-        self.val_accuracy = torchmetrics.Accuracy()
-        self.val_precision = torchmetrics.Precision()
-        self.val_recall = torchmetrics.Recall()
-        self.val_f1 = torchmetrics.F1Score()
-        self.test_accuracy = torchmetrics.Accuracy()
-        self.test_precision = torchmetrics.Precision()
-        self.test_recall = torchmetrics.Recall()
-        self.test_f1 = torchmetrics.F1Score()
-
-    def configure_optimizers(self):
-        optimizer = Adam(
-            self.parameters(),
-            lr=self.hparams.learning_rate,
-            weight_decay=self.hparams.weight_decay,
-        )
-        if self.hparams.use_lr_scheduler is not None:
-            # if self.hparams.use_lr_scheduler == "OneCycleLR":
-            #     lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
-            #         optimizer,
-            #         max_lr=self.hparams.learning_rate,
-            #         steps_per_epoch=self.hparams.steps_per_epoch,
-            #         epochs=self.hparams.max_epochs,
-            #         anneal_strategy="linear",
-            #     )
-            if self.hparams.use_lr_scheduler == "MultiplicativeLR":
-                split = self.hparams.use_lr_scheduler.split("_")
-                if len(split) == 2:
-                    lr_scheduler = torch.optim.lr_scheduler.MultiplicativeLR(optimizer, lr_lambda=lambda x: float(split[1]))
-                else:
-                    lr_scheduler = torch.optim.lr_scheduler.MultiplicativeLR(optimizer, lr_lambda=lambda x: 0.95)
-            elif self.hparams.use_lr_scheduler == "ExponentialLR":
-                lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.999)
-            return [optimizer], [lr_scheduler]
+        metrics = torchmetrics.MetricCollection([
+            torchmetrics.Accuracy(),
+            torchmetrics.Precision(),
+            torchmetrics.Recall(),
+            torchmetrics.F1Score(),
+            ])
+        self.train_metrics = metrics.clone(prefix='train_')
+        self.val_metrics = metrics.clone(prefix='val_')
+        if test_every:
+            self.test_every_metrics = metrics.clone(prefix='test_every_')
         else:
-            return optimizer
+            self.test_every_metrics = None
+        self.test_metrics = metrics.clone(prefix='test_')
+        
+        self.loss_fn = BCELoss()
 
     def get_label(self, batch):
         if self.hparams.label_style == "node":
@@ -80,76 +56,72 @@ class BaseModule(pl.LightningModule):
             raise NotImplementedError(self.hparams.label_style)
         return label.float()
 
-    def training_step(self, batch, batch_idx):
-        label = self.get_label(batch)
-        out = self.forward(batch)
+    def resample(self, batch, out, label):
+        """Resample logits and labels to balance vuln/nonvuln classes"""
         self.log(
-            "train_meta_original_label_proportion",
+            "meta/train_original_label_proportion",
+            torch.mean(label).float().item(),
+            on_step=True,
+            on_epoch=False,
+            batch_size=batch.batch_size,
+        )
+        self.log(
+            "meta/train_original_label_len",
+            torch.tensor(label.shape[0]).float(),
+            on_step=True,
+            on_epoch=False,
+            batch_size=batch.batch_size,
+        )
+        vuln_indices = label.nonzero().squeeze().tolist()
+        num_indices_to_sample = round(
+            len(vuln_indices) * self.hparams.undersample_factor
+        )
+        nonvuln_indices = (label == 0).nonzero().squeeze().tolist()
+        nonvuln_indices = random.sample(nonvuln_indices, num_indices_to_sample)
+        # TODO: Does this need to be sorted?
+        indices = vuln_indices + nonvuln_indices
+        out = out[indices]
+        label = label[indices]
+        self.log(
+            "meta/train_resampled_label_proportion",
             torch.mean(label).item(),
             on_step=True,
             on_epoch=False,
             batch_size=batch.batch_size,
         )
         self.log(
-            "train_meta_original_label_len",
-            label.shape[0],
+            "meta/train_resampled_label_len",
+            torch.tensor(label.shape[0]).float(),
             on_step=True,
             on_epoch=False,
             batch_size=batch.batch_size,
         )
-        if self.hparams.label_style == "node":
-            if self.hparams.undersample_factor is not None:
-                vuln_indices = label.nonzero().squeeze().tolist()
-                num_indices_to_sample = round(
-                    len(vuln_indices) * self.hparams.undersample_factor
-                )
-                nonvuln_indices = (label == 0).nonzero().squeeze().tolist()
-                nonvuln_indices = random.sample(nonvuln_indices, num_indices_to_sample)
-                # unif = -label_for_loss + 1
-                # nonvuln_indices = unif.float().multinomial(num_indices_to_sample)
-                # TODO: Does this need to be sorted?
-                indices = vuln_indices + nonvuln_indices
-                out = out[indices]
-                label = label[indices]
-                self.log(
-                    "train_meta_resampled_label_proportion",
-                    torch.mean(label).item(),
-                    on_step=True,
-                    on_epoch=False,
-                    batch_size=batch.batch_size,
-                )
-                self.log(
-                    "train_meta_resampled_label_len",
-                    label.shape[0],
-                    on_step=True,
-                    on_epoch=False,
-                    batch_size=batch.batch_size,
-                )
-        loss = self.loss_fn(out, label)
+        return out, label
+    
+
+    def log_loss(self, name, loss, batch):
         self.log(
-            "train_loss",
+            f"{name}_loss",
             loss.item(),
             on_step=True,
             on_epoch=True,
             batch_size=batch.batch_size,
         )
-        # self.log_class_metrics("train", out, label)
-        out = out.detach().float()
-        label = label.detach().int()
-        self.train_accuracy(out, label)
-        self.train_precision(out, label)
-        self.train_recall(out, label)
-        self.train_f1(out, label)
-        self.log(
-            "train_class_accuracy", self.train_accuracy, on_step=True, on_epoch=True, batch_size=batch.batch_size,
-        )
-        self.log(
-            "train_class_precision", self.train_precision, on_step=True, on_epoch=True, batch_size=batch.batch_size,
-        )
-        self.log("train_class_recall", self.train_recall, on_step=True, on_epoch=True, batch_size=batch.batch_size,)
-        self.log("train_class_f1", self.train_f1, on_step=True, on_epoch=True, batch_size=batch.batch_size,)
+
+
+    def training_step(self, batch, batch_idx):
+        label = self.get_label(batch)
+        out = self.forward(batch)
+        loss = self.loss_fn(out, label)
+        
+        if self.hparams.label_style == "node" and self.hparams.undersample_factor is not None:
+            self.resample(self, batch, out, label)
+        self.log_loss("train", loss, batch)
+        output = self.train_metrics(out, label.int())
+        self.log_dict(output, batch_size=batch.batch_size)
 
         return loss
+
 
     def on_after_backward(self):
         """https://github.com/Lightning-AI/lightning/issues/2660#issuecomment-699020383"""
@@ -159,106 +131,31 @@ class BaseModule(pl.LightningModule):
                 if param.requires_grad:
                     self.logger.experiment.add_histogram(f"{name}_grad", param.grad, self.global_step)
 
+
     def validation_step(self, batch, batch_idx, dataloader_idx=0):
         label = self.get_label(batch)
         out = self.forward(batch)
         loss = self.loss_fn(out, label)
-        # self.log_class_metrics("val", out, label)
 
-        out = out.detach().float()
-        label = label.detach().int()
-        if dataloader_idx == 0:
-            self.log(
-                "val_loss",
-                loss.item(),
-                on_step=True,
-                on_epoch=True,
-                batch_size=batch.batch_size,
-            )
-            self.val_accuracy(out, label)
-            self.val_precision(out, label)
-            self.val_recall(out, label)
-            self.val_f1(out, label)
-            self.log("val_class_accuracy", self.val_accuracy, on_step=True, on_epoch=True, batch_size=batch.batch_size,)
-            self.log(
-                "val_class_precision", self.val_precision, on_step=True, on_epoch=True, batch_size=batch.batch_size,
-            )
-            self.log("val_class_recall", self.val_recall, on_step=True, on_epoch=True, batch_size=batch.batch_size,)
-            self.log("val_class_f1", self.val_f1, on_step=True, on_epoch=True, batch_size=batch.batch_size,)
-        elif dataloader_idx == 1:
-            self.log(
-                "test_loss",
-                loss.item(),
-                on_step=True,
-                on_epoch=True,
-                batch_size=batch.batch_size,
-            )
-            self.test_accuracy(out, label)
-            self.test_precision(out, label)
-            self.test_recall(out, label)
-            self.test_f1(out, label)
-            self.log(
-                f"test_class_accuracy", self.test_accuracy, on_step=True, on_epoch=True, batch_size=batch.batch_size,
-            )
-            self.log(
-                f"test_class_precision", self.test_precision, on_step=True, on_epoch=True, batch_size=batch.batch_size,
-            )
-            self.log(f"test_class_recall", self.test_recall, on_step=True, on_epoch=True, batch_size=batch.batch_size,)
-            self.log(f"test_class_f1", self.test_f1, on_step=True, on_epoch=True, batch_size=batch.batch_size,)
+        if dataloader_idx == 0:  # val set
+            self.log_loss("val", loss, batch)
+            output = self.val_metrics(out, label.int())
+            self.log_dict(output, batch_size=batch.batch_size)
+        elif dataloader_idx == 1:  # test set (--test_every)
+            self.log_loss("test_every", loss, batch)
+            output = self.test_every_metrics(out, label.int())
+            self.log_dict(output, batch_size=batch.batch_size)
 
 
     def test_step(self, batch, batch_idx):
-        # breakpoint()
         label = self.get_label(batch)
         out = self.forward(batch)
         loss = self.loss_fn(out, label)
-        self.log(
-            "test_loss", loss.item(), on_step=True, on_epoch=True, batch_size=batch.batch_size
-        )
-        # self.log_class_metrics("test", out, label)
-        out = out.detach().float()
-        label = label.detach().int()
-        self.test_accuracy(out, label)
-        self.test_precision(out, label)
-        self.test_recall(out, label)
-        self.test_f1(out, label)
-        self.log(
-            f"test_class_accuracy", self.test_accuracy, on_step=True, on_epoch=True, batch_size=batch.batch_size,
-        )
-        self.log(
-            f"test_class_precision", self.test_precision, on_step=True, on_epoch=True, batch_size=batch.batch_size,
-        )
-        self.log(f"test_class_recall", self.test_recall, on_step=True, on_epoch=True, batch_size=batch.batch_size,)
-        self.log(f"test_class_f1", self.test_f1, on_step=True, on_epoch=True, batch_size=batch.batch_size,)
 
-    def training_epoch_end(self, outputs):
-        self.log("epoch", self.current_epoch)
+        self.log_loss("test", loss, batch)
+        output = self.test_metrics(out, label.int())
+        self.log_dict(output, batch_size=batch.batch_size)
 
-    def validation_epoch_end(self, outputs):
-        if self.hparams.roc_every is not None and (
-            self.current_epoch == 0
-            or (
-                self.current_epoch != 1
-                and ((self.current_epoch - 1) % self.hparams.roc_every == 0)
-            )
-        ):
-            all_label = torch.cat([o["label"] for o in outputs]).cpu().numpy()
-            all_out = torch.cat([o["out"] for o in outputs]).cpu().numpy()
-            fpr, tpr, thresholds = roc_curve(all_label, all_out)
-            logger.info(f"ROC curve thresholds {thresholds}")
-            plt.close()
-            plt.plot(fpr, tpr, marker=".", label="ROC")
-            plt.plot([0, 1], [0, 1], linestyle="--", label="Baseline")
-            plt.xlim(0.0, 1.0)
-            plt.ylim(0.0, 1.0)
-            plt.xlabel("FPR")
-            plt.ylabel("TPR")
-            plt.legend()
-            plt.title(f"ROC curve epoch {self.current_epoch}")
-            filename = f"img_{self.current_epoch}.png"
-            logger.info(f"Log ROC curve to {filename}")
-            plt.savefig(filename)
-            plt.show()
 
     @staticmethod
     def add_model_specific_args(parent_parser):
