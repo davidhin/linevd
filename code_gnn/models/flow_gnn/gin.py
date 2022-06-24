@@ -137,58 +137,6 @@ class FlowGNNModule(BaseModule):
         else:
             raise NotImplementedError
 
-    @staticmethod
-    def add_model_specific_args(parent_parser):
-        parser = parent_parser.add_argument_group("FlowGNN arguments")
-        parser.add_argument(
-            "--num_layers", type=int, default=5, help="number of GIN layers to use"
-        )
-        parser.add_argument(
-            "--num_mlp_layers",
-            type=int,
-            default=2,
-            help="number of layers to use in each GIN layer's MLP",
-        )
-        parser.add_argument(
-            "--hidden_dim", type=int, default=32, help="width of the GIN hidden layers"
-        )
-        parser.add_argument(
-            "--learn_eps",
-            type=bool,
-            default=False,
-            help="whether or not to learn a weight for the epsilon value",
-        )
-        parser.add_argument(
-            "--final_dropout",
-            type=float,
-            default=0.5,
-            help="probability to use for the final dropout layer",
-        )
-        parser.add_argument(
-            "--graph_pooling_type",
-            type=str,
-            default="sum",
-            help="GIN graph pooling operator to use",
-        )
-        parser.add_argument(
-            "--neighbor_pooling_type",
-            type=str,
-            default="sum",
-            choices=all_aggregate_functions,
-            help="GIN neighbor pooling operator to use",
-        )
-        parser.add_argument(
-            "--node_type_separate",
-            action="store_true",
-            help="attach node type separately from data flow features",
-        )
-        parser.add_argument(
-            "--separate_embedding_layer",
-            action="store_true",
-            help="embed input features separately from graph learning layer",
-        )
-        return parent_parser
-
     def reset_parameters(self):
         """TODO"""
         pass

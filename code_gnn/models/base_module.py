@@ -155,11 +155,3 @@ class BaseModule(pl.LightningModule):
         self.log_loss("test", loss, batch)
         output = self.test_metrics(out, label.int())
         self.log_dict(output, batch_size=batch.batch_size)
-
-
-    @staticmethod
-    def add_model_specific_args(parent_parser):
-        parser = parent_parser.add_argument_group("BaseModule arguments")
-        parser.add_argument("--learning_rate", type=float, default=1e-3)
-        parser.add_argument("--weight_decay", type=float, default=0)
-        return parent_parser

@@ -33,7 +33,8 @@ trainer:
 optimizer:
   class_path: torch.optim.Adam
   init_args:
-    lr: 0.001
+    lr: 1e-3
+    weight_decay: 1e-2
 data:
   feat: _ABS_DATAFLOW_datatype_all
   gtype: "cfg"

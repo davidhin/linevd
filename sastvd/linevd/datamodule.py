@@ -259,27 +259,6 @@ class BigVulDatasetLineVDDataModule(pl.LightningDataModule):
         """Return test dataloader."""
         return GraphDataLoader(self.test, batch_size=32, num_workers=self.train_workers)
 
-    @staticmethod
-    def add_model_specific_args(parent_parser):
-        # parser.add_argument("--dataset", choices=all_datasets, required=True, help="short ID for the dataset to train on")
-        parser.add_argument("--feat", help="node features to use")
-        parser.add_argument("--gtype", help="node features to use")
-        parser.add_argument("--batch_size", type=int, default=256, help="number of items to load in a batch")
-        parser.add_argument("--filter", type=str, help="filter data to a certain persuasion", default="")
-        parser.add_argument("--label_style", type=str, help="use node or graph labels", default="graph")
-        parser.add_argument("--debug_train_batches", type=int, help="debug mode - train with n batches")
-        parser.add_argument("--undersample_factor", type=float, help="factor to undersample majority class")
-        parser.add_argument("--cache_all", action="store_true", help="cache all items in memory")
-        parser.add_argument("--disable_cache", action="store_true", help="use cached files for dataset")
-        parser.add_argument("--sample_mode", action="store_true", help="load only sample of dataset")
-        parser.add_argument("--train_workers", type=int, default=4, help="use n parallel dataloader workers")
-        parser.add_argument("--split", choices=["fixed", "random"], default="fixed", help="which split method to use")
-        parser.add_argument("--filter_cwe", nargs="+", help="CWE to filter examples")
-        parser.add_argument("--resampling", choices=["default", "undersample"], default="default", action="store_true", help="resampling mode")
-        parser = parent_parser.add_argument_group("LineVD arguments (deprecated)")
-        parser.add_argument("--nsampling", action="store_true")
-        parser.add_argument("--nsampling_hops", type=int, default=1)
-
 def test_dm():
     data = BigVulDatasetLineVDDataModule(
         batch_size=256,
