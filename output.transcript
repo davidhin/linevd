@@ -1,0 +1,118 @@
+(linevd) benjis@AM:~/code/linevd-temp$ time python code_gnn/main_cli.py fit --config config.yaml --trainer.fast_dev_run True --my_verbose
+check_file 187072
+check_valid 104384
+bigvul_partition 104384 train 0
+loading fixed splits
+label
+train    83375
+val      10524
+test     10485
+dtype: int64
+    id                                             before                                              after removed added diff  vul dataset  label
+0    0  static bool check_rodc_critical_attribute(stru...  static bool check_rodc_critical_attribute(stru...      []    []         0  bigvul  train
+1    1  static int samldb_add_entry(struct samldb_ctx ...  static int samldb_add_entry(struct samldb_ctx ...      []    []         0  bigvul   test
+2    2  static int samldb_add_entry_callback(struct ld...  static int samldb_add_entry_callback(struct ld...      []    []         0  bigvul  train
+3    3  static int samldb_add_handle_msDS_IntId(struct...  static int samldb_add_handle_msDS_IntId(struct...      []    []         0  bigvul    val
+4    4  static int samldb_add_step(struct samldb_ctx *...  static int samldb_add_step(struct samldb_ctx *...      []    []         0  bigvul   test
+5    5  static int samldb_allocate_sid(struct samldb_c...  static int samldb_allocate_sid(struct samldb_c...      []    []         0  bigvul  train
+6    6  static int samldb_check_sAMAccountName(struct ...  static int samldb_check_sAMAccountName(struct ...      []    []         0  bigvul  train
+7    7  static int samldb_check_user_account_control_i...  static int samldb_check_user_account_control_i...      []    []         0  bigvul  train
+13  13  static int samldb_generate_sAMAccountName(stru...  static int samldb_generate_sAMAccountName(stru...      []    []         0  bigvul   test
+14  14  static bool samldb_krbtgtnumber_available(stru...  static bool samldb_krbtgtnumber_available(stru...      []    []         0  bigvul    val
+19  19  static int samldb_prim_group_set(struct samldb...  static int samldb_prim_group_set(struct samldb...      []    []         0  bigvul   test
+21  21  static int samldb_prim_group_trigger(struct sa...  static int samldb_prim_group_trigger(struct sa...      []    []         0  bigvul    val
+24  24  acl_get_file_mode(const char *path_p)\n{\n\tst...  acl_get_file_mode(const char *path_p)\n{\n\tst...      []    []         0  bigvul   test
+66  66  static void add_error(Scanner *s, char *error)...  static void add_error(Scanner *s, char *error)...      []    []         0  bigvul    val
+71  71  static timelib_ull timelib_get_unsigned_nr(cha...  static timelib_ull timelib_get_unsigned_nr(cha...      []    []         0  bigvul    val
+partitioned 83375
+train 83375
+check_file 187072
+check_valid 104384
+bigvul_partition 104384 val 0
+loading fixed splits
+label
+train    83375
+val      10524
+test     10485
+dtype: int64
+    id                                             before                                              after removed added diff  vul dataset  label
+0    0  static bool check_rodc_critical_attribute(stru...  static bool check_rodc_critical_attribute(stru...      []    []         0  bigvul  train
+1    1  static int samldb_add_entry(struct samldb_ctx ...  static int samldb_add_entry(struct samldb_ctx ...      []    []         0  bigvul   test
+2    2  static int samldb_add_entry_callback(struct ld...  static int samldb_add_entry_callback(struct ld...      []    []         0  bigvul  train
+3    3  static int samldb_add_handle_msDS_IntId(struct...  static int samldb_add_handle_msDS_IntId(struct...      []    []         0  bigvul    val
+4    4  static int samldb_add_step(struct samldb_ctx *...  static int samldb_add_step(struct samldb_ctx *...      []    []         0  bigvul   test
+5    5  static int samldb_allocate_sid(struct samldb_c...  static int samldb_allocate_sid(struct samldb_c...      []    []         0  bigvul  train
+6    6  static int samldb_check_sAMAccountName(struct ...  static int samldb_check_sAMAccountName(struct ...      []    []         0  bigvul  train
+7    7  static int samldb_check_user_account_control_i...  static int samldb_check_user_account_control_i...      []    []         0  bigvul  train
+13  13  static int samldb_generate_sAMAccountName(stru...  static int samldb_generate_sAMAccountName(stru...      []    []         0  bigvul   test
+14  14  static bool samldb_krbtgtnumber_available(stru...  static bool samldb_krbtgtnumber_available(stru...      []    []         0  bigvul    val
+19  19  static int samldb_prim_group_set(struct samldb...  static int samldb_prim_group_set(struct samldb...      []    []         0  bigvul   test
+21  21  static int samldb_prim_group_trigger(struct sa...  static int samldb_prim_group_trigger(struct sa...      []    []         0  bigvul    val
+24  24  acl_get_file_mode(const char *path_p)\n{\n\tst...  acl_get_file_mode(const char *path_p)\n{\n\tst...      []    []         0  bigvul   test
+66  66  static void add_error(Scanner *s, char *error)...  static void add_error(Scanner *s, char *error)...      []    []         0  bigvul    val
+71  71  static timelib_ull timelib_get_unsigned_nr(cha...  static timelib_ull timelib_get_unsigned_nr(cha...      []    []         0  bigvul    val
+partitioned 10524
+val 10524
+check_file 187072
+check_valid 104384
+bigvul_partition 104384 test 0
+loading fixed splits
+label
+train    83375
+val      10524
+test     10485
+dtype: int64
+    id                                             before                                              after removed added diff  vul dataset  label
+0    0  static bool check_rodc_critical_attribute(stru...  static bool check_rodc_critical_attribute(stru...      []    []         0  bigvul  train
+1    1  static int samldb_add_entry(struct samldb_ctx ...  static int samldb_add_entry(struct samldb_ctx ...      []    []         0  bigvul   test
+2    2  static int samldb_add_entry_callback(struct ld...  static int samldb_add_entry_callback(struct ld...      []    []         0  bigvul  train
+3    3  static int samldb_add_handle_msDS_IntId(struct...  static int samldb_add_handle_msDS_IntId(struct...      []    []         0  bigvul    val
+4    4  static int samldb_add_step(struct samldb_ctx *...  static int samldb_add_step(struct samldb_ctx *...      []    []         0  bigvul   test
+5    5  static int samldb_allocate_sid(struct samldb_c...  static int samldb_allocate_sid(struct samldb_c...      []    []         0  bigvul  train
+6    6  static int samldb_check_sAMAccountName(struct ...  static int samldb_check_sAMAccountName(struct ...      []    []         0  bigvul  train
+7    7  static int samldb_check_user_account_control_i...  static int samldb_check_user_account_control_i...      []    []         0  bigvul  train
+13  13  static int samldb_generate_sAMAccountName(stru...  static int samldb_generate_sAMAccountName(stru...      []    []         0  bigvul   test
+14  14  static bool samldb_krbtgtnumber_available(stru...  static bool samldb_krbtgtnumber_available(stru...      []    []         0  bigvul    val
+19  19  static int samldb_prim_group_set(struct samldb...  static int samldb_prim_group_set(struct samldb...      []    []         0  bigvul   test
+21  21  static int samldb_prim_group_trigger(struct sa...  static int samldb_prim_group_trigger(struct sa...      []    []         0  bigvul    val
+24  24  acl_get_file_mode(const char *path_p)\n{\n\tst...  acl_get_file_mode(const char *path_p)\n{\n\tst...      []    []         0  bigvul   test
+66  66  static void add_error(Scanner *s, char *error)...  static void add_error(Scanner *s, char *error)...      []    []         0  bigvul    val
+71  71  static timelib_ull timelib_get_unsigned_nr(cha...  static timelib_ull timelib_get_unsigned_nr(cha...      []    []         0  bigvul    val
+partitioned 10485
+test 10485
+SPLIT SIZES: 83375 10524 10485
+GPU available: True, used: True
+TPU available: False, using: 0 TPU cores
+IPU available: False, using: 0 IPUs
+HPU available: False, using: 0 HPUs
+Running in fast_dev_run mode: will run a full train, val, test and prediction loop using 1 batch(es).
+`Trainer(limit_train_batches=1)` was configured so 1 batch per epoch will be used.
+`Trainer(limit_val_batches=1)` was configured so 1 batch will be used.
+`Trainer(limit_test_batches=1)` was configured so 1 batch will be used.
+`Trainer(limit_predict_batches=1)` was configured so 1 batch will be used.
+`Trainer(val_check_interval=1.0)` was configured so validation will run at the end of the training epoch..
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name               | Type             | Params
+--------------------------------------------------------
+0 | train_metrics      | MetricCollection | 0     
+1 | val_metrics        | MetricCollection | 0     
+2 | test_metrics       | MetricCollection | 0     
+3 | loss_fn            | BCELoss          | 0     
+4 | ginlayers          | ModuleList       | 40.0 K
+5 | batch_norms        | ModuleList       | 256   
+6 | linears_prediction | ModuleList       | 1.1 K 
+7 | drop               | Dropout          | 0     
+8 | pool               | SumPooling       | 0     
+--------------------------------------------------------
+41.4 K    Trainable params
+0         Non-trainable params
+41.4 K    Total params
+0.165     Total estimated model params size (MB)
+/home/benjis/miniconda3/envs/linevd/lib/python3.8/site-packages/pytorch_lightning/trainer/trainer.py:1933: PossibleUserWarning: The number of training batches (1) is smaller than the logging interval Trainer(log_every_n_steps=50). Set a lower value for log_every_n_steps if you want to see logs for the training epoch.
+  rank_zero_warn(
+Epoch 0: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 2/2 [00:28<00:00, 14.36s/it, loss=11.8, v_num=]
+                                                                                                                                                                                 
+real    1m58.738s
+user    3m12.177s
+sys     0m14.050s

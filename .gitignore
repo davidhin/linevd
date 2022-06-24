@@ -48,3 +48,4 @@ absdf/*_logs
 hpc/*_logs_*
 *_logs_*
 *.log
+lightning_logs/
