@@ -34,10 +34,8 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
 
         if self.cache_all and not must_load and use_cache:
             if _id in self.cache_all_cache:
-                # print("return from cache")
                 return self.cache_all_cache[_id]
             else:
-                # print("load into cache")
                 g = self.item(_id, must_load=True, use_cache=use_cache)
                 self.cache_all_cache[_id] = g
                 return g

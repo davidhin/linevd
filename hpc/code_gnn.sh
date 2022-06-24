@@ -34,4 +34,4 @@ echo "training $feat"
     --model flow_gnn --dataset MSR --feat $feat \
     --clean --train_workers 4 --max_epochs 250 --weight_decay 1e-2 \
     --label_style graph --split random \
-    --evaluation --seed $seed $@
+    --evaluation --cache_all --seed $seed $@

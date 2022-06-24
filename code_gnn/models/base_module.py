@@ -12,6 +12,8 @@ import torch
 from torch.nn import BCELoss
 from torch.optim import Adam
 
+from sastvd.linevd.datamodule import BigVulDatasetLineVDDataModule
+
 logger = logging.getLogger(__name__)
 
 logging.getLogger("matplotlib").setLevel(logging.WARNING)
@@ -23,7 +25,9 @@ label_keys = {
 
 
 class BaseModule(pl.LightningModule):
-    def __init__(self):
+    def __init__(self,
+        data: BigVulDatasetLineVDDataModule,
+        ):
         super().__init__()
         self.loss_fn = BCELoss()
         self.class_threshold = 0.5
@@ -41,6 +45,17 @@ class BaseModule(pl.LightningModule):
         self.test_recall = torchmetrics.Recall()
         self.test_f1 = torchmetrics.F1Score()
 
+        self.data = data
+
+    def train_dataloader(self):
+        return self.data.train_dataloader()
+
+    def val_dataloader(self):
+        return self.data.train_dataloader()
+
+    def test_dataloader(self):
+        return self.data.train_dataloader()
+
     def configure_optimizers(self):
         optimizer = Adam(
             self.parameters(),
@@ -48,16 +63,20 @@ class BaseModule(pl.LightningModule):
             weight_decay=self.hparams.weight_decay,
         )
         if self.hparams.use_lr_scheduler is not None:
-            if self.hparams.use_lr_scheduler == "OneCycleLR":
-                lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
-                    optimizer,
-                    max_lr=self.hparams.learning_rate,
-                    steps_per_epoch=self.hparams.steps_per_epoch,
-                    epochs=self.hparams.max_epochs,
-                    anneal_strategy="linear",
-                )
-            elif self.hparams.use_lr_scheduler == "MultiplicativeLR":
-                lr_scheduler = torch.optim.lr_scheduler.MultiplicativeLR(optimizer, lr_lambda=0.95)
+            # if self.hparams.use_lr_scheduler == "OneCycleLR":
+            #     lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            #         optimizer,
+            #         max_lr=self.hparams.learning_rate,
+            #         steps_per_epoch=self.hparams.steps_per_epoch,
+            #         epochs=self.hparams.max_epochs,
+            #         anneal_strategy="linear",
+            #     )
+            if self.hparams.use_lr_scheduler == "MultiplicativeLR":
+                split = self.hparams.use_lr_scheduler.split("_")
+                if len(split) == 2:
+                    lr_scheduler = torch.optim.lr_scheduler.MultiplicativeLR(optimizer, lr_lambda=lambda x: float(split[1]))
+                else:
+                    lr_scheduler = torch.optim.lr_scheduler.MultiplicativeLR(optimizer, lr_lambda=lambda x: 0.95)
             elif self.hparams.use_lr_scheduler == "ExponentialLR":
                 lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.999)
             return [optimizer], [lr_scheduler]

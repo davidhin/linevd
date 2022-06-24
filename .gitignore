@@ -47,3 +47,4 @@ absdf/*_logs
 *.pstat
 hpc/*_logs_*
 *_logs_*
+*.log
