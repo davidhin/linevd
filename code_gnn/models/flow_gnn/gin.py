@@ -51,6 +51,7 @@ class FlowGNNModule(BaseModule):
         self,
         feat,
         input_dim,
+        label_style="graph",
         num_layers=5,
         num_mlp_layers=2,
         hidden_dim=32,
@@ -59,13 +60,14 @@ class FlowGNNModule(BaseModule):
         graph_pooling_type="sum",
         neighbor_pooling_type="sum",
         separate_embedding_layer=False,
+        node_type_separate=False,
         **kwargs
     ):
         super().__init__(**kwargs)
         self.save_hyperparameters()
-        self.construct_model(feat, input_dim, num_layers, num_mlp_layers, hidden_dim, final_dropout, learn_eps, graph_pooling_type, neighbor_pooling_type, separate_embedding_layer)
+        self.construct_model(feat, input_dim, label_style, num_layers, num_mlp_layers, hidden_dim, final_dropout, learn_eps, graph_pooling_type, neighbor_pooling_type, separate_embedding_layer)
 
-    def construct_model(self, feat, input_dim, num_layers, num_mlp_layers, hidden_dim, final_dropout, learn_eps, graph_pooling_type, neighbor_pooling_type, separate_embedding_layer):
+    def construct_model(self, feat, input_dim, label_style, num_layers, num_mlp_layers, hidden_dim, final_dropout, learn_eps, graph_pooling_type, neighbor_pooling_type, separate_embedding_layer):
         output_dim = 1
         self.num_layers = num_layers
         self.learn_eps = learn_eps
@@ -76,10 +78,9 @@ class FlowGNNModule(BaseModule):
             "feature": feat,
             "node_type": "node_type",
         }
-        print("INPUT_DIM", input_dim)
 
         # construct neural network layers
-        if self.hparams.separate_embedding_layer:
+        if separate_embedding_layer:
             self.embedding = nn.Linear(input_dim, hidden_dim)
 
         # List of MLPs
@@ -87,7 +88,7 @@ class FlowGNNModule(BaseModule):
         self.batch_norms = torch.nn.ModuleList()
 
         for layer in range(self.num_layers - 1):
-            if layer == 0 and not self.hparams.separate_embedding_layer:
+            if layer == 0 and not separate_embedding_layer:
                 mlp = MLP(num_mlp_layers, input_dim, hidden_dim, hidden_dim)
             else:
                 mlp = MLP(num_mlp_layers, hidden_dim, hidden_dim, hidden_dim)
@@ -105,7 +106,7 @@ class FlowGNNModule(BaseModule):
         # if self.hparams.node_type_separate:
         #     additional_element_size = len(node_type_map)
 
-        if self.hparams.label_style == "node":
+        if label_style == "node":
             for layer in range(num_layers):
                 i = hidden_dim
                 o = hidden_dim
@@ -116,7 +117,7 @@ class FlowGNNModule(BaseModule):
                 self.linears_prediction.append(nn.Linear(i, o))
         else:
             for layer in range(num_layers):
-                if layer == 0 and not self.hparams.separate_embedding_layer:
+                if layer == 0 and not separate_embedding_layer:
                     self.linears_prediction.append(
                         nn.Linear(input_dim + additional_element_size, output_dim)
                     )

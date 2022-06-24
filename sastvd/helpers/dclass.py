@@ -1,6 +1,3 @@
-import functools
-import traceback
-
 import pandas as pd
 import sastvd as svd
 import sastvd.helpers.datasets as svdds
@@ -21,23 +18,24 @@ class BigVulDataset:
     def __init__(
         self,
         partition="train",
+        embedders=None,
         check_file=True,
         check_valid=True,
         vulonly=False,
         load_code=False,
         sample=-1,
         undersample=True,
-        feat="all",
         filter_cwe=None,
         sample_mode=False,
         split="fixed",
         seed=0,
+        verbose=False,
     ):
         """Init class."""
         # Get finished samples
         self.partition = partition
 
-        df = svdds.bigvul(sample=sample_mode)
+        df = svdds.bigvul(sample=sample_mode, verbose=verbose)
         if sample != -1:
             df = df.sample(sample, random_state=seed)
         # print("load", len(df))
@@ -52,77 +50,22 @@ class BigVulDataset:
             load_code=load_code,
             sample=sample,
             sample_mode=sample_mode,
+            verbose=verbose,
         )
-        print("svdds.bigvul_filter", len(df))
-
-        if "_ABS_DATAFLOW" in feat:
-            try:
-                self.abs_df, self.abs_df_hashes = svdds.abs_dataflow(feat, sample_mode, split=split, seed=seed)
-                if "_filtertoabs" in feat:
-                    filtered_file = (
-                        svd.processed_dir()
-                        / f"bigvul/abstract_dataflow_hash_all_filtertoabs.csv"
-                    )
-                    if filtered_file.exists():
-                        valid_df = pd.read_csv(filtered_file, index_col="graph_id")
-                    else:
-                        hash_index = self.abs_df.set_index(["graph_id", "node_id"])[
-                            "hash"
-                        ]
-                        df["valid"] = svd.dfmp(
-                            df,
-                            functools.partial(is_valid, hash_index=hash_index),
-                            columns="id",
-                            workers=6,
-                            desc="filter abs df to known",
-                        )
-                        valid_df = (
-                            df[["id", "valid"]]
-                            .rename(columns={"id": "graph_id"})
-                            .set_index("graph_id")
-                        )
-                        valid_df.to_csv(filtered_file)
-                    print(valid_df)
-                    print("valid check", valid_df["valid"].value_counts())
-                    df = df[df["id"].map(valid_df["valid"].to_dict())]
-                    print("ABS filter", len(df))
-            except Exception:
-                print("could not load abstract features")
-                traceback.print_exc()
-
-        if "_1G_DATAFLOW" in feat or "kill" in self.feat:
-            try:
-                self.df_1g = svdds.dataflow_1g(sample_mode)
-                self.df_1g_group = self.df_1g.groupby("graph_id")
-                # self.df_1g_max_idx = max(max(max(int(s) if s.isdigit() else -1 for s in l.split(",")) for l in self.df_1g[k]) for k in ["gen", "kill"])
-                # breakpoint()
-                nuniq_nodes = self.df_1g.groupby("graph_id")["node_id"].nunique()
-                # percentile_99 = nuniq_nodes.quantile([.99]).item()
-                # too_large_idx = nuniq_nodes[nuniq_nodes > percentile_99].index
-                too_large_idx = nuniq_nodes[nuniq_nodes > 500].index
-
-                self.df_1g = self.df_1g[~self.df_1g["graph_id"].isin(too_large_idx)]
-                self.df_1g_max_idx = max(
-                    self.df_1g.groupby("graph_id")["node_id"].nunique()
-                )
-                print("self.df_1g_max_idx =", self.df_1g_max_idx)
-
-                df = df[df["id"].isin(set(self.df_1g["graph_id"]))]
-            except Exception:
-                print("could not load 1G features")
-                traceback.print_exc()
-            print("1G filter", len(df))
+        # print("svdds.bigvul_filter", len(df))
 
         if filter_cwe:
             md = pd.read_csv(svd.cache_dir() / "bigvul/bigvul_metadata.csv")
             mdf = pd.merge(df, md, on="id")
             npd_idx = mdf[mdf["CWE ID"].isin(filter_cwe)]["id"]
             df = df[df["id"].isin(npd_idx)]
-            print("CWE filter", len(df))
+            if verbose:
+                print("CWE filter", len(df))
 
         if not sample_mode:
-            df = svdds.bigvul_partition(df, partition, undersample=undersample, split=split, seed=seed)
-        print(partition, len(df))
+            df = svdds.bigvul_partition(df, partition, undersample=undersample, split=split, seed=seed, verbose=verbose)
+        if verbose:
+            print(partition, len(df))
 
         self.df = df
 
@@ -130,6 +73,8 @@ class BigVulDataset:
         self.df = self.df.reset_index(drop=True).reset_index()
         self.df = self.df.rename(columns={"index": "idx"})
         self.idx2id = pd.Series(self.df.id.values, index=self.df.idx).to_dict()
+
+        self.embedders = embedders
 
     def get_vuln_indices(self, _id):
         """Obtain vulnerable lines from sample ID."""

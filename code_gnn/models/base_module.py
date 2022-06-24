@@ -159,7 +159,7 @@ class BaseModule(pl.LightningModule):
                 if param.requires_grad:
                     self.logger.experiment.add_histogram(f"{name}_grad", param.grad, self.global_step)
 
-    def validation_step(self, batch, batch_idx, dataloader_idx):
+    def validation_step(self, batch, batch_idx, dataloader_idx=0):
         label = self.get_label(batch)
         out = self.forward(batch)
         loss = self.loss_fn(out, label)

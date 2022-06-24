@@ -29,7 +29,7 @@ def remove_comments(text):
     return re.sub(pattern, replacer, text)
 
 
-def bigvul(cache=True, sample=False):
+def bigvul(cache=True, sample=False, verbose=False):
     """
     Read BigVul dataset from CSV
     """
@@ -237,7 +237,7 @@ def itempath(_id):
 
 
 def bigvul_filter(
-    df, check_file=False, check_valid=False, vulonly=False, load_code=False, sample=-1, sample_mode=False, seed=0
+    df, check_file=False, check_valid=False, vulonly=False, load_code=False, sample=-1, sample_mode=False, seed=0, verbose=False
 ):
     """Filter dataset based on various considerations for training"""
 
@@ -257,7 +257,8 @@ def bigvul_filter(
             if not os.path.basename(i).startswith("~")
         ]
         df = df[df.id.isin(finished)]
-        print("check_file", len(df))
+        if verbose:
+            print("check_file", len(df))
 
     # Filter out samples with no lineNumber from Joern output
     if check_valid:
@@ -272,7 +273,8 @@ def bigvul_filter(
             valid_cache_df = pd.DataFrame({"id": df_id, "valid": valid}, index=df.index)
             valid_cache_df.to_csv(valid_cache)
         df = df[df.id.isin(valid_cache_df[valid_cache_df["valid"]].id)]
-        print("check_valid", len(df))
+        if verbose:
+            print("check_valid", len(df))
 
     # NOTE: drop several columns to save memory
     if not load_code:
@@ -280,12 +282,14 @@ def bigvul_filter(
     return df
 
 
-def bigvul_partition(df, partition="train", undersample=True, split="fixed", seed=0):
+def bigvul_partition(df, partition="train", undersample=True, split="fixed", seed=0, verbose=False):
     """Filter to one partition of bigvul and rebalance function-wise"""
-    print("bigvul_partition", len(df), partition, seed)
+    if verbose:
+        print("bigvul_partition", len(df), partition, seed)
 
     if split == "random":
-        print("generating random splits with seed", seed)
+        if verbose:
+            print("generating random splits with seed", seed)
         def get_label(i):
             if i < int(len(df) * 0.1):
                 # print(i, int(len(df) * 0.1), int(len(df) * 0.2))
@@ -299,31 +303,36 @@ def bigvul_partition(df, partition="train", undersample=True, split="fixed", see
         #     data=list(map(get_label, range(len(df)))),
         #     index=np.random.RandomState(seed=seed).permutation(df.index),
         # )
-        print(len(df))
+        if verbose:
+            print(len(df))
         df["label"] = pd.Series(list(map(get_label, range(len(df)))), index=np.random.RandomState(seed=seed).permutation(df.index))
         # train, validate, test = np.split(df.sample(frac=1, random_state=seed), [int(.8*len(df)), int(.9*len(df))])
         # NOTE: I verified that this always gives the same output for all runs!
         # as long as the input df is the same (should be filtered first e.g. datamodule vs. abs_df)
     elif split == "fixed":
-        print("loading fixed splits")
+        if verbose:
+            print("loading fixed splits")
         splits = pd.read_csv(svd.external_dir() / "bigvul_rand_splits.csv")
         splits = splits.set_index("id").to_dict()["label"]
         df["label"] = df.id.map(splits)
     else:
         raise NotImplementedError(split)
-    print(df.value_counts("label"))
-    print(df.groupby("label").head(5))
+    if verbose:
+        print(df.value_counts("label"))
+        print(df.groupby("label").head(5))
 
     if partition != "all":
         df = df[df.label == partition]
-    print("partitioned", len(df))
+        if verbose:
+            print("partitioned", len(df))
 
     # Balance training set
     if (partition == "train" or partition == "val") and undersample:
         vul = df[df.vul == 1]
         nonvul = df[df.vul == 0].sample(len(vul), random_state=seed)
         df = pd.concat([vul, nonvul])
-        print("undersampled", len(df))
+        if verbose:
+            print("undersampled", len(df))
 
     # Correct ratio for test set
     # if partition == "test" and undersample:
@@ -390,7 +399,8 @@ def abs_dataflow(feat, sample=False, verbose=False, split="fixed", seed=0):
         abs_df = pd.read_csv(abs_df_file)
         abs_df_hashes = {}
         abs_df["hash"] = abs_df["hash"].apply(json.loads)
-        print(abs_df)
+        if verbose:
+            print(abs_df)
         # compute concatenated embedding
         for subkey in all_subkeys:
             if subkey in feat:
@@ -422,7 +432,8 @@ def abs_dataflow(feat, sample=False, verbose=False, split="fixed", seed=0):
 
                 abs_df_hashes[subkey] = {h: i for i, h in enumerate(hashes)}
 
-                print("trained hashes", subkey, len(abs_df_hashes[subkey]))
+                if verbose:
+                    print("trained hashes", subkey, len(abs_df_hashes[subkey]))
 
         if "all" in feat:
             source_df_hashes = pd.merge(source_df, abs_df, left_on="id", right_on="graph_id")

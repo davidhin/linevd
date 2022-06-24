@@ -20,7 +20,7 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
         """Init."""
         self.graph_type = gtype
         self.feat = feat
-        super(BigVulDatasetLineVD, self).__init__(feat=feat, **kwargs)
+        super(BigVulDatasetLineVD, self).__init__(**kwargs)
         lines = ivde.get_dep_add_lines_bigvul()
         lines = {k: set(list(v["removed"]) + v["depadd"]) for k, v in lines.items()}
         self.cache_all = cache_all
@@ -91,126 +91,10 @@ class BigVulDatasetLineVD(svddc.BigVulDataset):
 
         # Get dataflow features
         if "_1G_DATAFLOW" in self.feat:
-
-            def get_dataflow_1g_features(_id):
-                dgl_feat = th.zeros((g.number_of_nodes(), self.df_1g_max_idx * 2))
-                # dfg = self.df_1g.groupby("node_id")
-                # dgl_feat = th.zeros((g.number_of_nodes(), dfg["gen"].count() + dfg["kill"].count()))
-                
-                nids_to_1g_df = self.df_1g_group.get_group(_id)
-                node_id_dgl = nids_to_1g_df["node_id"].map(iddict)
-                # all_nids = [i for i in node_id_dgl.dropna().astype(int).tolist() if i in iddict.values()]
-                all_nids = (
-                    node_id_dgl.dropna().astype(int).sort_values().unique().tolist()
-                )
-                nids_gen = dict(zip(node_id_dgl, nids_to_1g_df["gen"]))
-                nids_kill = dict(zip(node_id_dgl, nids_to_1g_df["kill"]))
-                try:
-                    for nid in range(len(dgl_feat)):
-                        for i in sorted(json.loads(nids_gen.get(nid, "[]"))):
-                            if i in iddict and iddict[i] in all_nids:
-                                dgl_feat[nid, all_nids.index(iddict[i])] = 1
-                        for i in sorted(json.loads(nids_kill.get(nid, "[]"))):
-                            if i in iddict and iddict[i] in all_nids:
-                                dgl_feat[
-                                    nid, self.df_1g_max_idx + all_nids.index(iddict[i])
-                                ] = 1
-                except Exception:
-                    print(_id, nids_gen, nids_kill)
-                    raise
-                return dgl_feat
-
-            g.ndata["_1G_DATAFLOW"] = get_dataflow_1g_features(_id)
+            g.ndata["_1G_DATAFLOW"] = self.embedders["_1G_DATAFLOW"].get_features(_id, g, iddict)
 
         if "_ABS_DATAFLOW" in self.feat:
-            if "all" in self.feat:
-                hashes = self.abs_df_hashes["all"]
-                # print(json.dumps(hashes, indent=2))
-                dgl_feat = th.zeros((g.number_of_nodes(), len(hashes)))
-                nids_to_abs_df = self.abs_df[self.abs_df["graph_id"] == _id]
-                nids_to_abs_df = nids_to_abs_df.set_index(
-                    nids_to_abs_df["node_id"].map(iddict)
-                )
-                for nid in range(len(dgl_feat)):
-                    _hash = nids_to_abs_df["hash.all"].get(nid, None)
-                    if _hash is not None:
-                        # _hash = json.dumps(_hash)
-                        idx = hashes.get(_hash, hashes[None])
-                        # print(repr(_hash), idx, repr("{\"datatype\": [\"int\"]}"), hashes.get("{\"datatype\": [\"int\"]}"))
-                        # print(repr(_hash), idx)#, repr("{\"datatype\": [\"int\"]}"), hashes.get("{\"datatype\": [\"int\"]}"))
-                        dgl_feat[nid, idx] = 1
-                g.ndata["_ABS_DATAFLOW"] = dgl_feat
-            else:
-                single = {
-                    "api": False,
-                    "datatype": True,
-                    "literal": False,
-                    "operator": False,
-                }
-
-                def get_abs_dataflow_features(_id):
-                    dgl_feats = []
-                    for subkey in ["api", "datatype", "literal", "operator"]:
-                        if subkey not in self.feat:
-                            continue
-                        hashes = self.abs_df_hashes[subkey]
-                        dgl_feat = th.zeros((g.number_of_nodes(), len(hashes)))
-                        hash_name = f"hash.{subkey}"
-
-                        nids_to_abs_df = self.abs_df[self.abs_df["graph_id"] == _id]
-                        nids_to_abs_df = nids_to_abs_df.set_index(
-                            nids_to_abs_df["node_id"].map(iddict)
-                        )
-                        for nid in range(len(dgl_feat)):
-                            # Flip the bit for a single value
-                            if single[subkey]:
-                                f = nids_to_abs_df[hash_name].get(nid, None)
-                                if f is not None:
-                                    idx = hashes[f] if f in hashes else hashes[None]
-                                    dgl_feat[nid, idx] = 1
-                            # Flip the bit for all values present
-                            else:
-                                for f in nids_to_abs_df[hash_name].get(nid, []):
-                                    idx = hashes.get(f, hashes[None])
-                                    dgl_feat[nid, idx] = 1
-                        dgl_feats.append(dgl_feat)
-                    return th.cat(dgl_feats, axis=1)
-                g.ndata["_ABS_DATAFLOW"] = get_abs_dataflow_features(_id)
-
-            def get_abs_dataflow_kill_features(_id):
-                # print(nids_to_1g_df)
-                gen = g.ndata["_ABS_DATAFLOW"]
-                dgl_feats = th.zeros((g.number_of_nodes(), gen.shape[1]))
-                nids_to_1g_df = self.df_1g_group.get_group(_id)
-                nids_to_1g_df_dgl = nids_to_1g_df[["node_id", "kill"]].copy()
-                nids_to_1g_df_dgl = nids_to_1g_df_dgl.assign(
-                    node_id=nids_to_1g_df_dgl["node_id"].map(iddict),
-                    kill=nids_to_1g_df_dgl["kill"].apply(lambda k: [iddict[ki] for ki in k if ki in iddict]),
-                ).dropna()
-                nids_to_1g_df_dgl["node_id"] = nids_to_1g_df_dgl["node_id"].apply(int)
-                nids_kill = nids_to_1g_df_dgl.set_index("node_id")["kill"].to_dict()
-                for nid in range(len(dgl_feats)):
-                    if nid in nids_kill:
-                        for kill_nid in nids_kill:
-                            dgl_feats[nid] = dgl_feats[nid] + gen[kill_nid]
-                return dgl_feats
-            if "abskill" in self.feat:
-                g.ndata["_ABS_DATAFLOW_kill"] = get_abs_dataflow_kill_features(_id)
-            if "edgekill" in self.feat:
-                nids_to_1g_df = self.df_1g_group.get_group(_id)
-                nids_to_1g_df_dgl = nids_to_1g_df[["node_id", "kill"]].copy()
-                nids_to_1g_df_dgl = nids_to_1g_df_dgl.explode("kill")
-                nids_to_1g_df_dgl = nids_to_1g_df_dgl.assign(
-                    node_id=nids_to_1g_df_dgl["node_id"].map(iddict),
-                    kill=nids_to_1g_df_dgl["kill"].map(iddict),
-                ).dropna()
-                nids_to_1g_df_dgl["node_id"] = nids_to_1g_df_dgl["node_id"].apply(int)
-                nids_to_1g_df_dgl["kill"] = nids_to_1g_df_dgl["kill"].apply(int)
-                # print(nids_to_1g_df_dgl)
-                et.extend([max(et) + 1] * len(nids_to_1g_df_dgl))
-                # print(nids_to_1g_df_dgl.dtypes)
-                # print(et)
-                g.add_edges(nids_to_1g_df_dgl["node_id"].tolist(), nids_to_1g_df_dgl["kill"].tolist())
+            g.ndata["_ABS_DATAFLOW"] = self.embedders["_ABS_DATAFLOW"].get_features(_id, g, iddict)
 
         if "CODEBERT" in self.feat:
             code = [c.replace("\\t", "").replace("\\n", "") for c in code]
