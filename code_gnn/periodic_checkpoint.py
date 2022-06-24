@@ -1,8 +1,10 @@
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pathlib import Path
+from pytorch_lightning.utilities.cli import CALLBACK_REGISTRY
 
 
+@CALLBACK_REGISTRY
 class PeriodicModelCheckpoint(ModelCheckpoint):
     def __init__(self, every: int, **kwargs):
         super().__init__(every_n_epochs=1, **kwargs)

@@ -3,6 +3,7 @@ from pytorch_lightning.utilities.cli import LightningCLI
 from code_gnn.models.flow_gnn.gin import FlowGNNModule
 from sastvd.linevd import BigVulDatasetLineVDDataModule
 from pytorch_lightning.utilities.warnings import PossibleUserWarning
+from code_gnn.periodic_checkpoint import PeriodicModelCheckpoint
 
 
 import warnings

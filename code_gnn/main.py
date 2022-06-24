@@ -24,7 +24,7 @@ from sastvd.linevd import BigVulDatasetLineVDDataModule
 from code_gnn.globals import all_datasets, all_models, project_root_dir, seed_all
 from code_gnn.models import model_class_dict
 from code_gnn.models.base_module import BaseModule
-from code_gnn.models.periodic_checkpoint import PeriodicModelCheckpoint
+from code_gnn.periodic_checkpoint import PeriodicModelCheckpoint
 
 logger = logging.getLogger()
 

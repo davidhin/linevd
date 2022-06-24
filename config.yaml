@@ -4,7 +4,20 @@ trainer:
   logger: true
   checkpoint_callback: null
   enable_checkpointing: true
-  callbacks: null
+  callbacks:
+    - class_path: pytorch_lightning.callbacks.LearningRateMonitor
+      init_args:
+        logging_interval: step
+    - class_path: code_gnn.periodic_checkpoint.PeriodicModelCheckpoint
+      init_args:
+        every: 25
+    - class_path: pytorch_lightning.callbacks.ModelCheckpoint
+      init_args:
+        filename: "performance-{epoch:02d}-{step:02d}-{val_loss:02f}"
+        monitor: val_loss
+        mode: min
+        save_last: true
+        save_top_k: 5
   default_root_dir: null
   enable_progress_bar: true
   overfit_batches: 0.0
