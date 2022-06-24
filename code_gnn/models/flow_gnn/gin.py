@@ -50,6 +50,7 @@ class FlowGNNModule(BaseModule):
     def __init__(
         self,
         feat,
+        input_dim,
         num_layers=5,
         num_mlp_layers=2,
         hidden_dim=32,
@@ -62,9 +63,9 @@ class FlowGNNModule(BaseModule):
     ):
         super().__init__(**kwargs)
         self.save_hyperparameters()
-        self.construct_model(feat, num_layers, num_mlp_layers, hidden_dim, final_dropout, learn_eps, graph_pooling_type, neighbor_pooling_type, separate_embedding_layer)
+        self.construct_model(feat, input_dim, num_layers, num_mlp_layers, hidden_dim, final_dropout, learn_eps, graph_pooling_type, neighbor_pooling_type, separate_embedding_layer)
 
-    def construct_model(self, feat, num_layers, num_mlp_layers, hidden_dim, final_dropout, learn_eps, graph_pooling_type, neighbor_pooling_type, separate_embedding_layer):
+    def construct_model(self, feat, input_dim, num_layers, num_mlp_layers, hidden_dim, final_dropout, learn_eps, graph_pooling_type, neighbor_pooling_type, separate_embedding_layer):
         output_dim = 1
         self.num_layers = num_layers
         self.learn_eps = learn_eps
@@ -75,7 +76,7 @@ class FlowGNNModule(BaseModule):
             "feature": feat,
             "node_type": "node_type",
         }
-        input_dim = self.datamodule.input_dim
+        print("INPUT_DIM", input_dim)
 
         # construct neural network layers
         if self.hparams.separate_embedding_layer:

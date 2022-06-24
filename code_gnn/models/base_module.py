@@ -25,9 +25,7 @@ label_keys = {
 
 
 class BaseModule(pl.LightningModule):
-    def __init__(self,
-        data: BigVulDatasetLineVDDataModule,
-        ):
+    def __init__(self):
         super().__init__()
         self.loss_fn = BCELoss()
         self.class_threshold = 0.5
@@ -44,17 +42,6 @@ class BaseModule(pl.LightningModule):
         self.test_precision = torchmetrics.Precision()
         self.test_recall = torchmetrics.Recall()
         self.test_f1 = torchmetrics.F1Score()
-
-        self.data = data
-
-    def train_dataloader(self):
-        return self.data.train_dataloader()
-
-    def val_dataloader(self):
-        return self.data.train_dataloader()
-
-    def test_dataloader(self):
-        return self.data.train_dataloader()
 
     def configure_optimizers(self):
         optimizer = Adam(
